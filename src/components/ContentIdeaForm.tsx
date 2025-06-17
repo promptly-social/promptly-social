@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AudioRecorder } from './AudioRecorder';
+import { OutlineBrainstorming } from './OutlineBrainstorming';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +24,7 @@ export const ContentIdeaForm: React.FC = () => {
   const [contentType, setContentType] = useState<'blog_post' | 'linkedin_post'>('blog_post');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedOutline, setGeneratedOutline] = useState<Outline | null>(null);
+  const [contentIdeaId, setContentIdeaId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -62,7 +64,7 @@ export const ContentIdeaForm: React.FC = () => {
       setGeneratedOutline(outline);
 
       // Save to database
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('content_ideas')
         .insert({
           user_id: user.id,
@@ -71,7 +73,9 @@ export const ContentIdeaForm: React.FC = () => {
           input_type: inputType,
           generated_outline: outline,
           content_type: contentType,
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Database error:', error);
@@ -81,6 +85,7 @@ export const ContentIdeaForm: React.FC = () => {
           variant: "destructive",
         });
       } else {
+        setContentIdeaId(data.id);
         toast({
           title: "Outline Generated",
           description: "Your content outline has been generated and saved!",
@@ -108,6 +113,10 @@ export const ContentIdeaForm: React.FC = () => {
       return;
     }
     generateOutline(textInput, 'text');
+  };
+
+  const handleOutlineUpdate = (updatedOutline: Outline) => {
+    setGeneratedOutline(updatedOutline);
   };
 
   return (
@@ -181,38 +190,13 @@ export const ContentIdeaForm: React.FC = () => {
         </CardContent>
       </Card>
 
-      {generatedOutline && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Generated Outline</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  {generatedOutline.title}
-                </h3>
-              </div>
-              
-              <div className="space-y-4">
-                {generatedOutline.sections.map((section, index) => (
-                  <div key={index} className="border-l-4 border-gray-200 pl-4">
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      {section.heading}
-                    </h4>
-                    <ul className="space-y-1">
-                      {section.keyPoints.map((point, pointIndex) => (
-                        <li key={pointIndex} className="text-gray-700 text-sm">
-                          • {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {generatedOutline && contentIdeaId && (
+        <OutlineBrainstorming
+          initialOutline={generatedOutline}
+          contentType={contentType}
+          contentIdeaId={contentIdeaId}
+          onOutlineUpdate={handleOutlineUpdate}
+        />
       )}
     </div>
   );
