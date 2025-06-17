@@ -49,9 +49,9 @@ export const StyleAnalysis: React.FC = () => {
       if (error && error.code !== 'PGRST116') throw error;
       
       if (data) {
-        // Cast the Json type to StyleAnalysisData
+        // Cast the Json type to StyleAnalysisData via unknown
         const analysisRecord: AnalysisRecord = {
-          analysis_data: data.analysis_data as StyleAnalysisData,
+          analysis_data: data.analysis_data as unknown as StyleAnalysisData,
           content_count: data.content_count,
           last_analyzed_at: data.last_analyzed_at,
         };
