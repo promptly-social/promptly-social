@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,11 +42,10 @@ export const UserPreferences: React.FC = () => {
 
       if (error && error.code !== 'PGRST116') throw error;
       
-      if (data?.preferences) {
-        const prefs = data.preferences as any;
+      if (data) {
         setPreferences({
-          topics: prefs.topics || [],
-          websites: prefs.websites || []
+          topics: data.topics_of_interest || [],
+          websites: data.websites || []
         });
       }
     } catch (error) {
@@ -69,7 +67,8 @@ export const UserPreferences: React.FC = () => {
         .from('user_preferences')
         .upsert({
           user_id: user?.id,
-          preferences: preferences,
+          topics_of_interest: preferences.topics,
+          websites: preferences.websites,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
