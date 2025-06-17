@@ -11,7 +11,7 @@ import { OutlineBrainstorming } from './OutlineBrainstorming';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FileText, Linkedin, Sparkles } from 'lucide-react';
+import { Loader2, FileText, Linkedin, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Outline {
   title: string;
@@ -19,6 +19,12 @@ interface Outline {
     heading: string;
     keyPoints: string[];
   }[];
+}
+
+interface ConnectedPlatform {
+  platform: string;
+  platform_username: string | null;
+  is_active: boolean;
 }
 
 export const ContentIdeaForm: React.FC = () => {
@@ -29,11 +35,16 @@ export const ContentIdeaForm: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedOutline, setGeneratedOutline] = useState<Outline | null>(null);
   const [contentIdeaId, setContentIdeaId] = useState<string | null>(null);
+  const [connectedPlatforms, setConnectedPlatforms] = useState<ConnectedPlatform[]>([]);
+  const [isLoadingPlatforms, setIsLoadingPlatforms] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
-    checkStyleAnalysis();
+    if (user) {
+      checkStyleAnalysis();
+      fetchConnectedPlatforms();
+    }
   }, [user]);
 
   const checkStyleAnalysis = async () => {
@@ -50,6 +61,60 @@ export const ContentIdeaForm: React.FC = () => {
     } catch (error) {
       console.error('Error checking style analysis:', error);
     }
+  };
+
+  const fetchConnectedPlatforms = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('social_connections')
+        .select('platform, platform_username, is_active')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      setConnectedPlatforms(data || []);
+      
+      // If no platforms connected, default to blog_post
+      // If only specific platforms connected, set appropriate default
+      if (data && data.length > 0) {
+        const hasLinkedIn = data.some(p => p.platform === 'linkedin');
+        if (hasLinkedIn && !data.some(p => p.platform === 'substack')) {
+          setContentType('linkedin_post');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching connected platforms:', error);
+    } finally {
+      setIsLoadingPlatforms(false);
+    }
+  };
+
+  const getAvailableContentTypes = () => {
+    const types = [];
+    
+    // Always show blog post option
+    types.push({
+      value: 'blog_post',
+      label: 'Blog Post',
+      icon: FileText,
+      connected: true
+    });
+
+    // Show LinkedIn option only if connected
+    const linkedinConnection = connectedPlatforms.find(p => p.platform === 'linkedin');
+    if (linkedinConnection) {
+      types.push({
+        value: 'linkedin_post',
+        label: `LinkedIn Post${linkedinConnection.platform_username ? ` (@${linkedinConnection.platform_username})` : ''}`,
+        icon: Linkedin,
+        connected: true
+      });
+    }
+
+    return types;
   };
 
   const handleAudioTranscription = (text: string) => {
@@ -99,6 +164,7 @@ export const ContentIdeaForm: React.FC = () => {
           input_type: inputType,
           generated_outline: outline,
           content_type: contentType,
+          status: 'draft'
         })
         .select()
         .single();
@@ -147,6 +213,23 @@ export const ContentIdeaForm: React.FC = () => {
     setGeneratedOutline(updatedOutline);
   };
 
+  const availableContentTypes = getAvailableContentTypes();
+
+  if (isLoadingPlatforms) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+              <p className="text-gray-600">Loading connected platforms...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <Card>
@@ -159,25 +242,43 @@ export const ContentIdeaForm: React.FC = () => {
         <CardContent className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Content Type</label>
-            <Select value={contentType} onValueChange={(value: 'blog_post' | 'linkedin_post') => setContentType(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="blog_post">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Blog Post
-                  </div>
-                </SelectItem>
-                <SelectItem value="linkedin_post">
-                  <div className="flex items-center gap-2">
-                    <Linkedin className="w-4 h-4" />
-                    LinkedIn Post
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            {availableContentTypes.length === 1 && availableContentTypes[0].value === 'blog_post' ? (
+              <div className="p-3 border border-amber-200 bg-amber-50 rounded-lg">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">
+                    Only blog posts available. Connect social platforms in your Writing Profile to create posts for those platforms.
+                  </span>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => window.location.href = '/writing-profile'}
+                  className="mt-2 text-amber-700 border-amber-300 hover:bg-amber-100"
+                >
+                  Connect Platforms
+                </Button>
+              </div>
+            ) : (
+              <Select value={contentType} onValueChange={(value: 'blog_post' | 'linkedin_post') => setContentType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableContentTypes.map((type) => {
+                    const Icon = type.icon;
+                    return (
+                      <SelectItem key={type.value} value={type.value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          {type.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Style Adaptation Toggle */}

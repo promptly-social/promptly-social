@@ -16,7 +16,12 @@ export type Database = {
           generated_outline: Json | null
           id: string
           input_type: string
+          linkedin_post_id: string | null
           original_input: string
+          publication_error: string | null
+          published_date: string | null
+          scheduled_date: string | null
+          status: string | null
           title: string
           updated_at: string
           user_id: string
@@ -27,7 +32,12 @@ export type Database = {
           generated_outline?: Json | null
           id?: string
           input_type: string
+          linkedin_post_id?: string | null
           original_input: string
+          publication_error?: string | null
+          published_date?: string | null
+          scheduled_date?: string | null
+          status?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -38,7 +48,12 @@ export type Database = {
           generated_outline?: Json | null
           id?: string
           input_type?: string
+          linkedin_post_id?: string | null
           original_input?: string
+          publication_error?: string | null
+          published_date?: string | null
+          scheduled_date?: string | null
+          status?: string | null
           title?: string
           updated_at?: string
           user_id?: string

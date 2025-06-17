@@ -5,18 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { ContentScheduler } from '@/components/ContentScheduler';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Calendar, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { LogOut, Calendar, FileText, CheckCircle, XCircle, Clock, Send, AlertCircle } from 'lucide-react';
 
 interface ContentItem {
   id: string;
   title: string;
   content_type: string;
   created_at: string;
-  status?: 'draft' | 'scheduled' | 'published';
+  status?: 'draft' | 'approved' | 'scheduled' | 'published' | 'failed';
   scheduled_date?: string;
   published_date?: string;
+  publication_error?: string;
+  linkedin_post_id?: string;
 }
 
 const MyContent: React.FC = () => {
@@ -24,6 +27,7 @@ const MyContent: React.FC = () => {
   const { toast } = useToast();
   const [content, setContent] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [schedulingContentId, setSchedulingContentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -47,7 +51,11 @@ const MyContent: React.FC = () => {
         title: item.title,
         content_type: item.content_type,
         created_at: item.created_at,
-        status: 'draft', // Default status since we don't have this field yet
+        status: item.status || 'draft',
+        scheduled_date: item.scheduled_date,
+        published_date: item.published_date,
+        publication_error: item.publication_error,
+        linkedin_post_id: item.linkedin_post_id,
       }));
 
       setContent(transformedData);
@@ -63,12 +71,64 @@ const MyContent: React.FC = () => {
     }
   };
 
+  const handleApprove = async (contentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('content_ideas')
+        .update({ status: 'approved' })
+        .eq('id', contentId);
+
+      if (error) throw error;
+
+      await fetchContent();
+      toast({
+        title: "Content Approved",
+        description: "Content has been approved and is ready for scheduling.",
+      });
+    } catch (error) {
+      console.error('Error approving content:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve content",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReject = async (contentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('content_ideas')
+        .update({ status: 'draft' })
+        .eq('id', contentId);
+
+      if (error) throw error;
+
+      await fetchContent();
+      toast({
+        title: "Content Rejected",
+        description: "Content has been moved back to draft status.",
+      });
+    } catch (error) {
+      console.error('Error rejecting content:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reject content",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'published':
         return 'bg-green-100 text-green-800';
       case 'scheduled':
         return 'bg-blue-100 text-blue-800';
+      case 'approved':
+        return 'bg-purple-100 text-purple-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -76,6 +136,11 @@ const MyContent: React.FC = () => {
 
   const getContentTypeIcon = (type: string) => {
     return type === 'blog_post' ? FileText : FileText;
+  };
+
+  const handleSchedulingComplete = () => {
+    setSchedulingContentId(null);
+    fetchContent();
   };
 
   return (
@@ -98,6 +163,17 @@ const MyContent: React.FC = () => {
 
       <main className="py-8 px-6">
         <div className="max-w-6xl mx-auto">
+          {schedulingContentId && (
+            <div className="mb-6">
+              <ContentScheduler
+                contentId={schedulingContentId}
+                contentType={content.find(c => c.id === schedulingContentId)?.content_type || 'blog_post'}
+                onScheduled={handleSchedulingComplete}
+                onCancel={() => setSchedulingContentId(null)}
+              />
+            </div>
+          )}
+
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
@@ -116,59 +192,116 @@ const MyContent: React.FC = () => {
             <div className="space-y-4">
               {content.map((item) => {
                 const ContentIcon = getContentTypeIcon(item.content_type);
+                const isScheduling = schedulingContentId === item.id;
+                
                 return (
-                  <Card key={item.id}>
+                  <Card key={item.id} className={isScheduling ? 'ring-2 ring-blue-500' : ''}>
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <ContentIcon className="w-5 h-5 text-gray-500 mt-1" />
                           <div>
                             <CardTitle className="text-lg">{item.title}</CardTitle>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
                               <Badge variant="outline" className="capitalize">
                                 {item.content_type.replace('_', ' ')}
                               </Badge>
                               <Badge className={getStatusColor(item.status || 'draft')}>
                                 {item.status || 'draft'}
                               </Badge>
+                              {item.status === 'failed' && item.publication_error && (
+                                <Badge variant="destructive" className="text-xs">
+                                  <AlertCircle className="w-3 h-3 mr-1" />
+                                  Error
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {item.status === 'draft' && (
                             <>
-                              <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-green-600 hover:text-green-700"
+                                onClick={() => handleApprove(item.id)}
+                              >
                                 <CheckCircle className="w-4 h-4 mr-1" />
                                 Approve
                               </Button>
-                              <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                            </>
+                          )}
+                          {item.status === 'approved' && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-blue-600 hover:text-blue-700"
+                                onClick={() => setSchedulingContentId(item.id)}
+                              >
+                                <Clock className="w-4 h-4 mr-1" />
+                                Schedule
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleReject(item.id)}
+                              >
                                 <XCircle className="w-4 h-4 mr-1" />
                                 Reject
                               </Button>
                             </>
                           )}
+                          {item.status === 'scheduled' && (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-orange-600 hover:text-orange-700"
+                              onClick={() => handleReject(item.id)}
+                            >
+                              Cancel Schedule
+                            </Button>
+                          )}
+                          {item.status === 'failed' && (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-blue-600 hover:text-blue-700"
+                              onClick={() => setSchedulingContentId(item.id)}
+                            >
+                              <Send className="w-4 h-4 mr-1" />
+                              Retry
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           Created: {new Date(item.created_at).toLocaleDateString()}
                         </div>
                         {item.scheduled_date && (
                           <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            Scheduled: {new Date(item.scheduled_date).toLocaleDateString()}
+                            <Clock className="w-4 h-4" />
+                            Scheduled: {new Date(item.scheduled_date).toLocaleString()}
                           </div>
                         )}
                         {item.published_date && (
                           <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            Published: {new Date(item.published_date).toLocaleDateString()}
+                            <Send className="w-4 h-4" />
+                            Published: {new Date(item.published_date).toLocaleString()}
                           </div>
                         )}
                       </div>
+                      {item.status === 'failed' && item.publication_error && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                          <strong>Publication Error:</strong> {item.publication_error}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
