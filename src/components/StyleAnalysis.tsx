@@ -47,7 +47,16 @@ export const StyleAnalysis: React.FC = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      setAnalysis(data);
+      
+      if (data) {
+        // Cast the Json type to StyleAnalysisData
+        const analysisRecord: AnalysisRecord = {
+          analysis_data: data.analysis_data as StyleAnalysisData,
+          content_count: data.content_count,
+          last_analyzed_at: data.last_analyzed_at,
+        };
+        setAnalysis(analysisRecord);
+      }
     } catch (error) {
       console.error('Error fetching analysis:', error);
     }
