@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,7 @@ export const SuggestedPosts: React.FC = () => {
   const [posts, setPosts] = useState<SuggestedPost[]>([
     {
       id: '1',
-      content: 'The future of AI in content creation is here. As we embrace these new tools, the key is finding the balance between automation and authentic human storytelling. What's your take on AI-assisted writing?',
+      content: 'The future of AI in content creation is here. As we embrace these new tools, the key is finding the balance between automation and authentic human storytelling. What\'s your take on AI-assisted writing?',
       topic: 'AI & Technology',
       engagementScore: 8.5,
       trendingKeywords: ['AI', 'Content Creation', 'Automation'],
