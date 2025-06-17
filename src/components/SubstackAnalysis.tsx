@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,7 +53,7 @@ export const SubstackAnalysis: React.FC = () => {
         setIsConnected(true);
         // Parse existing substack data if available
         if (data.connection_data) {
-          const connectionData = data.connection_data as SubstackConnectionData;
+          const connectionData = data.connection_data as unknown as SubstackConnectionData;
           if (connectionData.substackData) {
             setSubstackData(connectionData.substackData);
           }
