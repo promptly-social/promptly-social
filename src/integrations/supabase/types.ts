@@ -121,6 +121,7 @@ export type Database = {
           created_at: string
           id: string
           last_analyzed_at: string
+          platform: string
           updated_at: string
           user_id: string
         }
@@ -130,6 +131,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_analyzed_at?: string
+          platform: string
           updated_at?: string
           user_id: string
         }
@@ -139,6 +141,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_analyzed_at?: string
+          platform?: string
           updated_at?: string
           user_id?: string
         }
