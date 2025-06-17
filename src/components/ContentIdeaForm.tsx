@@ -1,14 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { OutlineBrainstorming } from './OutlineBrainstorming';
-import { ContentTypeSelector } from './ContentTypeSelector';
-import { StyleAdaptationToggle } from './StyleAdaptationToggle';
-import { ContentInput } from './ContentInput';
+import { ContentChatbot } from './ContentChatbot';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface Outline {
   title: string;
@@ -25,13 +23,10 @@ interface ConnectedPlatform {
 }
 
 export const ContentIdeaForm: React.FC = () => {
-  const [textInput, setTextInput] = useState('');
-  const [contentType, setContentType] = useState<'blog_post' | 'linkedin_post'>('blog_post');
-  const [useStyleAdaptation, setUseStyleAdaptation] = useState(true);
   const [hasStyleAnalysis, setHasStyleAnalysis] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedOutline, setGeneratedOutline] = useState<Outline | null>(null);
   const [contentIdeaId, setContentIdeaId] = useState<string | null>(null);
+  const [contentType, setContentType] = useState<'blog_post' | 'linkedin_post'>('blog_post');
   const [connectedPlatforms, setConnectedPlatforms] = useState<ConnectedPlatform[]>([]);
   const [isLoadingPlatforms, setIsLoadingPlatforms] = useState(true);
   const { toast } = useToast();
@@ -88,101 +83,9 @@ export const ContentIdeaForm: React.FC = () => {
     }
   };
 
-  const shouldShowStyleAdaptation = () => {
-    return connectedPlatforms.length > 0 && hasStyleAnalysis;
-  };
-
-  const handleAudioTranscription = (text: string) => {
-    setTextInput(text);
-    generateOutline(text, 'audio');
-  };
-
-  const generateOutline = async (input: string, inputType: 'text' | 'audio') => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to generate content outlines.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      // Generate outline using AI with optional style adaptation
-      const outlineResponse = await fetch('/functions/v1/generate-outline', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: input,
-          contentType: contentType,
-          userId: user.id,
-          useStyleAdaptation: useStyleAdaptation && hasStyleAnalysis,
-        }),
-      });
-
-      if (!outlineResponse.ok) {
-        throw new Error('Failed to generate outline');
-      }
-
-      const { outline } = await outlineResponse.json();
-      setGeneratedOutline(outline);
-
-      // Save to database
-      const { data, error } = await supabase
-        .from('content_ideas')
-        .insert({
-          user_id: user.id,
-          title: outline.title,
-          original_input: input,
-          input_type: inputType,
-          generated_outline: outline,
-          content_type: contentType,
-          status: 'draft'
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Database error:', error);
-        toast({
-          title: "Outline Generated",
-          description: "Your outline was generated but couldn't be saved. You can still use it.",
-          variant: "destructive",
-        });
-      } else {
-        setContentIdeaId(data.id);
-        toast({
-          title: "Outline Generated",
-          description: useStyleAdaptation && hasStyleAnalysis 
-            ? "Your style-adapted content outline has been generated!" 
-            : "Your content outline has been generated!",
-        });
-      }
-    } catch (error) {
-      console.error('Error generating outline:', error);
-      toast({
-        title: "Generation Error",
-        description: "Failed to generate outline. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleTextSubmit = () => {
-    if (!textInput.trim()) {
-      toast({
-        title: "Input Required",
-        description: "Please enter your content idea.",
-        variant: "destructive",
-      });
-      return;
-    }
-    generateOutline(textInput, 'text');
+  const handleOutlineGenerated = (outline: Outline, ideaId: string) => {
+    setGeneratedOutline(outline);
+    setContentIdeaId(ideaId);
   };
 
   const handleOutlineUpdate = (updatedOutline: Outline) => {
@@ -206,38 +109,11 @@ export const ContentIdeaForm: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            Content Idea Input
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ContentTypeSelector
-            contentType={contentType}
-            onContentTypeChange={setContentType}
-            connectedPlatforms={connectedPlatforms}
-          />
-
-          <StyleAdaptationToggle
-            useStyleAdaptation={useStyleAdaptation}
-            onStyleAdaptationChange={setUseStyleAdaptation}
-            connectedPlatforms={connectedPlatforms}
-            hasStyleAnalysis={hasStyleAnalysis}
-          />
-
-          <ContentInput
-            textInput={textInput}
-            onTextInputChange={setTextInput}
-            onTextSubmit={handleTextSubmit}
-            onAudioTranscription={handleAudioTranscription}
-            isGenerating={isGenerating}
-            useStyleAdaptation={useStyleAdaptation}
-            shouldShowStyleAdaptation={shouldShowStyleAdaptation()}
-          />
-        </CardContent>
-      </Card>
+      <ContentChatbot
+        connectedPlatforms={connectedPlatforms}
+        hasStyleAnalysis={hasStyleAnalysis}
+        onOutlineGenerated={handleOutlineGenerated}
+      />
 
       {generatedOutline && contentIdeaId && (
         <OutlineBrainstorming
