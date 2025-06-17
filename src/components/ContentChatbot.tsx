@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ContentTypeSelector } from './ContentTypeSelector';
 import { StyleAdaptationToggle } from './StyleAdaptationToggle';
+import { AudioRecorder } from './AudioRecorder';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,17 +66,14 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
     }
   }, [messages]);
 
-  const shouldShowStyleAdaptation = () => {
-    return connectedPlatforms.length > 0 && hasStyleAnalysis;
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const handleSendMessage = async (messageText?: string) => {
+    const textToSend = messageText || inputMessage;
+    if (!textToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage,
+      content: textToSend,
       timestamp: new Date()
     };
 
@@ -85,55 +83,96 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
 
     try {
       // Check if this looks like a content idea request
-      const isContentIdeaRequest = inputMessage.toLowerCase().includes('idea') || 
-                                  inputMessage.toLowerCase().includes('content') ||
-                                  inputMessage.toLowerCase().includes('write') ||
-                                  inputMessage.toLowerCase().includes('post') ||
-                                  inputMessage.toLowerCase().includes('blog');
+      const isContentIdeaRequest = textToSend.toLowerCase().includes('idea') || 
+                                  textToSend.toLowerCase().includes('content') ||
+                                  textToSend.toLowerCase().includes('write') ||
+                                  textToSend.toLowerCase().includes('post') ||
+                                  textToSend.toLowerCase().includes('blog');
 
       if (isContentIdeaRequest && user) {
-        // Generate outline directly
-        const outlineResponse = await fetch('/functions/v1/generate-outline', {
+        // Generate outline with streaming
+        const response = await fetch('/functions/v1/generate-outline', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            content: inputMessage,
+            content: textToSend,
             contentType: contentType,
             userId: user.id,
             useStyleAdaptation: useStyleAdaptation && hasStyleAnalysis,
+            stream: true,
           }),
         });
 
-        if (outlineResponse.ok) {
-          const { outline } = await outlineResponse.json();
-          
-          // Save to database
-          const { data, error } = await supabase
-            .from('content_ideas')
-            .insert({
-              user_id: user.id,
-              title: outline.title,
-              original_input: inputMessage,
-              input_type: 'text',
-              generated_outline: outline,
-              content_type: contentType,
-              status: 'draft'
-            })
-            .select()
-            .single();
+        if (response.ok && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let streamingMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: '',
+            timestamp: new Date()
+          };
 
-          if (!error && data) {
-            onOutlineGenerated(outline, data.id);
-            
-            const assistantMessage: Message = {
-              id: (Date.now() + 1).toString(),
-              role: 'assistant',
-              content: `Great! I've created a content outline for "${outline.title}". You can see it below and continue refining it. The outline includes ${outline.sections.length} main sections that will help structure your ${contentType === 'blog_post' ? 'blog post' : 'LinkedIn post'}.`,
-              timestamp: new Date()
-            };
-            setMessages(prev => [...prev, assistantMessage]);
+          setMessages(prev => [...prev, streamingMessage]);
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') {
+                    break;
+                  }
+                  
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.content) {
+                      streamingMessage.content += parsed.content;
+                      setMessages(prev => 
+                        prev.map(msg => 
+                          msg.id === streamingMessage.id 
+                            ? { ...msg, content: streamingMessage.content }
+                            : msg
+                        )
+                      );
+                    }
+                    
+                    if (parsed.outline) {
+                      // Save to database
+                      const { data: savedData, error } = await supabase
+                        .from('content_ideas')
+                        .insert({
+                          user_id: user.id,
+                          title: parsed.outline.title,
+                          original_input: textToSend,
+                          input_type: 'text',
+                          generated_outline: parsed.outline,
+                          content_type: contentType,
+                          status: 'draft'
+                        })
+                        .select()
+                        .single();
+
+                      if (!error && savedData) {
+                        onOutlineGenerated(parsed.outline, savedData.id);
+                      }
+                    }
+                  } catch (e) {
+                    console.error('Error parsing streaming data:', e);
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
           }
         } else {
           throw new Error('Failed to generate outline');
@@ -167,6 +206,10 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
     }
   };
 
+  const handleTranscription = (text: string) => {
+    handleSendMessage(text);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -176,7 +219,7 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-4">
           <ContentTypeSelector
             contentType={contentType}
             onContentTypeChange={setContentType}
@@ -224,7 +267,7 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
                           : 'bg-gray-100 text-gray-900'
                       }`}
                     >
-                      <p className="text-sm">{message.content}</p>
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                       <span className="text-xs opacity-70 mt-1 block">
                         {message.timestamp.toLocaleTimeString()}
                       </span>
@@ -247,7 +290,12 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
             </div>
           </ScrollArea>
           
-          <div className="border-t p-4">
+          <div className="border-t p-4 space-y-3">
+            <AudioRecorder 
+              onTranscription={handleTranscription}
+              disabled={isLoading}
+            />
+            
             <div className="flex gap-2">
               <Input
                 placeholder="Tell me about your content idea..."
@@ -258,7 +306,7 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
                 className="flex-1"
               />
               <Button 
-                onClick={handleSendMessage} 
+                onClick={() => handleSendMessage()} 
                 disabled={isLoading || !inputMessage.trim()}
                 size="icon"
               >
