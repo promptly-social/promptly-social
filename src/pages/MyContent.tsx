@@ -45,13 +45,13 @@ const MyContent: React.FC = () => {
 
       if (error) throw error;
       
-      // Transform data to match our interface
+      // Transform data to match our interface with proper type casting
       const transformedData: ContentItem[] = data.map(item => ({
         id: item.id,
         title: item.title,
         content_type: item.content_type,
         created_at: item.created_at,
-        status: item.status || 'draft',
+        status: (item.status as 'draft' | 'approved' | 'scheduled' | 'published' | 'failed') || 'draft',
         scheduled_date: item.scheduled_date,
         published_date: item.published_date,
         publication_error: item.publication_error,
