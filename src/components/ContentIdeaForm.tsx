@@ -1,15 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { AudioRecorder } from './AudioRecorder';
 import { OutlineBrainstorming } from './OutlineBrainstorming';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FileText, Linkedin } from 'lucide-react';
+import { Loader2, FileText, Linkedin, Sparkles } from 'lucide-react';
 
 interface Outline {
   title: string;
@@ -22,11 +24,33 @@ interface Outline {
 export const ContentIdeaForm: React.FC = () => {
   const [textInput, setTextInput] = useState('');
   const [contentType, setContentType] = useState<'blog_post' | 'linkedin_post'>('blog_post');
+  const [useStyleAdaptation, setUseStyleAdaptation] = useState(true);
+  const [hasStyleAnalysis, setHasStyleAnalysis] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedOutline, setGeneratedOutline] = useState<Outline | null>(null);
   const [contentIdeaId, setContentIdeaId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    checkStyleAnalysis();
+  }, [user]);
+
+  const checkStyleAnalysis = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('writing_style_analysis')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      setHasStyleAnalysis(!!data && !error);
+    } catch (error) {
+      console.error('Error checking style analysis:', error);
+    }
+  };
 
   const handleAudioTranscription = (text: string) => {
     setTextInput(text);
@@ -44,7 +68,7 @@ export const ContentIdeaForm: React.FC = () => {
 
     setIsGenerating(true);
     try {
-      // Generate outline using AI
+      // Generate outline using AI with optional style adaptation
       const outlineResponse = await fetch('/functions/v1/generate-outline', {
         method: 'POST',
         headers: {
@@ -53,6 +77,8 @@ export const ContentIdeaForm: React.FC = () => {
         body: JSON.stringify({
           content: input,
           contentType: contentType,
+          userId: user.id,
+          useStyleAdaptation: useStyleAdaptation && hasStyleAnalysis,
         }),
       });
 
@@ -88,7 +114,9 @@ export const ContentIdeaForm: React.FC = () => {
         setContentIdeaId(data.id);
         toast({
           title: "Outline Generated",
-          description: "Your content outline has been generated and saved!",
+          description: useStyleAdaptation && hasStyleAnalysis 
+            ? "Your style-adapted content outline has been generated!" 
+            : "Your content outline has been generated!",
         });
       }
     } catch (error) {
@@ -152,6 +180,48 @@ export const ContentIdeaForm: React.FC = () => {
             </Select>
           </div>
 
+          {/* Style Adaptation Toggle */}
+          <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <Label className="text-sm font-medium text-purple-800">
+                      Style Adaptation
+                    </Label>
+                    <p className="text-xs text-purple-600">
+                      {hasStyleAnalysis 
+                        ? "Generate content matching your writing style" 
+                        : "Complete writing analysis to enable this feature"
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={useStyleAdaptation}
+                  onCheckedChange={setUseStyleAdaptation}
+                  disabled={!hasStyleAnalysis}
+                />
+              </div>
+              {!hasStyleAnalysis && (
+                <div className="mt-3 pt-3 border-t border-purple-200">
+                  <p className="text-xs text-purple-600 mb-2">
+                    To enable style adaptation, visit your Writing Profile to analyze your writing style.
+                  </p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => window.location.href = '/writing-profile'}
+                    className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                  >
+                    Go to Writing Profile
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div>
             <label className="block text-sm font-medium mb-2">Your Content Idea</label>
             <Textarea
@@ -175,7 +245,12 @@ export const ContentIdeaForm: React.FC = () => {
                   Generating Outline...
                 </>
               ) : (
-                'Generate Outline from Text'
+                <>
+                  {useStyleAdaptation && hasStyleAnalysis && (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Generate {useStyleAdaptation && hasStyleAnalysis ? 'Style-Adapted ' : ''}Outline
+                </>
               )}
             </Button>
 
