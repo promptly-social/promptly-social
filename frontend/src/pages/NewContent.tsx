@@ -1,12 +1,11 @@
+import React from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { SuggestedPosts } from "@/components/SuggestedPosts";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { LogOut } from "lucide-react";
 
-import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { SuggestedPosts } from '@/components/SuggestedPosts';
-import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { LogOut } from 'lucide-react';
-
-const Dashboard: React.FC = () => {
+const NewContent: React.FC = () => {
   const { user, signOut } = useAuth();
 
   return (
@@ -15,10 +14,14 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center justify-between p-4 sm:p-6">
           <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger />
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">New Content</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+              New Content
+            </h1>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <span className="hidden sm:inline text-gray-600 text-sm">Welcome, {user?.email}</span>
+            <span className="hidden sm:inline text-gray-600 text-sm">
+              Welcome, {user?.email}
+            </span>
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Sign Out</span>
@@ -36,4 +39,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default NewContent;

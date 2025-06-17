@@ -1,40 +1,39 @@
-
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  Sidebar, 
-  SidebarContent, 
-  SidebarGroup, 
-  SidebarGroupContent, 
-  SidebarGroupLabel, 
-  SidebarMenu, 
-  SidebarMenuButton, 
+import React from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
   SidebarTrigger,
-  useSidebar
-} from '@/components/ui/sidebar';
-import { PenTool, FileText, User, Settings, List } from 'lucide-react';
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { PenTool, FileText, User, Settings, List } from "lucide-react";
 
 const menuItems = [
   {
-    title: 'My Content',
-    url: '/my-content',
+    title: "My Content",
+    url: "/my-content",
     icon: List,
   },
   {
-    title: 'New Content',
-    url: '/dashboard',  
+    title: "New Content",
+    url: "/new-content",
     icon: FileText,
   },
   {
-    title: 'Writing Profile', 
-    url: '/writing-profile',
+    title: "Profile",
+    url: "/profile",
     icon: User,
   },
   {
-    title: 'Settings',
-    url: '/settings',
+    title: "Settings",
+    url: "/settings",
     icon: Settings,
   },
 ];
@@ -42,10 +41,10 @@ const menuItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const isCollapsed = state === 'collapsed';
+  const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar className={isCollapsed ? 'w-14' : 'w-60'} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-14" : "w-60"} collapsible="icon">
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-lg flex items-center justify-center">
@@ -68,11 +67,11 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      className={({ isActive }) => 
-                        isActive 
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                    <NavLink
+                      to={item.url}
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                           : "hover:bg-sidebar-accent/50"
                       }
                     >

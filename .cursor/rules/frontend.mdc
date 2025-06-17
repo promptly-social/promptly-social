@@ -1,0 +1,19 @@
+---
+description: 
+globs: frontend/**/*
+alwaysApply: false
+---
+* consider reusability and multiple environment deployment
+* follow the best practices in React
+* avoid unnecessary re-rendering
+* always write tests
+* when you get stuck, try a different approach
+* follow the best file structure conventions for a monorepo
+* always use the latest version of packages when possible
+* always create reusable components, types, hooks, etc.
+* always check and update the dockerfile when unnecessary  * Separation of concerns
+* DRY (Don't Repeat Yourself) principles
+* Consistent error handling
+* Type safety throughout the application
+* Update the corresponding tests when you make changes
+* The logs should follow SOC-II, HIPPA, and GDPR standards

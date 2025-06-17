@@ -1,8 +1,7 @@
-
-import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserPreferencesData {
   topics_of_interest: string[];
@@ -12,7 +11,7 @@ interface UserPreferencesData {
 export const useUserPreferences = () => {
   const [preferences, setPreferences] = useState<UserPreferencesData>({
     topics_of_interest: [],
-    websites: []
+    websites: [],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -29,21 +28,21 @@ export const useUserPreferences = () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', user?.id)
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", user?.id)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
         setPreferences({
           topics_of_interest: data.topics_of_interest || [],
-          websites: data.websites || []
+          websites: data.websites || [],
         });
       }
     } catch (error) {
-      console.error('Error fetching preferences:', error);
+      console.error("Error fetching preferences:", error);
       toast({
         title: "Error",
         description: "Failed to load preferences",
@@ -57,16 +56,17 @@ export const useUserPreferences = () => {
   const savePreferences = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
+      const { error } = await supabase.from("user_preferences").upsert(
+        {
           user_id: user?.id,
           topics_of_interest: preferences.topics_of_interest,
           websites: preferences.websites,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id",
+        }
+      );
 
       if (error) throw error;
 
@@ -75,7 +75,7 @@ export const useUserPreferences = () => {
         description: "Preferences saved successfully",
       });
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error("Error saving preferences:", error);
       toast({
         title: "Error",
         description: "Failed to save preferences",
@@ -87,16 +87,16 @@ export const useUserPreferences = () => {
   };
 
   const updateTopics = (topics: string[]) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      topics_of_interest: topics
+      topics_of_interest: topics,
     }));
   };
 
   const updateWebsites = (websites: string[]) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      websites: websites
+      websites: websites,
     }));
   };
 
@@ -106,6 +106,6 @@ export const useUserPreferences = () => {
     isSaving,
     savePreferences,
     updateTopics,
-    updateWebsites
+    updateWebsites,
   };
 };

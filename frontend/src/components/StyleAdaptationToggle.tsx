@@ -1,10 +1,9 @@
-
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Sparkles, AlertCircle } from 'lucide-react';
+import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Sparkles, AlertCircle } from "lucide-react";
 
 interface ConnectedPlatform {
   platform: string;
@@ -23,7 +22,7 @@ export const StyleAdaptationToggle: React.FC<StyleAdaptationToggleProps> = ({
   useStyleAdaptation,
   onStyleAdaptationChange,
   connectedPlatforms,
-  hasStyleAnalysis
+  hasStyleAnalysis,
 }) => {
   const shouldShowStyleAdaptation = () => {
     return connectedPlatforms.length > 0 && hasStyleAnalysis;
@@ -66,17 +65,16 @@ export const StyleAdaptationToggle: React.FC<StyleAdaptationToggleProps> = ({
                 Style Adaptation Available
               </Label>
               <p className="text-xs text-gray-600">
-                {connectedPlatforms.length === 0 
+                {connectedPlatforms.length === 0
                   ? "Connect social accounts and complete writing analysis to enable style adaptation"
-                  : "Complete writing analysis to enable style adaptation"
-                }
+                  : "Complete writing analysis to enable style adaptation"}
               </p>
             </div>
           </div>
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={() => window.location.href = '/writing-profile'}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => (window.location.href = "/profile")}
             className="mt-3 text-gray-700 border-gray-300 hover:bg-gray-50"
           >
             Go to Writing Profile
