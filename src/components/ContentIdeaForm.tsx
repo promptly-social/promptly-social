@@ -1,17 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { AudioRecorder } from './AudioRecorder';
 import { OutlineBrainstorming } from './OutlineBrainstorming';
+import { ContentTypeSelector } from './ContentTypeSelector';
+import { StyleAdaptationToggle } from './StyleAdaptationToggle';
+import { ContentInput } from './ContentInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, FileText, Linkedin, Sparkles, AlertCircle } from 'lucide-react';
+import { Loader2, FileText } from 'lucide-react';
 
 interface Outline {
   title: string;
@@ -91,36 +88,13 @@ export const ContentIdeaForm: React.FC = () => {
     }
   };
 
-  const getAvailableContentTypes = () => {
-    const types = [];
-    
-    // Always show blog post option
-    types.push({
-      value: 'blog_post',
-      label: 'Blog Post',
-      icon: FileText
-    });
-
-    // Show LinkedIn option only if connected
-    const linkedinConnection = connectedPlatforms.find(p => p.platform === 'linkedin');
-    if (linkedinConnection) {
-      types.push({
-        value: 'linkedin_post',
-        label: `LinkedIn Post${linkedinConnection.platform_username ? ` (@${linkedinConnection.platform_username})` : ''}`,
-        icon: Linkedin
-      });
-    }
-
-    return types;
-  };
-
-  // Check if Style Adaptation should be shown
   const shouldShowStyleAdaptation = () => {
     return connectedPlatforms.length > 0 && hasStyleAnalysis;
   };
 
   const handleAudioTranscription = (text: string) => {
     setTextInput(text);
+    generateOutline(text, 'audio');
   };
 
   const generateOutline = async (input: string, inputType: 'text' | 'audio') => {
@@ -215,8 +189,6 @@ export const ContentIdeaForm: React.FC = () => {
     setGeneratedOutline(updatedOutline);
   };
 
-  const availableContentTypes = getAvailableContentTypes();
-
   if (isLoadingPlatforms) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -242,142 +214,28 @@ export const ContentIdeaForm: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Content Type</label>
-            {availableContentTypes.length === 1 ? (
-              <div className="p-3 border border-amber-200 bg-amber-50 rounded-lg">
-                <div className="flex items-center gap-2 text-amber-800">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm">
-                    Only blog posts available. Connect social platforms in your Writing Profile to create posts for those platforms.
-                  </span>
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => window.location.href = '/writing-profile'}
-                  className="mt-2 text-amber-700 border-amber-300 hover:bg-amber-100"
-                >
-                  Connect Platforms
-                </Button>
-              </div>
-            ) : (
-              <Select value={contentType} onValueChange={(value: 'blog_post' | 'linkedin_post') => setContentType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableContentTypes.map((type) => {
-                    const Icon = type.icon;
-                    return (
-                      <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4" />
-                          {type.label}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          <ContentTypeSelector
+            contentType={contentType}
+            onContentTypeChange={setContentType}
+            connectedPlatforms={connectedPlatforms}
+          />
 
-          {/* Style Adaptation Toggle - Only show if social accounts connected and writing analysis exists */}
-          {shouldShowStyleAdaptation() && (
-            <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
-                    <div>
-                      <Label className="text-sm font-medium text-purple-800">
-                        Style Adaptation
-                      </Label>
-                      <p className="text-xs text-purple-600">
-                        Generate content matching your writing style
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={useStyleAdaptation}
-                    onCheckedChange={setUseStyleAdaptation}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <StyleAdaptationToggle
+            useStyleAdaptation={useStyleAdaptation}
+            onStyleAdaptationChange={setUseStyleAdaptation}
+            connectedPlatforms={connectedPlatforms}
+            hasStyleAnalysis={hasStyleAnalysis}
+          />
 
-          {/* Show message to complete setup if requirements not met */}
-          {!shouldShowStyleAdaptation() && (connectedPlatforms.length === 0 || !hasStyleAnalysis) && (
-            <Card className="bg-gradient-to-r from-gray-50 to-blue-50 border-gray-200">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-gray-600" />
-                  <div>
-                    <Label className="text-sm font-medium text-gray-800">
-                      Style Adaptation Available
-                    </Label>
-                    <p className="text-xs text-gray-600">
-                      {connectedPlatforms.length === 0 
-                        ? "Connect social accounts and complete writing analysis to enable style adaptation"
-                        : "Complete writing analysis to enable style adaptation"
-                      }
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => window.location.href = '/writing-profile'}
-                  className="mt-3 text-gray-700 border-gray-300 hover:bg-gray-50"
-                >
-                  Go to Writing Profile
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Your Content Idea</label>
-            <Textarea
-              placeholder="Describe your content idea here..."
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              rows={4}
-              className="resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button 
-              onClick={handleTextSubmit} 
-              disabled={isGenerating || !textInput.trim()}
-              className="w-full"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating Outline...
-                </>
-              ) : (
-                <>
-                  {useStyleAdaptation && shouldShowStyleAdaptation() && (
-                    <Sparkles className="w-4 h-4 mr-2" />
-                  )}
-                  Generate {useStyleAdaptation && shouldShowStyleAdaptation() ? 'Style-Adapted ' : ''}Outline
-                </>
-              )}
-            </Button>
-
-            <AudioRecorder 
-              onTranscription={(text) => {
-                handleAudioTranscription(text);
-                generateOutline(text, 'audio');
-              }}
-              disabled={isGenerating}
-            />
-          </div>
+          <ContentInput
+            textInput={textInput}
+            onTextInputChange={setTextInput}
+            onTextSubmit={handleTextSubmit}
+            onAudioTranscription={handleAudioTranscription}
+            isGenerating={isGenerating}
+            useStyleAdaptation={useStyleAdaptation}
+            shouldShowStyleAdaptation={shouldShowStyleAdaptation()}
+          />
         </CardContent>
       </Card>
 
