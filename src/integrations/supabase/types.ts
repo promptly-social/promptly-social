@@ -45,6 +45,105 @@ export type Database = {
         }
         Relationships: []
       }
+      imported_content: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          platform: string
+          published_date: string | null
+          source_url: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          platform: string
+          published_date?: string | null
+          source_url?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          platform?: string
+          published_date?: string | null
+          source_url?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      social_connections: {
+        Row: {
+          connection_data: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          platform: string
+          platform_username: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_data?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          platform: string
+          platform_username?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_data?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          platform?: string
+          platform_username?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      writing_style_analysis: {
+        Row: {
+          analysis_data: Json
+          content_count: number
+          created_at: string
+          id: string
+          last_analyzed_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_data: Json
+          content_count?: number
+          created_at?: string
+          id?: string
+          last_analyzed_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_data?: Json
+          content_count?: number
+          created_at?: string
+          id?: string
+          last_analyzed_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
