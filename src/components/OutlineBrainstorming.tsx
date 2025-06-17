@@ -147,12 +147,12 @@ export const OutlineBrainstorming: React.FC<OutlineBrainstormingProps> = ({
       const { draft } = await response.json();
       setGeneratedDraft(draft);
 
-      // Save draft to database
+      // Save draft to database - properly cast outline to Json type
       if (user) {
         await supabase
           .from('content_ideas')
           .update({
-            generated_outline: outline,
+            generated_outline: outline as any,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contentIdeaId);
