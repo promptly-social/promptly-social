@@ -1,254 +1,249 @@
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { ThumbsUp, ThumbsDown, Calendar, Send, RefreshCw, Lightbulb } from 'lucide-react';
+import { Clock, RefreshCw, Calendar, X, TrendingUp, User, Globe } from 'lucide-react';
 
 interface SuggestedPost {
   id: string;
-  title: string;
   content: string;
-  topics: string[];
-  relevance_score: number;
-  original_source_id?: string;
-  status: string;
+  topic: string;
+  engagementScore: number;
+  trendingKeywords: string[];
+  estimatedReach: string;
+  bestTimeToPost: string;
+  source: 'preferences' | 'substack' | 'connections';
 }
 
 export const SuggestedPosts: React.FC = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [suggestedPosts, setSuggestedPosts] = useState<SuggestedPost[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [posts, setPosts] = useState<SuggestedPost[]>([
+    {
+      id: '1',
+      content: 'The future of AI in content creation is here. As we embrace these new tools, the key is finding the balance between automation and authentic human storytelling. What's your take on AI-assisted writing?',
+      topic: 'AI & Technology',
+      engagementScore: 8.5,
+      trendingKeywords: ['AI', 'Content Creation', 'Automation'],
+      estimatedReach: '2.5K - 5K',
+      bestTimeToPost: 'Today, 2:00 PM',
+      source: 'preferences'
+    },
+    {
+      id: '2',
+      content: 'Remote work has fundamentally changed how we think about productivity. It\'s not about the hours you put in, but the value you create. Here are 3 strategies that have transformed my remote work experience...',
+      topic: 'Remote Work',
+      engagementScore: 9.2,
+      trendingKeywords: ['Remote Work', 'Productivity', 'Work-Life Balance'],
+      estimatedReach: '3K - 7K',
+      bestTimeToPost: 'Tomorrow, 9:00 AM',
+      source: 'substack'
+    },
+    {
+      id: '3',
+      content: 'Personal branding isn\'t about creating a fake persona—it\'s about amplifying your authentic self. The most successful professionals are those who aren\'t afraid to show their personality alongside their expertise.',
+      topic: 'Personal Branding',
+      engagementScore: 7.8,
+      trendingKeywords: ['Personal Branding', 'Authenticity', 'Professional Growth'],
+      estimatedReach: '1.8K - 4K',
+      bestTimeToPost: 'Today, 6:00 PM',
+      source: 'connections'
+    },
+    {
+      id: '4',
+      content: 'The startup ecosystem is evolving rapidly. What worked 5 years ago might not work today. Here\'s what I\'ve learned about building resilient startups in an uncertain market...',
+      topic: 'Entrepreneurship',
+      engagementScore: 8.9,
+      trendingKeywords: ['Startups', 'Entrepreneurship', 'Market Trends'],
+      estimatedReach: '4K - 8K',
+      bestTimeToPost: 'Tomorrow, 11:00 AM',
+      source: 'preferences'
+    },
+    {
+      id: '5',
+      content: 'Data-driven decision making is crucial, but don\'t let analytics paralyze you. Sometimes the best insights come from customer conversations, not spreadsheets. Balance is key.',
+      topic: 'Data & Analytics',
+      engagementScore: 7.5,
+      trendingKeywords: ['Data Analytics', 'Decision Making', 'Customer Insights'],
+      estimatedReach: '2K - 4.5K',
+      bestTimeToPost: 'Today, 4:00 PM',
+      source: 'substack'
+    }
+  ]);
+
   const [isGenerating, setIsGenerating] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchSuggestedPosts();
-    }
-  }, [user]);
-
-  const fetchSuggestedPosts = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('suggested_posts')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('status', 'suggested')
-        .order('relevance_score', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      setSuggestedPosts(data || []);
-    } catch (error) {
-      console.error('Error fetching suggested posts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load suggested posts",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const dismissPost = (postId: string) => {
+    setPosts(posts.filter(post => post.id !== postId));
   };
 
-  const generateSuggestedPosts = async () => {
+  const schedulePost = (postId: string) => {
+    console.log('Scheduling post:', postId);
+    // TODO: Implement scheduling logic
+  };
+
+  const generateNewPosts = async () => {
     setIsGenerating(true);
-    try {
-      // Generate sample suggested posts based on user preferences
-      const samplePosts = [
-        {
-          title: "The Future of AI in Content Creation",
-          content: "As AI continues to evolve, content creators are finding new ways to leverage technology to enhance their storytelling. Here are 3 key trends I'm seeing:\n\n1. AI-assisted research and fact-checking\n2. Personalized content recommendations\n3. Automated content optimization\n\nWhat trends are you noticing in your industry? 🤖✨",
-          topics: ["AI", "Content Creation", "Technology"],
-          relevance_score: 0.95
-        },
-        {
-          title: "5 Lessons Learned from Building a Remote Team",
-          content: "After 2 years of leading a fully remote team, here's what I've learned:\n\n✅ Clear communication beats frequent meetings\n✅ Trust is built through consistent delivery\n✅ Async work requires better documentation\n✅ Culture needs intentional cultivation\n✅ Tools matter, but processes matter more\n\nRemote work isn't just about location - it's about reimagining how we collaborate. What's your biggest remote work insight?",
-          topics: ["Remote Work", "Leadership", "Team Management"],
-          relevance_score: 0.88
-        },
-        {
-          title: "Why I Stopped Chasing Perfect and Started Shipping",
-          content: "Perfectionism was my biggest enemy as an entrepreneur.\n\nI spent months polishing a product that nobody wanted instead of getting feedback early.\n\nNow I follow the 80/20 rule:\n• Ship at 80% perfect\n• Gather real user feedback\n• Iterate based on actual needs\n\nDone is better than perfect. What's holding you back from shipping your idea?",
-          topics: ["Entrepreneurship", "Product Development", "Mindset"],
-          relevance_score: 0.82
-        }
-      ];
-
-      // Insert sample posts into database
-      for (const post of samplePosts) {
-        const { error } = await supabase
-          .from('suggested_posts')
-          .insert({
-            user_id: user?.id,
-            title: post.title,
-            content: post.content,
-            topics: post.topics,
-            relevance_score: post.relevance_score,
-            status: 'suggested'
-          });
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: "Success",
-        description: "Generated new suggested posts based on your preferences",
-      });
-
-      fetchSuggestedPosts();
-    } catch (error) {
-      console.error('Error generating posts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate suggested posts",
-        variant: "destructive",
-      });
-    } finally {
+    // Simulate API call
+    setTimeout(() => {
       setIsGenerating(false);
+      // TODO: Implement actual post generation
+    }, 2000);
+  };
+
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case 'preferences':
+        return <User className="w-3 h-3" />;
+      case 'substack':
+        return <Globe className="w-3 h-3" />;
+      case 'connections':
+        return <TrendingUp className="w-3 h-3" />;
+      default:
+        return <User className="w-3 h-3" />;
     }
   };
 
-  const dismissPost = async (postId: string) => {
-    try {
-      const { error } = await supabase
-        .from('suggested_posts')
-        .update({ status: 'dismissed' })
-        .eq('id', postId);
-
-      if (error) throw error;
-
-      setSuggestedPosts(prev => prev.filter(post => post.id !== postId));
-      toast({
-        title: "Post dismissed",
-        description: "This suggestion has been removed",
-      });
-    } catch (error) {
-      console.error('Error dismissing post:', error);
-      toast({
-        title: "Error",
-        description: "Failed to dismiss post",
-        variant: "destructive",
-      });
+  const getSourceLabel = (source: string) => {
+    switch (source) {
+      case 'preferences':
+        return 'Your Topics';
+      case 'substack':
+        return 'Substack Insights';
+      case 'connections':
+        return 'Network Trends';
+      default:
+        return 'Unknown';
     }
   };
-
-  const schedulePost = (post: SuggestedPost) => {
-    // This would integrate with the content scheduler
-    toast({
-      title: "Schedule Post",
-      description: "Post scheduling feature coming soon!",
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
-        <p className="text-gray-600">Loading suggested posts...</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Suggested LinkedIn Posts</h2>
-          <p className="text-gray-600">AI-curated content based on your interests and writing style</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Suggested LinkedIn Posts</h2>
+          <p className="text-sm text-gray-600 mt-1">AI-curated content based on your writing style and interests</p>
         </div>
-        <Button
-          onClick={generateSuggestedPosts}
+        <Button 
+          onClick={generateNewPosts} 
           disabled={isGenerating}
-          className="flex items-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
         >
-          <Lightbulb className="w-4 h-4" />
-          {isGenerating ? 'Generating...' : 'Generate New Posts'}
+          {isGenerating ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Generate New Posts
+            </>
+          )}
         </Button>
       </div>
 
-      {suggestedPosts.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Lightbulb className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-medium mb-2">No suggested posts yet</h3>
-            <p className="text-gray-600 mb-4">
-              Generate personalized LinkedIn post suggestions based on your preferences
+      <div className="grid gap-4 sm:gap-6">
+        {posts.map((post, index) => (
+          <Card key={post.id} className="relative hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3 sm:pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {getSourceIcon(post.source)}
+                      <span className="ml-1">{getSourceLabel(post.source)}</span>
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">{post.topic}</Badge>
+                  </div>
+                  <CardTitle className="text-base sm:text-lg font-semibold text-gray-900">
+                    Post #{index + 1}
+                  </CardTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => dismissPost(post.id)}
+                  className="text-gray-400 hover:text-gray-600 absolute top-2 right-2 sm:relative sm:top-0 sm:right-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                <p className="text-sm sm:text-base text-gray-800 leading-relaxed">{post.content}</p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                  <span>Engagement Score: <strong>{post.engagementScore}/10</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Clock className="w-4 h-4 text-blue-500" />
+                  <span>Best time: <strong>{post.bestTimeToPost}</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <User className="w-4 h-4 text-purple-500" />
+                  <span>Est. Reach: <strong>{post.estimatedReach}</strong></span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs sm:text-sm font-medium text-gray-700">Trending Keywords:</p>
+                <div className="flex flex-wrap gap-1 sm:gap-2">
+                  {post.trendingKeywords.map((keyword, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs">
+                      {keyword}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
+                <Button 
+                  onClick={() => schedulePost(post.id)}
+                  className="bg-green-600 hover:bg-green-700 flex-1"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Schedule Post
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => navigator.clipboard.writeText(post.content)}
+                >
+                  Copy Content
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {posts.length === 0 && (
+        <Card className="text-center py-8 sm:py-12">
+          <CardContent>
+            <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No posts available</h3>
+            <p className="text-gray-600 mb-4 text-sm sm:text-base">
+              All posts have been dismissed. Generate new content suggestions to continue.
             </p>
-            <Button onClick={generateSuggestedPosts} disabled={isGenerating}>
-              <Lightbulb className="w-4 h-4 mr-2" />
-              Generate Suggestions
+            <Button onClick={generateNewPosts} disabled={isGenerating}>
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Generate New Posts
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-4">
-          {suggestedPosts.map((post, index) => (
-            <Card key={post.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg font-semibold">
-                      #{index + 1} {post.title}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {Math.round(post.relevance_score * 100)}% match
-                      </Badge>
-                      {post.topics.map((topic, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {topic}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-700 whitespace-pre-line">
-                    {post.content}
-                  </p>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => schedulePost(post)}
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    Schedule
-                  </Button>
-                  <Button
-                    onClick={() => schedulePost(post)}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    Post Now
-                  </Button>
-                  <Button
-                    onClick={() => dismissPost(post.id)}
-                    variant="ghost"
-                    size="sm"
-                    className="flex items-center gap-2 text-gray-500 hover:text-red-600"
-                  >
-                    <ThumbsDown className="w-4 h-4" />
-                    Dismiss
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       )}
     </div>
   );
