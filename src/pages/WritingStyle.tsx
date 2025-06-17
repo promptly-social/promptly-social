@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { SocialConnections } from '@/components/SocialConnections';
 import { ConsolidatedPlatformAnalysis } from '@/components/ConsolidatedPlatformAnalysis';
 import { UserPreferences } from '@/components/UserPreferences';
+import { SubstackAnalysis } from '@/components/SubstackAnalysis';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { LogOut } from 'lucide-react';
 
@@ -33,7 +34,7 @@ const WritingStyle: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="text-center mb-8">
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Connect your social accounts, set your preferences, and analyze your writing style for personalized content creation
+              Configure your content preferences, connect social accounts, and analyze your writing style for personalized content creation
             </p>
           </div>
 
@@ -43,6 +44,9 @@ const WritingStyle: React.FC = () => {
 
             {/* Social Connections */}
             <SocialConnections />
+
+            {/* Substack Analysis */}
+            <SubstackAnalysis />
 
             {/* Consolidated Platform Analysis */}
             <ConsolidatedPlatformAnalysis />

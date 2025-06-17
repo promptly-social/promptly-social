@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { ContentIdeaForm } from '@/components/ContentIdeaForm';
+import { SuggestedPosts } from '@/components/SuggestedPosts';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { LogOut } from 'lucide-react';
 
@@ -29,12 +29,7 @@ const Dashboard: React.FC = () => {
 
       <main className="py-8 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <p className="text-lg text-gray-600">
-              Transform your ideas into structured content outlines with AI-powered assistance
-            </p>
-          </div>
-          <ContentIdeaForm />
+          <SuggestedPosts />
         </div>
       </main>
     </SidebarInset>
