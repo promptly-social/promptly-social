@@ -142,42 +142,42 @@ const MyContent: React.FC = () => {
   return (
     <SidebarInset>
       <header className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center justify-between p-6">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between p-4 sm:p-6">
+          <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger />
-            <h1 className="text-2xl font-bold text-gray-900">My Content</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">My Content</h1>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <Button
               onClick={fetchContent}
               disabled={isLoading}
               variant="outline"
               size="sm"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''} sm:mr-2`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <span className="text-gray-600">Welcome, {user?.email}</span>
+            <span className="hidden md:inline text-gray-600 text-sm">{user?.email}</span>
             <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign Out</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="py-8 px-6">
+      <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <div className="text-center mb-4 sm:mb-8">
+            <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto">
               View your published content and manage scheduled posts
             </p>
           </div>
 
-          <Tabs defaultValue="past" className="space-y-6">
+          <Tabs defaultValue="past" className="space-y-4 sm:space-y-6">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="past">Past Posts ({pastPosts.length})</TabsTrigger>
-              <TabsTrigger value="scheduled">Scheduled Posts ({scheduledPosts.length})</TabsTrigger>
+              <TabsTrigger value="past" className="text-xs sm:text-sm">Past Posts ({pastPosts.length})</TabsTrigger>
+              <TabsTrigger value="scheduled" className="text-xs sm:text-sm">Scheduled Posts ({scheduledPosts.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="past" className="space-y-4">
@@ -188,52 +188,34 @@ const MyContent: React.FC = () => {
                 </div>
               ) : pastPosts.length === 0 ? (
                 <Card>
-                  <CardContent className="py-12 text-center">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium mb-2">No past posts</h3>
-                    <p className="text-gray-600">
+                  <CardContent className="py-8 sm:py-12 text-center">
+                    <CheckCircle className="w-8 sm:w-12 h-8 sm:h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-base sm:text-lg font-medium mb-2">No past posts</h3>
+                    <p className="text-sm sm:text-base text-gray-600">
                       Your published content will appear here
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                <Card>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Published Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pastPosts.map((post) => (
-                        <TableRow key={post.id}>
-                          <TableCell className="font-medium">
-                            <div>
-                              <p className="font-semibold">{post.title}</p>
-                              <p className="text-sm text-gray-600 truncate max-w-md">
-                                {post.original_input.substring(0, 100)}...
+                <div className="space-y-4">
+                  {/* Mobile Card View */}
+                  <div className="block sm:hidden space-y-4">
+                    {pastPosts.map((post) => (
+                      <Card key={post.id}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm truncate">{post.title}</h4>
+                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                {post.original_input.substring(0, 80)}...
                               </p>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {post.content_type.replace('_', ' ')}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
                             {getStatusBadge(post.status, post.publication_error)}
-                            {post.publication_error && (
-                              <p className="text-xs text-red-600 mt-1">
-                                {post.publication_error}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>{formatDate(post.published_date)}</TableCell>
-                          <TableCell>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{formatDate(post.published_date)}</span>
                             {post.linkedin_post_id && (
                               <Button variant="outline" size="sm" asChild>
                                 <a 
@@ -241,16 +223,79 @@ const MyContent: React.FC = () => {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  <ExternalLink className="w-4 h-4" />
+                                  <ExternalLink className="w-3 h-3" />
                                 </a>
                               </Button>
                             )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Card>
+                          </div>
+                          {post.publication_error && (
+                            <p className="text-xs text-red-600 mt-2">
+                              {post.publication_error}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <Card className="hidden sm:block">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Published Date</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pastPosts.map((post) => (
+                            <TableRow key={post.id}>
+                              <TableCell className="font-medium">
+                                <div>
+                                  <p className="font-semibold">{post.title}</p>
+                                  <p className="text-sm text-gray-600 truncate max-w-md">
+                                    {post.original_input.substring(0, 100)}...
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {post.content_type.replace('_', ' ')}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(post.status, post.publication_error)}
+                                {post.publication_error && (
+                                  <p className="text-xs text-red-600 mt-1">
+                                    {post.publication_error}
+                                  </p>
+                                )}
+                              </TableCell>
+                              <TableCell>{formatDate(post.published_date)}</TableCell>
+                              <TableCell>
+                                {post.linkedin_post_id && (
+                                  <Button variant="outline" size="sm" asChild>
+                                    <a 
+                                      href={`https://linkedin.com/feed/update/${post.linkedin_post_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <ExternalLink className="w-4 h-4" />
+                                    </a>
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                </div>
               )}
             </TabsContent>
 
@@ -262,58 +307,98 @@ const MyContent: React.FC = () => {
                 </div>
               ) : scheduledPosts.length === 0 ? (
                 <Card>
-                  <CardContent className="py-12 text-center">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium mb-2">No scheduled posts</h3>
-                    <p className="text-gray-600">
+                  <CardContent className="py-8 sm:py-12 text-center">
+                    <Calendar className="w-8 sm:w-12 h-8 sm:h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-base sm:text-lg font-medium mb-2">No scheduled posts</h3>
+                    <p className="text-sm sm:text-base text-gray-600">
                       Your scheduled content will appear here
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                <Card>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Scheduled Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {scheduledPosts.map((post) => (
-                        <TableRow key={post.id}>
-                          <TableCell className="font-medium">
-                            <div>
-                              <p className="font-semibold">{post.title}</p>
-                              <p className="text-sm text-gray-600 truncate max-w-md">
-                                {post.original_input.substring(0, 100)}...
+                <div className="space-y-4">
+                  {/* Mobile Card View */}
+                  <div className="block sm:hidden space-y-4">
+                    {scheduledPosts.map((post) => (
+                      <Card key={post.id}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm truncate">{post.title}</h4>
+                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                {post.original_input.substring(0, 80)}...
                               </p>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
+                            <Badge variant="outline" className="text-xs">
                               {post.content_type.replace('_', ' ')}
                             </Badge>
-                          </TableCell>
-                          <TableCell>{formatDate(post.scheduled_date)}</TableCell>
-                          <TableCell>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">{formatDate(post.scheduled_date)}</span>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => cancelScheduledPost(post.id)}
                               disabled={isCancelling === post.id}
                             >
-                              <Trash2 className="w-4 h-4 mr-1" />
+                              <Trash2 className="w-3 h-3 mr-1" />
                               {isCancelling === post.id ? 'Cancelling...' : 'Cancel'}
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Card>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <Card className="hidden sm:block">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Scheduled Date</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {scheduledPosts.map((post) => (
+                            <TableRow key={post.id}>
+                              <TableCell className="font-medium">
+                                <div>
+                                  <p className="font-semibold">{post.title}</p>
+                                  <p className="text-sm text-gray-600 truncate max-w-md">
+                                    {post.original_input.substring(0, 100)}...
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {post.content_type.replace('_', ' ')}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{formatDate(post.scheduled_date)}</TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => cancelScheduledPost(post.id)}
+                                  disabled={isCancelling === post.id}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-1" />
+                                  {isCancelling === post.id ? 'Cancelling...' : 'Cancel'}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                </div>
               )}
             </TabsContent>
           </Tabs>
