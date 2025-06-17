@@ -1,16 +1,14 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ContentTypeSelector } from './ContentTypeSelector';
 import { StyleAdaptationToggle } from './StyleAdaptationToggle';
-import { AudioRecorder } from './AudioRecorder';
+import { MessageList } from './MessageList';
+import { ChatInput } from './ChatInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Bot, User, Loader2, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -56,15 +54,8 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [contentType, setContentType] = useState<'blog_post' | 'linkedin_post'>('blog_post');
   const [useStyleAdaptation, setUseStyleAdaptation] = useState(true);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || inputMessage;
@@ -234,87 +225,16 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
           />
         </div>
 
-        <div className="border rounded-lg">
-          <ScrollArea className="h-96 p-4" ref={scrollAreaRef}>
-            <div className="space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  <div
-                    className={`flex gap-2 max-w-[80%] ${
-                      message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                    }`}
-                  >
-                    <div className="flex-shrink-0">
-                      {message.role === 'user' ? (
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-white" />
-                        </div>
-                      ) : (
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                          <Bot className="w-4 h-4 text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className={`px-3 py-2 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      <span className="text-xs opacity-70 mt-1 block">
-                        {message.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex gap-3 justify-start">
-                  <div className="flex gap-2">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="px-3 py-2 rounded-lg bg-gray-100">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          
-          <div className="border-t p-4 space-y-3">
-            <AudioRecorder 
-              onTranscription={handleTranscription}
-              disabled={isLoading}
-            />
-            
-            <div className="flex gap-2">
-              <Input
-                placeholder="Tell me about your content idea..."
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button 
-                onClick={() => handleSendMessage()} 
-                disabled={isLoading || !inputMessage.trim()}
-                size="icon"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <MessageList messages={messages} isLoading={isLoading} />
+        
+        <ChatInput
+          inputMessage={inputMessage}
+          setInputMessage={setInputMessage}
+          onSendMessage={handleSendMessage}
+          onTranscription={handleTranscription}
+          isLoading={isLoading}
+          onKeyPress={handleKeyPress}
+        />
       </CardContent>
     </Card>
   );
