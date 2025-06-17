@@ -5,6 +5,7 @@ import { ContentTypeSelector } from './ContentTypeSelector';
 import { StyleAdaptationToggle } from './StyleAdaptationToggle';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
+import { InitialPrompt } from './InitialPrompt';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,24 +43,23 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
   hasStyleAnalysis,
   onOutlineGenerated
 }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hi! I\'m here to help you create amazing content. Tell me about your content idea and I\'ll help you develop it into a structured outline.',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [contentType, setContentType] = useState<'blog_post' | 'linkedin_post'>('blog_post');
   const [useStyleAdaptation, setUseStyleAdaptation] = useState(true);
+  const [isInitialPrompt, setIsInitialPrompt] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || inputMessage;
     if (!textToSend.trim() || isLoading) return;
+
+    // If this is the first message, switch to chat mode
+    if (isInitialPrompt) {
+      setIsInitialPrompt(false);
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -201,40 +201,59 @@ export const ContentChatbot: React.FC<ContentChatbotProps> = ({
     handleSendMessage(text);
   };
 
+  const handleInitialPromptSubmit = (prompt: string) => {
+    setInputMessage(prompt);
+    handleSendMessage(prompt);
+  };
+
   return (
-    <Card>
-      <CardHeader>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="border-b">
         <CardTitle className="flex items-center gap-2">
           <FileText className="w-5 h-5" />
           Content Assistant
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col gap-4">
-          <ContentTypeSelector
-            contentType={contentType}
-            onContentTypeChange={setContentType}
-            connectedPlatforms={connectedPlatforms}
-          />
+      <CardContent className="flex-1 flex flex-col p-0">
+        {/* Settings Panel - Always visible at top */}
+        <div className="p-4 border-b bg-gray-50">
+          <div className="flex flex-col gap-4">
+            <ContentTypeSelector
+              contentType={contentType}
+              onContentTypeChange={setContentType}
+              connectedPlatforms={connectedPlatforms}
+            />
 
-          <StyleAdaptationToggle
-            useStyleAdaptation={useStyleAdaptation}
-            onStyleAdaptationChange={setUseStyleAdaptation}
-            connectedPlatforms={connectedPlatforms}
-            hasStyleAnalysis={hasStyleAnalysis}
-          />
+            <StyleAdaptationToggle
+              useStyleAdaptation={useStyleAdaptation}
+              onStyleAdaptationChange={setUseStyleAdaptation}
+              connectedPlatforms={connectedPlatforms}
+              hasStyleAnalysis={hasStyleAnalysis}
+            />
+          </div>
         </div>
 
-        <MessageList messages={messages} isLoading={isLoading} />
-        
-        <ChatInput
-          inputMessage={inputMessage}
-          setInputMessage={setInputMessage}
-          onSendMessage={handleSendMessage}
-          onTranscription={handleTranscription}
-          isLoading={isLoading}
-          onKeyPress={handleKeyPress}
-        />
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {isInitialPrompt ? (
+            <InitialPrompt onSubmit={handleInitialPromptSubmit} />
+          ) : (
+            <>
+              <div className="flex-1 overflow-hidden">
+                <MessageList messages={messages} isLoading={isLoading} />
+              </div>
+              
+              <ChatInput
+                inputMessage={inputMessage}
+                setInputMessage={setInputMessage}
+                onSendMessage={handleSendMessage}
+                onTranscription={handleTranscription}
+                isLoading={isLoading}
+                onKeyPress={handleKeyPress}
+              />
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -91,25 +91,30 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, d
 
   if (isProcessing) {
     return (
-      <Button disabled className="w-full">
-        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-        Processing Audio...
+      <Button disabled variant="outline" className="gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Processing...
       </Button>
     );
   }
 
   if (isRecording) {
     return (
-      <Button onClick={stopRecording} variant="destructive" className="w-full">
-        <Square className="w-4 h-4 mr-2" />
+      <Button onClick={stopRecording} variant="destructive" className="gap-2 animate-pulse">
+        <Square className="w-4 h-4" />
         Stop Recording
       </Button>
     );
   }
 
   return (
-    <Button onClick={startRecording} disabled={disabled} variant="outline" className="w-full">
-      <Mic className="w-4 h-4 mr-2" />
+    <Button 
+      onClick={startRecording} 
+      disabled={disabled} 
+      variant="outline" 
+      className="gap-2 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+    >
+      <Mic className="w-4 h-4" />
       Record Audio
     </Button>
   );
