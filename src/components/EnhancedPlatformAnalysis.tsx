@@ -61,7 +61,8 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
       if (error && error.code !== 'PGRST116') throw error;
 
       if (data) {
-        setAnalysisData(data.analysis_data as AnalysisData);
+        // Cast the Json type to AnalysisData via unknown
+        setAnalysisData(data.analysis_data as unknown as AnalysisData);
         setLastAnalyzed(data.last_analyzed_at);
       }
     } catch (error) {
@@ -101,7 +102,7 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
         .upsert({
           user_id: user?.id,
           platform,
-          analysis_data: sampleAnalysis,
+          analysis_data: sampleAnalysis as unknown as any,
           content_count: Math.floor(Math.random() * 50) + 10,
           last_analyzed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
