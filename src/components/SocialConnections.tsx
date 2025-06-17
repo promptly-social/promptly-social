@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,8 +17,6 @@ interface SocialConnection {
 
 export const SocialConnections: React.FC = () => {
   const [connections, setConnections] = useState<SocialConnection[]>([]);
-  const [substackUsername, setSubstackUsername] = useState('');
-  const [linkedinUsername, setLinkedinUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -49,24 +46,17 @@ export const SocialConnections: React.FC = () => {
     }
   };
 
-  const connectPlatform = async (platform: 'substack' | 'linkedin', username: string) => {
-    if (!username.trim()) {
-      toast({
-        title: "Username Required",
-        description: `Please enter your ${platform} username`,
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const connectPlatform = async (platform: 'substack' | 'linkedin') => {
     setIsLoading(true);
     try {
+      // For now, we'll create a basic connection without requiring username
+      // In a real implementation, this would redirect to OAuth flow
       const { error } = await supabase
         .from('social_connections')
         .upsert({
           user_id: user?.id,
           platform,
-          platform_username: username,
+          platform_username: `user_${platform}`, // Placeholder
           is_active: true,
         }, {
           onConflict: 'user_id,platform'
@@ -80,8 +70,6 @@ export const SocialConnections: React.FC = () => {
       });
 
       fetchConnections();
-      if (platform === 'substack') setSubstackUsername('');
-      if (platform === 'linkedin') setLinkedinUsername('');
     } catch (error) {
       console.error('Error connecting platform:', error);
       toast({
@@ -129,6 +117,23 @@ export const SocialConnections: React.FC = () => {
   const substackConnection = getConnection('substack');
   const linkedinConnection = getConnection('linkedin');
 
+  const platforms = [
+    {
+      name: 'Substack',
+      key: 'substack' as const,
+      icon: FileText,
+      color: 'orange',
+      connection: substackConnection
+    },
+    {
+      name: 'LinkedIn',
+      key: 'linkedin' as const,
+      icon: Users,
+      color: 'blue',
+      connection: linkedinConnection
+    }
+  ];
+
   return (
     <Card>
       <CardHeader>
@@ -137,26 +142,22 @@ export const SocialConnections: React.FC = () => {
           Social Media Connections
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Substack Connection */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-orange-600" />
-            <span className="font-medium">Substack</span>
-          </div>
-          
-          {substackConnection ? (
-            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+      <CardContent className="space-y-4">
+        {platforms.map((platform) => (
+          <div key={platform.key} className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <platform.icon className={`w-5 h-5 text-${platform.color}-600`} />
               <div>
-                <p className="text-sm font-medium text-green-800">
-                  Connected as @{substackConnection.platform_username}
-                </p>
-                <p className="text-xs text-green-600">
-                  Connected on {new Date(substackConnection.created_at).toLocaleDateString()}
+                <p className="font-medium">{platform.name}</p>
+                <p className="text-sm text-gray-500">
+                  {platform.connection ? 'Connected' : 'Not connected'}
                 </p>
               </div>
+            </div>
+            
+            {platform.connection ? (
               <Button
-                onClick={() => disconnectPlatform('substack')}
+                onClick={() => disconnectPlatform(platform.key)}
                 variant="outline"
                 size="sm"
                 disabled={isLoading}
@@ -164,74 +165,18 @@ export const SocialConnections: React.FC = () => {
                 <Unlink className="w-4 h-4 mr-2" />
                 Disconnect
               </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter your Substack username"
-                value={substackUsername}
-                onChange={(e) => setSubstackUsername(e.target.value)}
-              />
+            ) : (
               <Button
-                onClick={() => connectPlatform('substack', substackUsername)}
-                disabled={isLoading}
-              >
-                <Link2 className="w-4 h-4 mr-2" />
-                Connect
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* LinkedIn Connection */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-blue-600" />
-            <span className="font-medium">LinkedIn</span>
-          </div>
-          
-          {linkedinConnection ? (
-            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div>
-                <p className="text-sm font-medium text-green-800">
-                  Connected as @{linkedinConnection.platform_username}
-                </p>
-                <p className="text-xs text-green-600">
-                  Connected on {new Date(linkedinConnection.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <Button
-                onClick={() => disconnectPlatform('linkedin')}
-                variant="outline"
+                onClick={() => connectPlatform(platform.key)}
                 size="sm"
                 disabled={isLoading}
               >
-                <Unlink className="w-4 h-4 mr-2" />
-                Disconnect
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter your LinkedIn username"
-                value={linkedinUsername}
-                onChange={(e) => setLinkedinUsername(e.target.value)}
-              />
-              <Button
-                onClick={() => connectPlatform('linkedin', linkedinUsername)}
-                disabled={isLoading}
-              >
                 <Link2 className="w-4 h-4 mr-2" />
                 Connect
               </Button>
-            </div>
-          )}
-        </div>
-
-        <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-          <p className="font-medium mb-1">Note:</p>
-          <p>For Substack, we'll analyze your public posts. For LinkedIn, you can upload your posts manually due to API limitations.</p>
-        </div>
+            )}
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
