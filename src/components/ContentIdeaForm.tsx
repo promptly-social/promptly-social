@@ -77,11 +77,10 @@ export const ContentIdeaForm: React.FC = () => {
 
       setConnectedPlatforms(data || []);
       
-      // If no platforms connected, default to blog_post
-      // If only specific platforms connected, set appropriate default
+      // Set default content type based on available platforms
       if (data && data.length > 0) {
         const hasLinkedIn = data.some(p => p.platform === 'linkedin');
-        if (hasLinkedIn && !data.some(p => p.platform === 'substack')) {
+        if (hasLinkedIn) {
           setContentType('linkedin_post');
         }
       }
@@ -99,8 +98,7 @@ export const ContentIdeaForm: React.FC = () => {
     types.push({
       value: 'blog_post',
       label: 'Blog Post',
-      icon: FileText,
-      connected: true
+      icon: FileText
     });
 
     // Show LinkedIn option only if connected
@@ -109,12 +107,16 @@ export const ContentIdeaForm: React.FC = () => {
       types.push({
         value: 'linkedin_post',
         label: `LinkedIn Post${linkedinConnection.platform_username ? ` (@${linkedinConnection.platform_username})` : ''}`,
-        icon: Linkedin,
-        connected: true
+        icon: Linkedin
       });
     }
 
     return types;
+  };
+
+  // Check if Style Adaptation should be shown
+  const shouldShowStyleAdaptation = () => {
+    return connectedPlatforms.length > 0 && hasStyleAnalysis;
   };
 
   const handleAudioTranscription = (text: string) => {
@@ -242,7 +244,7 @@ export const ContentIdeaForm: React.FC = () => {
         <CardContent className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Content Type</label>
-            {availableContentTypes.length === 1 && availableContentTypes[0].value === 'blog_post' ? (
+            {availableContentTypes.length === 1 ? (
               <div className="p-3 border border-amber-200 bg-amber-50 rounded-lg">
                 <div className="flex items-center gap-2 text-amber-800">
                   <AlertCircle className="w-4 h-4" />
@@ -281,47 +283,60 @@ export const ContentIdeaForm: React.FC = () => {
             )}
           </div>
 
-          {/* Style Adaptation Toggle */}
-          <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
+          {/* Style Adaptation Toggle - Only show if social accounts connected and writing analysis exists */}
+          {shouldShowStyleAdaptation() && (
+            <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <div>
+                      <Label className="text-sm font-medium text-purple-800">
+                        Style Adaptation
+                      </Label>
+                      <p className="text-xs text-purple-600">
+                        Generate content matching your writing style
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={useStyleAdaptation}
+                    onCheckedChange={setUseStyleAdaptation}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Show message to complete setup if requirements not met */}
+          {!shouldShowStyleAdaptation() && (connectedPlatforms.length === 0 || !hasStyleAnalysis) && (
+            <Card className="bg-gradient-to-r from-gray-50 to-blue-50 border-gray-200">
+              <CardContent className="pt-4">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <AlertCircle className="w-5 h-5 text-gray-600" />
                   <div>
-                    <Label className="text-sm font-medium text-purple-800">
-                      Style Adaptation
+                    <Label className="text-sm font-medium text-gray-800">
+                      Style Adaptation Available
                     </Label>
-                    <p className="text-xs text-purple-600">
-                      {hasStyleAnalysis 
-                        ? "Generate content matching your writing style" 
-                        : "Complete writing analysis to enable this feature"
+                    <p className="text-xs text-gray-600">
+                      {connectedPlatforms.length === 0 
+                        ? "Connect social accounts and complete writing analysis to enable style adaptation"
+                        : "Complete writing analysis to enable style adaptation"
                       }
                     </p>
                   </div>
                 </div>
-                <Switch
-                  checked={useStyleAdaptation}
-                  onCheckedChange={setUseStyleAdaptation}
-                  disabled={!hasStyleAnalysis}
-                />
-              </div>
-              {!hasStyleAnalysis && (
-                <div className="mt-3 pt-3 border-t border-purple-200">
-                  <p className="text-xs text-purple-600 mb-2">
-                    To enable style adaptation, visit your Writing Profile to analyze your writing style.
-                  </p>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => window.location.href = '/writing-profile'}
-                    className="text-purple-700 border-purple-300 hover:bg-purple-50"
-                  >
-                    Go to Writing Profile
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => window.location.href = '/writing-profile'}
+                  className="mt-3 text-gray-700 border-gray-300 hover:bg-gray-50"
+                >
+                  Go to Writing Profile
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">Your Content Idea</label>
@@ -347,10 +362,10 @@ export const ContentIdeaForm: React.FC = () => {
                 </>
               ) : (
                 <>
-                  {useStyleAdaptation && hasStyleAnalysis && (
+                  {useStyleAdaptation && shouldShowStyleAdaptation() && (
                     <Sparkles className="w-4 h-4 mr-2" />
                   )}
-                  Generate {useStyleAdaptation && hasStyleAnalysis ? 'Style-Adapted ' : ''}Outline
+                  Generate {useStyleAdaptation && shouldShowStyleAdaptation() ? 'Style-Adapted ' : ''}Outline
                 </>
               )}
             </Button>
