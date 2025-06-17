@@ -20,6 +20,11 @@ interface SubstackData {
   }>;
 }
 
+interface SubstackConnectionData {
+  substackData: SubstackData[];
+  analyzed_at: string;
+}
+
 export const SubstackAnalysis: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -48,8 +53,8 @@ export const SubstackAnalysis: React.FC = () => {
       if (data) {
         setIsConnected(true);
         // Parse existing substack data if available
-        if (data.connection_data && typeof data.connection_data === 'object') {
-          const connectionData = data.connection_data as any;
+        if (data.connection_data) {
+          const connectionData = data.connection_data as SubstackConnectionData;
           if (connectionData.substackData) {
             setSubstackData(connectionData.substackData);
           }
@@ -98,6 +103,12 @@ export const SubstackAnalysis: React.FC = () => {
         }
       ];
 
+      // Prepare the connection data object
+      const connectionData: SubstackConnectionData = {
+        substackData: sampleSubstackData,
+        analyzed_at: new Date().toISOString()
+      };
+
       // Save to database
       const { error } = await supabase
         .from('social_connections')
@@ -105,10 +116,7 @@ export const SubstackAnalysis: React.FC = () => {
           user_id: user?.id,
           platform: 'substack',
           is_active: true,
-          connection_data: {
-            substackData: sampleSubstackData,
-            analyzed_at: new Date().toISOString()
-          },
+          connection_data: connectionData as any,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id,platform'
