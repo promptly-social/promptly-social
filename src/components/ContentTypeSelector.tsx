@@ -27,7 +27,7 @@ export const ContentTypeSelector: React.FC<ContentTypeSelectorProps> = ({
     // Always show blog post option
     types.push({
       value: 'blog_post',
-      label: 'Blog Post',
+      label: 'Substack Blog Post',
       icon: FileText
     });
 
