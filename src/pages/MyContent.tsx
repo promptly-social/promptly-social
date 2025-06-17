@@ -7,38 +7,37 @@ import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Sparkles, ExternalLink, RefreshCw, ThumbsUp, ThumbsDown, Share } from 'lucide-react';
+import { LogOut, ExternalLink, RefreshCw, Calendar, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
-interface SuggestedPost {
+interface ContentIdea {
   id: string;
   title: string;
-  content: string;
-  relevance_score: number;
-  topics: string[];
-  created_at: string;
+  original_input: string;
+  content_type: string;
   status: string;
-  original_source_id: string | null;
-}
-
-interface ScrapedContent {
-  id: string;
-  title: string;
-  content: string;
-  source_url: string;
-  source_type: string;
-  topics: string[];
-  scraped_at: string;
-  relevance_score: number;
+  scheduled_date: string | null;
+  published_date: string | null;
+  linkedin_post_id: string | null;
+  publication_error: string | null;
+  created_at: string;
 }
 
 const MyContent: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const [suggestedPosts, setSuggestedPosts] = useState<SuggestedPost[]>([]);
-  const [scrapedContent, setScrapedContent] = useState<ScrapedContent[]>([]);
+  const [pastPosts, setPastPosts] = useState<ContentIdea[]>([]);
+  const [scheduledPosts, setScheduledPosts] = useState<ContentIdea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isCancelling, setIsCancelling] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -49,28 +48,29 @@ const MyContent: React.FC = () => {
   const fetchContent = async () => {
     setIsLoading(true);
     try {
-      // Fetch suggested posts
-      const { data: postsData, error: postsError } = await supabase
-        .from('suggested_posts')
+      // Fetch past posts (published or failed)
+      const { data: pastData, error: pastError } = await supabase
+        .from('content_ideas')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .in('status', ['published', 'failed'])
+        .order('published_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
 
-      if (postsError) throw postsError;
+      if (pastError) throw pastError;
 
-      // Fetch scraped content
-      const { data: contentData, error: contentError } = await supabase
-        .from('scraped_content')
+      // Fetch scheduled posts
+      const { data: scheduledData, error: scheduledError } = await supabase
+        .from('content_ideas')
         .select('*')
         .eq('user_id', user?.id)
-        .order('scraped_at', { ascending: false })
-        .limit(20);
+        .eq('status', 'scheduled')
+        .order('scheduled_date', { ascending: true });
 
-      if (contentError) throw contentError;
+      if (scheduledError) throw scheduledError;
 
-      setSuggestedPosts(postsData || []);
-      setScrapedContent(contentData || []);
+      setPastPosts(pastData || []);
+      setScheduledPosts(scheduledData || []);
     } catch (error) {
       console.error('Error fetching content:', error);
       toast({
@@ -83,86 +83,60 @@ const MyContent: React.FC = () => {
     }
   };
 
-  const generateSuggestions = async () => {
-    setIsGenerating(true);
-    try {
-      // This would typically call an edge function to scrape content and generate suggestions
-      // For now, we'll create some sample data
-      const samplePost = {
-        user_id: user?.id,
-        title: "AI Revolution in Content Creation",
-        content: "The landscape of content creation is rapidly evolving with AI tools...",
-        relevance_score: 0.85,
-        topics: ['AI', 'Content Creation', 'Technology'],
-        status: 'suggested'
-      };
-
-      const { error } = await supabase
-        .from('suggested_posts')
-        .insert([samplePost]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "New content suggestions generated!",
-      });
-
-      fetchContent();
-    } catch (error) {
-      console.error('Error generating suggestions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate suggestions",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const updatePostStatus = async (postId: string, status: string) => {
+  const cancelScheduledPost = async (postId: string) => {
+    setIsCancelling(postId);
     try {
       const { error } = await supabase
-        .from('suggested_posts')
-        .update({ status })
+        .from('content_ideas')
+        .update({ 
+          status: 'draft',
+          scheduled_date: null 
+        })
         .eq('id', postId);
 
       if (error) throw error;
 
-      setSuggestedPosts(prev => 
-        prev.map(post => 
-          post.id === postId ? { ...post, status } : post
-        )
-      );
+      // Move from scheduled to remove from list
+      setScheduledPosts(prev => prev.filter(post => post.id !== postId));
 
       toast({
         title: "Success",
-        description: `Post ${status === 'posted' ? 'marked as posted' : 'dismissed'}`,
+        description: "Scheduled post cancelled successfully",
       });
     } catch (error) {
-      console.error('Error updating post status:', error);
+      console.error('Error cancelling post:', error);
       toast({
         title: "Error",
-        description: "Failed to update post status",
+        description: "Failed to cancel scheduled post",
         variant: "destructive",
       });
+    } finally {
+      setIsCancelling(null);
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  const getRelevanceColor = (score: number) => {
-    if (score >= 0.8) return 'bg-green-100 text-green-800';
-    if (score >= 0.6) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-gray-100 text-gray-800';
+  const getStatusBadge = (status: string, error?: string | null) => {
+    switch (status) {
+      case 'published':
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Published</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-100 text-red-800"><XCircle className="w-3 h-3 mr-1" />Failed</Badge>;
+      case 'scheduled':
+        return <Badge className="bg-blue-100 text-blue-800"><Calendar className="w-3 h-3 mr-1" />Scheduled</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   return (
@@ -175,13 +149,13 @@ const MyContent: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
             <Button
-              onClick={generateSuggestions}
-              disabled={isGenerating}
+              onClick={fetchContent}
+              disabled={isLoading}
               variant="outline"
               size="sm"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-              {isGenerating ? 'Generating...' : 'Generate New'}
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
             <span className="text-gray-600">Welcome, {user?.email}</span>
             <Button onClick={signOut} variant="outline" size="sm">
@@ -196,156 +170,150 @@ const MyContent: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-8">
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Discover personalized LinkedIn post suggestions based on your interests and writing style
+              View your published content and manage scheduled posts
             </p>
           </div>
 
-          <Tabs defaultValue="suggestions" className="space-y-6">
+          <Tabs defaultValue="past" className="space-y-6">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="suggestions">Suggested Posts ({suggestedPosts.length})</TabsTrigger>
-              <TabsTrigger value="sources">Source Content ({scrapedContent.length})</TabsTrigger>
+              <TabsTrigger value="past">Past Posts ({pastPosts.length})</TabsTrigger>
+              <TabsTrigger value="scheduled">Scheduled Posts ({scheduledPosts.length})</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="suggestions" className="space-y-4">
+            <TabsContent value="past" className="space-y-4">
               {isLoading ? (
                 <div className="text-center py-8">
                   <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  <p className="text-gray-600">Loading suggestions...</p>
+                  <p className="text-gray-600">Loading past posts...</p>
                 </div>
-              ) : suggestedPosts.length === 0 ? (
+              ) : pastPosts.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
-                    <Sparkles className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium mb-2">No suggestions yet</h3>
-                    <p className="text-gray-600 mb-4">
-                      Set up your preferences and connected platforms to get personalized content suggestions
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium mb-2">No past posts</h3>
+                    <p className="text-gray-600">
+                      Your published content will appear here
                     </p>
-                    <Button onClick={generateSuggestions} disabled={isGenerating}>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Suggestions
-                    </Button>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {suggestedPosts.map((post) => (
-                    <Card key={post.id} className="overflow-hidden">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg mb-2">{post.title}</CardTitle>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge className={getRelevanceColor(post.relevance_score)}>
-                                {Math.round(post.relevance_score * 100)}% match
-                              </Badge>
-                              <span className="text-sm text-gray-500">
-                                {formatDate(post.created_at)}
-                              </span>
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Published Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pastPosts.map((post) => (
+                        <TableRow key={post.id}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <p className="font-semibold">{post.title}</p>
+                              <p className="text-sm text-gray-600 truncate max-w-md">
+                                {post.original_input.substring(0, 100)}...
+                              </p>
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              {post.topics.map((topic, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {topic}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            {post.status === 'suggested' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updatePostStatus(post.id, 'dismissed')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {post.content_type.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(post.status, post.publication_error)}
+                            {post.publication_error && (
+                              <p className="text-xs text-red-600 mt-1">
+                                {post.publication_error}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell>{formatDate(post.published_date)}</TableCell>
+                          <TableCell>
+                            {post.linkedin_post_id && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a 
+                                  href={`https://linkedin.com/feed/update/${post.linkedin_post_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                 >
-                                  <ThumbsDown className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => updatePostStatus(post.id, 'posted')}
-                                >
-                                  <Share className="w-4 h-4 mr-1" />
-                                  Use
-                                </Button>
-                              </>
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              </Button>
                             )}
-                            {post.status === 'posted' && (
-                              <Badge variant="secondary">Posted</Badge>
-                            )}
-                            {post.status === 'dismissed' && (
-                              <Badge variant="outline">Dismissed</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-gray-700 leading-relaxed">
-                          {post.content.length > 300 
-                            ? `${post.content.substring(0, 300)}...` 
-                            : post.content
-                          }
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
               )}
             </TabsContent>
 
-            <TabsContent value="sources" className="space-y-4">
-              {scrapedContent.length === 0 ? (
+            <TabsContent value="scheduled" className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  <p className="text-gray-600">Loading scheduled posts...</p>
+                </div>
+              ) : scheduledPosts.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
-                    <ExternalLink className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium mb-2">No source content</h3>
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium mb-2">No scheduled posts</h3>
                     <p className="text-gray-600">
-                      Content will appear here once we start scraping your preferred websites
+                      Your scheduled content will appear here
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {scrapedContent.map((content) => (
-                    <Card key={content.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg mb-2">{content.title}</CardTitle>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline">{content.source_type}</Badge>
-                              <span className="text-sm text-gray-500">
-                                {formatDate(content.scraped_at)}
-                              </span>
-                              <a
-                                href={content.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Scheduled Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {scheduledPosts.map((post) => (
+                        <TableRow key={post.id}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <p className="font-semibold">{post.title}</p>
+                              <p className="text-sm text-gray-600 truncate max-w-md">
+                                {post.original_input.substring(0, 100)}...
+                              </p>
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              {content.topics.map((topic, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {topic}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-gray-700 leading-relaxed">
-                          {content.content.length > 200 
-                            ? `${content.content.substring(0, 200)}...` 
-                            : content.content
-                          }
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {post.content_type.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatDate(post.scheduled_date)}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => cancelScheduledPost(post.id)}
+                              disabled={isCancelling === post.id}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              {isCancelling === post.id ? 'Cancelling...' : 'Cancel'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
               )}
             </TabsContent>
           </Tabs>
