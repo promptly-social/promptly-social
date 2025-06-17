@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,10 +55,12 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
-              <Button size="lg" className="bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white text-lg px-10 py-4 shadow-xl">
-                Start Creating
-                <ArrowRight className="ml-3 w-5 h-5" />
-              </Button>
+              <Link to="/signup">
+                <Button size="lg" className="bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white text-lg px-10 py-4 shadow-xl">
+                  Start Creating
+                  <ArrowRight className="ml-3 w-5 h-5" />
+                </Button>
+              </Link>
             </div>
 
             {/* Trust Indicators */}
@@ -192,10 +193,12 @@ const Index = () => {
           <p className="text-xl text-gray-300 mb-10 font-light max-w-2xl mx-auto">
             Join the next generation of content creators who leverage AI to amplify their voice and reach.
           </p>
-          <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100 text-lg px-10 py-4 shadow-xl font-semibold">
-            Start Your Journey
-            <ArrowRight className="ml-3 w-5 h-5" />
-          </Button>
+          <Link to="/signup">
+            <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100 text-lg px-10 py-4 shadow-xl font-semibold">
+              Start Your Journey
+              <ArrowRight className="ml-3 w-5 h-5" />
+            </Button>
+          </Link>
         </div>
       </section>
 
