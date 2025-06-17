@@ -96,6 +96,45 @@ export type Database = {
         }
         Relationships: []
       }
+      scraped_content: {
+        Row: {
+          content: string
+          id: string
+          relevance_score: number | null
+          scraped_at: string
+          source_type: string
+          source_url: string
+          suggested_for_linkedin: boolean | null
+          title: string
+          topics: string[] | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          id?: string
+          relevance_score?: number | null
+          scraped_at?: string
+          source_type: string
+          source_url: string
+          suggested_for_linkedin?: boolean | null
+          title: string
+          topics?: string[] | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          relevance_score?: number | null
+          scraped_at?: string
+          source_type?: string
+          source_url?: string
+          suggested_for_linkedin?: boolean | null
+          title?: string
+          topics?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       social_connections: {
         Row: {
           connection_data: Json | null
@@ -126,6 +165,77 @@ export type Database = {
           platform_username?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      suggested_posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          original_source_id: string | null
+          relevance_score: number
+          status: string | null
+          title: string
+          topics: string[] | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          original_source_id?: string | null
+          relevance_score: number
+          status?: string | null
+          title: string
+          topics?: string[] | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          original_source_id?: string | null
+          relevance_score?: number
+          status?: string | null
+          title?: string
+          topics?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_posts_original_source_id_fkey"
+            columns: ["original_source_id"]
+            isOneToOne: false
+            referencedRelation: "scraped_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          topics_of_interest: string[] | null
+          updated_at: string
+          user_id: string
+          websites: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          topics_of_interest?: string[] | null
+          updated_at?: string
+          user_id: string
+          websites?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          topics_of_interest?: string[] | null
+          updated_at?: string
+          user_id?: string
+          websites?: string[] | null
         }
         Relationships: []
       }

@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3 } from 'lucide-react';
-import { PlatformStyleAnalysis } from './PlatformStyleAnalysis';
+import { EnhancedPlatformAnalysis } from './EnhancedPlatformAnalysis';
 
 interface SocialConnection {
   platform: string;
@@ -103,7 +103,7 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
       </Card>
 
       {selectedPlatform && (
-        <PlatformStyleAnalysis 
+        <EnhancedPlatformAnalysis 
           platform={selectedPlatform} 
           platformName={getPlatformDisplayName(selectedPlatform)} 
           isConnected={isConnected(selectedPlatform)}

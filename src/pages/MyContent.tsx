@@ -5,29 +5,40 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { ContentScheduler } from '@/components/ContentScheduler';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Calendar, FileText, CheckCircle, XCircle, Clock, Send, AlertCircle } from 'lucide-react';
+import { LogOut, Sparkles, ExternalLink, RefreshCw, ThumbsUp, ThumbsDown, Share } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface ContentItem {
+interface SuggestedPost {
   id: string;
   title: string;
-  content_type: string;
+  content: string;
+  relevance_score: number;
+  topics: string[];
   created_at: string;
-  status?: 'draft' | 'approved' | 'scheduled' | 'published' | 'failed';
-  scheduled_date?: string;
-  published_date?: string;
-  publication_error?: string;
-  linkedin_post_id?: string;
+  status: string;
+  original_source_id: string | null;
+}
+
+interface ScrapedContent {
+  id: string;
+  title: string;
+  content: string;
+  source_url: string;
+  source_type: string;
+  topics: string[];
+  scraped_at: string;
+  relevance_score: number;
 }
 
 const MyContent: React.FC = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const [content, setContent] = useState<ContentItem[]>([]);
+  const [suggestedPosts, setSuggestedPosts] = useState<SuggestedPost[]>([]);
+  const [scrapedContent, setScrapedContent] = useState<ScrapedContent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [schedulingContentId, setSchedulingContentId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -36,34 +47,35 @@ const MyContent: React.FC = () => {
   }, [user]);
 
   const fetchContent = async () => {
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('content_ideas')
+      // Fetch suggested posts
+      const { data: postsData, error: postsError } = await supabase
+        .from('suggested_posts')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      if (error) throw error;
-      
-      // Transform data to match our interface with proper type casting
-      const transformedData: ContentItem[] = data.map(item => ({
-        id: item.id,
-        title: item.title,
-        content_type: item.content_type,
-        created_at: item.created_at,
-        status: (item.status as 'draft' | 'approved' | 'scheduled' | 'published' | 'failed') || 'draft',
-        scheduled_date: item.scheduled_date,
-        published_date: item.published_date,
-        publication_error: item.publication_error,
-        linkedin_post_id: item.linkedin_post_id,
-      }));
+      if (postsError) throw postsError;
 
-      setContent(transformedData);
+      // Fetch scraped content
+      const { data: contentData, error: contentError } = await supabase
+        .from('scraped_content')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('scraped_at', { ascending: false })
+        .limit(20);
+
+      if (contentError) throw contentError;
+
+      setSuggestedPosts(postsData || []);
+      setScrapedContent(contentData || []);
     } catch (error) {
       console.error('Error fetching content:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch your content",
+        description: "Failed to load content",
         variant: "destructive",
       });
     } finally {
@@ -71,76 +83,86 @@ const MyContent: React.FC = () => {
     }
   };
 
-  const handleApprove = async (contentId: string) => {
+  const generateSuggestions = async () => {
+    setIsGenerating(true);
     try {
+      // This would typically call an edge function to scrape content and generate suggestions
+      // For now, we'll create some sample data
+      const samplePost = {
+        user_id: user?.id,
+        title: "AI Revolution in Content Creation",
+        content: "The landscape of content creation is rapidly evolving with AI tools...",
+        relevance_score: 0.85,
+        topics: ['AI', 'Content Creation', 'Technology'],
+        status: 'suggested'
+      };
+
       const { error } = await supabase
-        .from('content_ideas')
-        .update({ status: 'approved' })
-        .eq('id', contentId);
+        .from('suggested_posts')
+        .insert([samplePost]);
 
       if (error) throw error;
 
-      await fetchContent();
       toast({
-        title: "Content Approved",
-        description: "Content has been approved and is ready for scheduling.",
+        title: "Success",
+        description: "New content suggestions generated!",
       });
+
+      fetchContent();
     } catch (error) {
-      console.error('Error approving content:', error);
+      console.error('Error generating suggestions:', error);
       toast({
         title: "Error",
-        description: "Failed to approve content",
+        description: "Failed to generate suggestions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const updatePostStatus = async (postId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('suggested_posts')
+        .update({ status })
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      setSuggestedPosts(prev => 
+        prev.map(post => 
+          post.id === postId ? { ...post, status } : post
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `Post ${status === 'posted' ? 'marked as posted' : 'dismissed'}`,
+      });
+    } catch (error) {
+      console.error('Error updating post status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update post status",
         variant: "destructive",
       });
     }
   };
 
-  const handleReject = async (contentId: string) => {
-    try {
-      const { error } = await supabase
-        .from('content_ideas')
-        .update({ status: 'draft' })
-        .eq('id', contentId);
-
-      if (error) throw error;
-
-      await fetchContent();
-      toast({
-        title: "Content Rejected",
-        description: "Content has been moved back to draft status.",
-      });
-    } catch (error) {
-      console.error('Error rejecting content:', error);
-      toast({
-        title: "Error",
-        description: "Failed to reject content",
-        variant: "destructive",
-      });
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published':
-        return 'bg-green-100 text-green-800';
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'approved':
-        return 'bg-purple-100 text-purple-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getContentTypeIcon = (type: string) => {
-    return type === 'blog_post' ? FileText : FileText;
-  };
-
-  const handleSchedulingComplete = () => {
-    setSchedulingContentId(null);
-    fetchContent();
+  const getRelevanceColor = (score: number) => {
+    if (score >= 0.8) return 'bg-green-100 text-green-800';
+    if (score >= 0.6) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -152,6 +174,15 @@ const MyContent: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">My Content</h1>
           </div>
           <div className="flex items-center space-x-4">
+            <Button
+              onClick={generateSuggestions}
+              disabled={isGenerating}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+              {isGenerating ? 'Generating...' : 'Generate New'}
+            </Button>
             <span className="text-gray-600">Welcome, {user?.email}</span>
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="w-4 h-4 mr-2" />
@@ -162,152 +193,162 @@ const MyContent: React.FC = () => {
       </header>
 
       <main className="py-8 px-6">
-        <div className="max-w-6xl mx-auto">
-          {schedulingContentId && (
-            <div className="mb-6">
-              <ContentScheduler
-                contentId={schedulingContentId}
-                contentType={content.find(c => c.id === schedulingContentId)?.content_type || 'blog_post'}
-                onScheduled={handleSchedulingComplete}
-                onCancel={() => setSchedulingContentId(null)}
-              />
-            </div>
-          )}
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Discover personalized LinkedIn post suggestions based on your interests and writing style
+            </p>
+          </div>
 
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-              <p className="text-gray-600 mt-2">Loading your content...</p>
-            </div>
-          ) : content.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No content yet</h3>
-              <p className="text-gray-600 mb-4">Start creating content to see it here</p>
-              <Button onClick={() => window.location.href = '/dashboard'}>
-                Create New Content
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {content.map((item) => {
-                const ContentIcon = getContentTypeIcon(item.content_type);
-                const isScheduling = schedulingContentId === item.id;
-                
-                return (
-                  <Card key={item.id} className={isScheduling ? 'ring-2 ring-blue-500' : ''}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <ContentIcon className="w-5 h-5 text-gray-500 mt-1" />
-                          <div>
-                            <CardTitle className="text-lg">{item.title}</CardTitle>
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                              <Badge variant="outline" className="capitalize">
-                                {item.content_type.replace('_', ' ')}
+          <Tabs defaultValue="suggestions" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="suggestions">Suggested Posts ({suggestedPosts.length})</TabsTrigger>
+              <TabsTrigger value="sources">Source Content ({scrapedContent.length})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="suggestions" className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  <p className="text-gray-600">Loading suggestions...</p>
+                </div>
+              ) : suggestedPosts.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Sparkles className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium mb-2">No suggestions yet</h3>
+                    <p className="text-gray-600 mb-4">
+                      Set up your preferences and connected platforms to get personalized content suggestions
+                    </p>
+                    <Button onClick={generateSuggestions} disabled={isGenerating}>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Suggestions
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {suggestedPosts.map((post) => (
+                    <Card key={post.id} className="overflow-hidden">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg mb-2">{post.title}</CardTitle>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge className={getRelevanceColor(post.relevance_score)}>
+                                {Math.round(post.relevance_score * 100)}% match
                               </Badge>
-                              <Badge className={getStatusColor(item.status || 'draft')}>
-                                {item.status || 'draft'}
-                              </Badge>
-                              {item.status === 'failed' && item.publication_error && (
-                                <Badge variant="destructive" className="text-xs">
-                                  <AlertCircle className="w-3 h-3 mr-1" />
-                                  Error
+                              <span className="text-sm text-gray-500">
+                                {formatDate(post.created_at)}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {post.topics.map((topic, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {topic}
                                 </Badge>
-                              )}
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {post.status === 'suggested' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updatePostStatus(post.id, 'dismissed')}
+                                >
+                                  <ThumbsDown className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => updatePostStatus(post.id, 'posted')}
+                                >
+                                  <Share className="w-4 h-4 mr-1" />
+                                  Use
+                                </Button>
+                              </>
+                            )}
+                            {post.status === 'posted' && (
+                              <Badge variant="secondary">Posted</Badge>
+                            )}
+                            {post.status === 'dismissed' && (
+                              <Badge variant="outline">Dismissed</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-700 leading-relaxed">
+                          {post.content.length > 300 
+                            ? `${post.content.substring(0, 300)}...` 
+                            : post.content
+                          }
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="sources" className="space-y-4">
+              {scrapedContent.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <ExternalLink className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium mb-2">No source content</h3>
+                    <p className="text-gray-600">
+                      Content will appear here once we start scraping your preferred websites
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {scrapedContent.map((content) => (
+                    <Card key={content.id}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg mb-2">{content.title}</CardTitle>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline">{content.source_type}</Badge>
+                              <span className="text-sm text-gray-500">
+                                {formatDate(content.scraped_at)}
+                              </span>
+                              <a
+                                href={content.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {content.topics.map((topic, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {topic}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {item.status === 'draft' && (
-                            <>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-green-600 hover:text-green-700"
-                                onClick={() => handleApprove(item.id)}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Approve
-                              </Button>
-                            </>
-                          )}
-                          {item.status === 'approved' && (
-                            <>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-blue-600 hover:text-blue-700"
-                                onClick={() => setSchedulingContentId(item.id)}
-                              >
-                                <Clock className="w-4 h-4 mr-1" />
-                                Schedule
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="text-red-600 hover:text-red-700"
-                                onClick={() => handleReject(item.id)}
-                              >
-                                <XCircle className="w-4 h-4 mr-1" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                          {item.status === 'scheduled' && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-orange-600 hover:text-orange-700"
-                              onClick={() => handleReject(item.id)}
-                            >
-                              Cancel Schedule
-                            </Button>
-                          )}
-                          {item.status === 'failed' && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-blue-600 hover:text-blue-700"
-                              onClick={() => setSchedulingContentId(item.id)}
-                            >
-                              <Send className="w-4 h-4 mr-1" />
-                              Retry
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          Created: {new Date(item.created_at).toLocaleDateString()}
-                        </div>
-                        {item.scheduled_date && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            Scheduled: {new Date(item.scheduled_date).toLocaleString()}
-                          </div>
-                        )}
-                        {item.published_date && (
-                          <div className="flex items-center gap-1">
-                            <Send className="w-4 h-4" />
-                            Published: {new Date(item.published_date).toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                      {item.status === 'failed' && item.publication_error && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                          <strong>Publication Error:</strong> {item.publication_error}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-700 leading-relaxed">
+                          {content.content.length > 200 
+                            ? `${content.content.substring(0, 200)}...` 
+                            : content.content
+                          }
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </SidebarInset>
