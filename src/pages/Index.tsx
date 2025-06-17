@@ -2,177 +2,223 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Mic, FileText, Sparkles, Image, Calendar, Users } from "lucide-react";
+import { ArrowRight, Mic, FileText, Sparkles, Image, Calendar, Users, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-zinc-50">
+    <div className="min-h-screen bg-white">
       {/* Navigation */}
-      <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-gray-800 to-black rounded-lg flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
+      <nav className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
+        <div className="flex items-center justify-between p-6 max-w-7xl mx-auto">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl flex items-center justify-center shadow-lg">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              Promptly
+            </span>
           </div>
-          <span className="text-xl font-bold text-gray-900">Promptly.social</span>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Link to="/login">
-            <Button variant="ghost" className="text-gray-700 hover:text-gray-900">Sign In</Button>
-          </Link>
-          <Link to="/signup">
-            <Button className="bg-gradient-to-r from-gray-800 to-black hover:from-gray-900 hover:to-gray-800 text-white">
-              Get Started
-            </Button>
-          </Link>
+          <div className="flex items-center space-x-6">
+            <Link to="/login">
+              <Button variant="ghost" className="text-gray-600 hover:text-gray-900 font-medium">
+                Sign In
+              </Button>
+            </Link>
+            <Link to="/signup">
+              <Button className="bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white shadow-lg">
+                Get Started
+              </Button>
+            </Link>
+          </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-6 py-20">
-        <div className="text-center max-w-4xl mx-auto">
-          <Badge className="mb-6 bg-gray-100 text-gray-800 hover:bg-gray-100 border border-gray-200">
-            🚀 AI-Powered Content Creation
-          </Badge>
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Transform Your Ideas Into
-            <span className="bg-gradient-to-r from-gray-700 to-black bg-clip-text text-transparent">
-              {" "}Engaging Content
-            </span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-            Generate blog posts and LinkedIn content that matches your unique writing style. 
-            From voice memos to published posts in minutes, not hours.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" className="bg-gradient-to-r from-gray-800 to-black hover:from-gray-900 hover:to-gray-800 text-white text-lg px-8 py-3">
-              Start Creating Free
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-3 border-gray-300 text-gray-700 hover:bg-gray-50">
-              Watch Demo
-            </Button>
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-100"></div>
+        <div className="relative max-w-7xl mx-auto px-6 pt-20 pb-32">
+          <div className="text-center max-w-5xl mx-auto">
+            <Badge className="mb-8 bg-gray-100 text-gray-700 hover:bg-gray-100 border border-gray-200 px-4 py-2 text-sm font-medium">
+              AI-Powered Content Creation Platform
+            </Badge>
+            
+            <h1 className="text-6xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight tracking-tight">
+              Content Creation
+              <span className="block bg-gradient-to-r from-gray-700 via-gray-800 to-black bg-clip-text text-transparent">
+                Reimagined
+              </span>
+            </h1>
+            
+            <p className="text-xl text-gray-600 mb-12 leading-relaxed max-w-3xl mx-auto font-light">
+              Transform your ideas into compelling content that reflects your unique voice. 
+              From concept to publication, streamline your workflow with AI that understands your style.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
+              <Button size="lg" className="bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white text-lg px-10 py-4 shadow-xl">
+                Start Creating
+                <ArrowRight className="ml-3 w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Trust Indicators */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-8 border-t border-gray-100">
+              {[
+                { metric: "10K+", label: "Content Pieces Created" },
+                { metric: "95%", label: "Time Saved" },
+                { metric: "500+", label: "Active Creators" },
+                { metric: "4.9/5", label: "User Rating" }
+              ].map((stat, index) => (
+                <div key={index} className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{stat.metric}</div>
+                  <div className="text-sm text-gray-600 font-medium">{stat.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features Grid */}
-      <div className="max-w-7xl mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Everything You Need to Create Amazing Content
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            From idea to publication, our AI-powered platform handles every step of your content creation process.
-          </p>
+      {/* Features Section */}
+      <section className="py-24 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
+              Everything You Need
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto font-light">
+              A comprehensive suite of AI-powered tools designed for professional content creators 
+              who demand excellence and efficiency.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Mic,
+                title: "Voice to Content",
+                description: "Transform spoken ideas into structured content with advanced speech recognition and AI processing.",
+                gradient: "from-gray-800 to-gray-900"
+              },
+              {
+                icon: FileText,
+                title: "Intelligent Outlines",
+                description: "Generate comprehensive content structures with key points and logical flow optimization.",
+                gradient: "from-gray-700 to-gray-800"
+              },
+              {
+                icon: Sparkles,
+                title: "Personal Style AI",
+                description: "Learn and replicate your unique writing voice across all content types and platforms.",
+                gradient: "from-gray-900 to-black"
+              },
+              {
+                icon: Image,
+                title: "Visual Content",
+                description: "Create compelling visuals that perfectly complement your written content with AI generation.",
+                gradient: "from-gray-600 to-gray-700"
+              },
+              {
+                icon: Calendar,
+                title: "Smart Scheduling",
+                description: "Optimize posting times and automate publication across multiple platforms.",
+                gradient: "from-gray-800 to-gray-900"
+              },
+              {
+                icon: Users,
+                title: "Content Management",
+                description: "Centralized hub for all your content with approval workflows and version control.",
+                gradient: "from-gray-700 to-gray-800"
+              }
+            ].map((feature, index) => (
+              <Card key={index} className="group border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-500 bg-white hover:bg-gray-50/50">
+                <CardHeader className="pb-4">
+                  <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                    <feature.icon className="w-7 h-7 text-white" />
+                  </div>
+                  <CardTitle className="text-xl text-gray-900 font-semibold mb-3">
+                    {feature.title}
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 leading-relaxed">
+                    {feature.description}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
         </div>
+      </section>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <Card className="border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-to-r from-gray-700 to-gray-800 rounded-lg flex items-center justify-center mb-4">
-                <Mic className="w-6 h-6 text-white" />
+      {/* Benefits Section */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h3 className="text-4xl font-bold text-gray-900 mb-8 tracking-tight">
+                Why Choose Promptly?
+              </h3>
+              <div className="space-y-6">
+                {[
+                  "Professional-grade AI that learns your unique writing style",
+                  "Seamless integration with your existing content workflow",
+                  "Enterprise-level security and content management",
+                  "Time-saving automation without compromising quality"
+                ].map((benefit, index) => (
+                  <div key={index} className="flex items-start space-x-4">
+                    <CheckCircle className="w-6 h-6 text-gray-700 mt-1 flex-shrink-0" />
+                    <span className="text-gray-700 text-lg">{benefit}</span>
+                  </div>
+                ))}
               </div>
-              <CardTitle className="text-gray-900">Voice to Content</CardTitle>
-              <CardDescription className="text-gray-600">
-                Record your ideas and let AI transform them into structured outlines and full drafts.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-white" />
+            </div>
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl p-12 text-center">
+              <div className="text-5xl font-bold text-gray-900 mb-4">10x</div>
+              <div className="text-xl text-gray-700 mb-6">Faster Content Creation</div>
+              <div className="text-gray-600">
+                Join thousands of professionals who've transformed their content workflow
               </div>
-              <CardTitle className="text-gray-900">Smart Outlines</CardTitle>
-              <CardDescription className="text-gray-600">
-                AI generates structured outlines with key points, making content creation effortless.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-to-r from-gray-800 to-black rounded-lg flex items-center justify-center mb-4">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <CardTitle className="text-gray-900">Your Writing Style</CardTitle>
-              <CardDescription className="text-gray-600">
-                Connect your accounts and AI learns to write in your unique voice and tone.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center mb-4">
-                <Image className="w-6 h-6 text-white" />
-              </div>
-              <CardTitle className="text-gray-900">AI Images</CardTitle>
-              <CardDescription className="text-gray-600">
-                Generate stunning visuals that perfectly complement your content with AI-powered images.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-to-r from-gray-700 to-gray-800 rounded-lg flex items-center justify-center mb-4">
-                <Calendar className="w-6 h-6 text-white" />
-              </div>
-              <CardTitle className="text-gray-900">Smart Scheduling</CardTitle>
-              <CardDescription className="text-gray-600">
-                Schedule your LinkedIn posts for optimal engagement and automate your publishing.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg flex items-center justify-center mb-4">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <CardTitle className="text-gray-900">Content Library</CardTitle>
-              <CardDescription className="text-gray-600">
-                Secure storage for all your content with approval workflows and version control.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* CTA Section */}
-      <div className="max-w-4xl mx-auto px-6 py-20 text-center">
-        <div className="bg-gradient-to-r from-gray-800 to-black rounded-3xl p-12 text-white">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to Transform Your Content Creation?
+      <section className="py-24 bg-gradient-to-r from-gray-900 via-gray-800 to-black">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+            Ready to Transform Your Content?
           </h2>
-          <p className="text-xl opacity-90 mb-8">
-            Join thousands of content creators who've streamlined their workflow with AI.
+          <p className="text-xl text-gray-300 mb-10 font-light max-w-2xl mx-auto">
+            Join the next generation of content creators who leverage AI to amplify their voice and reach.
           </p>
-          <Button size="lg" className="bg-white text-gray-800 hover:bg-gray-100 text-lg px-8 py-3">
-            Start Your Free Trial
-            <ArrowRight className="ml-2 w-5 h-5" />
+          <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100 text-lg px-10 py-4 shadow-xl font-semibold">
+            Start Your Journey
+            <ArrowRight className="ml-3 w-5 h-5" />
           </Button>
         </div>
-      </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white/70 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-12">
+      <footer className="border-t border-gray-100 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-16">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-gradient-to-r from-gray-800 to-black rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+            <div className="flex items-center space-x-3 mb-8 md:mb-0">
+              <div className="w-10 h-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">Promptly.social</span>
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                Promptly
+              </span>
             </div>
-            <div className="flex space-x-6 text-gray-600">
-              <a href="#" className="hover:text-gray-900 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-gray-900 transition-colors">Terms</a>
-              <a href="#" className="hover:text-gray-900 transition-colors">Support</a>
+            <div className="flex space-x-8 text-gray-600">
+              <a href="#" className="hover:text-gray-900 transition-colors font-medium">Privacy Policy</a>
+              <a href="#" className="hover:text-gray-900 transition-colors font-medium">Terms of Service</a>
+              <a href="#" className="hover:text-gray-900 transition-colors font-medium">Support</a>
             </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-gray-100 text-center text-gray-500">
+            <p>&copy; 2024 Promptly. All rights reserved.</p>
           </div>
         </div>
       </footer>
