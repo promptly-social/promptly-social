@@ -105,12 +105,33 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Handle request validation errors with detailed messages."""
     logger.warning(f"Validation error on {request.url}: {exc.errors()}")
 
+    # Clean up error details to make them JSON serializable
+    cleaned_errors = []
+    for error in exc.errors():
+        cleaned_error = {
+            "type": error.get("type"),
+            "loc": error.get("loc"),
+            "msg": error.get("msg"),
+            "input": error.get("input"),
+        }
+        # Remove ctx field or clean it up if it contains non-serializable objects
+        if "ctx" in error and error["ctx"]:
+            # Convert any non-serializable objects to strings
+            cleaned_ctx = {}
+            for key, value in error["ctx"].items():
+                if isinstance(value, Exception):
+                    cleaned_ctx[key] = str(value)
+                else:
+                    cleaned_ctx[key] = value
+            cleaned_error["ctx"] = cleaned_ctx
+        cleaned_errors.append(cleaned_error)
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "Validation Error",
             "message": "The request data is invalid",
-            "details": exc.errors(),
+            "details": cleaned_errors,
         },
     )
 

@@ -55,11 +55,26 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      throw new ApiError(
-        data?.detail || data?.error || `HTTP ${response.status}`,
-        response.status,
-        data
-      );
+      let errorMessage = data?.detail || data?.error || `HTTP ${response.status}`;
+      
+      // Handle validation errors with details
+      if (data?.details && Array.isArray(data.details) && data.details.length > 0) {
+        // Extract the most user-friendly error message
+        const validationErrors = data.details
+          .map((detail: unknown) => {
+            // Try to get the most readable error message
+            const detailObj = detail as Record<string, unknown>;
+            const ctx = detailObj.ctx as Record<string, unknown> | undefined;
+            return ctx?.error || detailObj.msg || detailObj.type;
+          })
+          .filter(Boolean) as string[];
+        
+        if (validationErrors.length > 0) {
+          errorMessage = validationErrors.join('; ');
+        }
+      }
+
+      throw new ApiError(errorMessage, response.status, data);
     }
 
     return data;
