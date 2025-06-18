@@ -17,14 +17,14 @@ import { PenTool, FileText, User, Settings, List } from "lucide-react";
 
 const menuItems = [
   {
-    title: "My Content",
-    url: "/my-content",
-    icon: List,
-  },
-  {
     title: "New Content",
     url: "/new-content",
     icon: FileText,
+  },
+  {
+    title: "My Content",
+    url: "/my-content",
+    icon: List,
   },
   {
     title: "Profile",
