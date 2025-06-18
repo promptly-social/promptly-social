@@ -1,14 +1,21 @@
-
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { LogOut, ExternalLink, RefreshCw, Calendar, CheckCircle, XCircle, Trash2 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import {
+  LogOut,
+  ExternalLink,
+  RefreshCw,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Trash2,
+} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -16,7 +23,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 
 interface ContentIdea {
   id: string;
@@ -50,29 +57,29 @@ const MyContent: React.FC = () => {
     try {
       // Fetch past posts (published or failed)
       const { data: pastData, error: pastError } = await supabase
-        .from('content_ideas')
-        .select('*')
-        .eq('user_id', user?.id)
-        .in('status', ['published', 'failed'])
-        .order('published_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .from("content_ideas")
+        .select("*")
+        .eq("user_id", user?.id)
+        .in("status", ["published", "failed"])
+        .order("published_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
 
       if (pastError) throw pastError;
 
       // Fetch scheduled posts
       const { data: scheduledData, error: scheduledError } = await supabase
-        .from('content_ideas')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('status', 'scheduled')
-        .order('scheduled_date', { ascending: true });
+        .from("content_ideas")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("status", "scheduled")
+        .order("scheduled_date", { ascending: true });
 
       if (scheduledError) throw scheduledError;
 
       setPastPosts(pastData || []);
       setScheduledPosts(scheduledData || []);
     } catch (error) {
-      console.error('Error fetching content:', error);
+      console.error("Error fetching content:", error);
       toast({
         title: "Error",
         description: "Failed to load content",
@@ -87,24 +94,24 @@ const MyContent: React.FC = () => {
     setIsCancelling(postId);
     try {
       const { error } = await supabase
-        .from('content_ideas')
-        .update({ 
-          status: 'draft',
-          scheduled_date: null 
+        .from("content_ideas")
+        .update({
+          status: "draft",
+          scheduled_date: null,
         })
-        .eq('id', postId);
+        .eq("id", postId);
 
       if (error) throw error;
 
       // Move from scheduled to remove from list
-      setScheduledPosts(prev => prev.filter(post => post.id !== postId));
+      setScheduledPosts((prev) => prev.filter((post) => post.id !== postId));
 
       toast({
         title: "Success",
         description: "Scheduled post cancelled successfully",
       });
     } catch (error) {
-      console.error('Error cancelling post:', error);
+      console.error("Error cancelling post:", error);
       toast({
         title: "Error",
         description: "Failed to cancel scheduled post",
@@ -116,24 +123,39 @@ const MyContent: React.FC = () => {
   };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getStatusBadge = (status: string, error?: string | null) => {
     switch (status) {
-      case 'published':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Published</Badge>;
-      case 'failed':
-        return <Badge className="bg-red-100 text-red-800"><XCircle className="w-3 h-3 mr-1" />Failed</Badge>;
-      case 'scheduled':
-        return <Badge className="bg-blue-100 text-blue-800"><Calendar className="w-3 h-3 mr-1" />Scheduled</Badge>;
+      case "published":
+        return (
+          <Badge className="bg-green-100 text-green-800">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Published
+          </Badge>
+        );
+      case "failed":
+        return (
+          <Badge className="bg-red-100 text-red-800">
+            <XCircle className="w-3 h-3 mr-1" />
+            Failed
+          </Badge>
+        );
+      case "scheduled":
+        return (
+          <Badge className="bg-blue-100 text-blue-800">
+            <Calendar className="w-3 h-3 mr-1" />
+            Scheduled
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -145,7 +167,9 @@ const MyContent: React.FC = () => {
         <div className="flex items-center justify-between p-4 sm:p-6">
           <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger />
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">My Content</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+              My Content
+            </h1>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             <Button
@@ -154,10 +178,14 @@ const MyContent: React.FC = () => {
               variant="outline"
               size="sm"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''} sm:mr-2`} />
+              <RefreshCw
+                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} sm:mr-2`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <span className="hidden md:inline text-gray-600 text-sm">{user?.email}</span>
+            <span className="hidden md:inline text-gray-600 text-sm">
+              {user?.email}
+            </span>
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Sign Out</span>
@@ -176,8 +204,12 @@ const MyContent: React.FC = () => {
 
           <Tabs defaultValue="past" className="space-y-4 sm:space-y-6">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="past" className="text-xs sm:text-sm">Past Posts ({pastPosts.length})</TabsTrigger>
-              <TabsTrigger value="scheduled" className="text-xs sm:text-sm">Scheduled Posts ({scheduledPosts.length})</TabsTrigger>
+              <TabsTrigger value="past" className="text-xs sm:text-sm">
+                Past Posts ({pastPosts.length})
+              </TabsTrigger>
+              <TabsTrigger value="scheduled" className="text-xs sm:text-sm">
+                Scheduled Posts ({scheduledPosts.length})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="past" className="space-y-4">
@@ -190,7 +222,9 @@ const MyContent: React.FC = () => {
                 <Card>
                   <CardContent className="py-8 sm:py-12 text-center">
                     <CheckCircle className="w-8 sm:w-12 h-8 sm:h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-base sm:text-lg font-medium mb-2">No past posts</h3>
+                    <h3 className="text-base sm:text-lg font-medium mb-2">
+                      No past posts
+                    </h3>
                     <p className="text-sm sm:text-base text-gray-600">
                       Your published content will appear here
                     </p>
@@ -205,12 +239,17 @@ const MyContent: React.FC = () => {
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm truncate">{post.title}</h4>
+                              <h4 className="font-semibold text-sm truncate">
+                                {post.title}
+                              </h4>
                               <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                                 {post.original_input.substring(0, 80)}...
                               </p>
                             </div>
-                            {getStatusBadge(post.status, post.publication_error)}
+                            {getStatusBadge(
+                              post.status,
+                              post.publication_error
+                            )}
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0">
@@ -218,7 +257,7 @@ const MyContent: React.FC = () => {
                             <span>{formatDate(post.published_date)}</span>
                             {post.linkedin_post_id && (
                               <Button variant="outline" size="sm" asChild>
-                                <a 
+                                <a
                                   href={`https://linkedin.com/feed/update/${post.linkedin_post_id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -264,22 +303,27 @@ const MyContent: React.FC = () => {
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline">
-                                  {post.content_type.replace('_', ' ')}
+                                  {post.content_type.replace("_", " ")}
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {getStatusBadge(post.status, post.publication_error)}
+                                {getStatusBadge(
+                                  post.status,
+                                  post.publication_error
+                                )}
                                 {post.publication_error && (
                                   <p className="text-xs text-red-600 mt-1">
                                     {post.publication_error}
                                   </p>
                                 )}
                               </TableCell>
-                              <TableCell>{formatDate(post.published_date)}</TableCell>
+                              <TableCell>
+                                {formatDate(post.published_date)}
+                              </TableCell>
                               <TableCell>
                                 {post.linkedin_post_id && (
                                   <Button variant="outline" size="sm" asChild>
-                                    <a 
+                                    <a
                                       href={`https://linkedin.com/feed/update/${post.linkedin_post_id}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
@@ -309,7 +353,9 @@ const MyContent: React.FC = () => {
                 <Card>
                   <CardContent className="py-8 sm:py-12 text-center">
                     <Calendar className="w-8 sm:w-12 h-8 sm:h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-base sm:text-lg font-medium mb-2">No scheduled posts</h3>
+                    <h3 className="text-base sm:text-lg font-medium mb-2">
+                      No scheduled posts
+                    </h3>
                     <p className="text-sm sm:text-base text-gray-600">
                       Your scheduled content will appear here
                     </p>
@@ -324,19 +370,23 @@ const MyContent: React.FC = () => {
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm truncate">{post.title}</h4>
+                              <h4 className="font-semibold text-sm truncate">
+                                {post.title}
+                              </h4>
                               <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                                 {post.original_input.substring(0, 80)}...
                               </p>
                             </div>
                             <Badge variant="outline" className="text-xs">
-                              {post.content_type.replace('_', ' ')}
+                              {post.content_type.replace("_", " ")}
                             </Badge>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">{formatDate(post.scheduled_date)}</span>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(post.scheduled_date)}
+                            </span>
                             <Button
                               variant="outline"
                               size="sm"
@@ -344,7 +394,9 @@ const MyContent: React.FC = () => {
                               disabled={isCancelling === post.id}
                             >
                               <Trash2 className="w-3 h-3 mr-1" />
-                              {isCancelling === post.id ? 'Cancelling...' : 'Cancel'}
+                              {isCancelling === post.id
+                                ? "Cancelling..."
+                                : "Cancel"}
                             </Button>
                           </div>
                         </CardContent>
@@ -377,10 +429,12 @@ const MyContent: React.FC = () => {
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline">
-                                  {post.content_type.replace('_', ' ')}
+                                  {post.content_type.replace("_", " ")}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{formatDate(post.scheduled_date)}</TableCell>
+                              <TableCell>
+                                {formatDate(post.scheduled_date)}
+                              </TableCell>
                               <TableCell>
                                 <Button
                                   variant="outline"
@@ -389,7 +443,9 @@ const MyContent: React.FC = () => {
                                   disabled={isCancelling === post.id}
                                 >
                                   <Trash2 className="w-4 h-4 mr-1" />
-                                  {isCancelling === post.id ? 'Cancelling...' : 'Cancel'}
+                                  {isCancelling === post.id
+                                    ? "Cancelling..."
+                                    : "Cancel"}
                                 </Button>
                               </TableCell>
                             </TableRow>

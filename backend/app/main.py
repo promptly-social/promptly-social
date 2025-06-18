@@ -29,13 +29,13 @@ def configure_logging():
             sys.stdout,
             level=settings.log_level,
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
-            serialize=True
+            serialize=True,
         )
     else:
         logger.add(
             sys.stdout,
             level=settings.log_level,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
         )
 
     # Add file logging for production
@@ -46,7 +46,7 @@ def configure_logging():
             retention="30 days",
             level="INFO",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
-            serialize=True
+            serialize=True,
         )
 
 
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
-    logger.info("Starting up Promptly Social Scribe API...")
+    logger.info("Starting up Promptly API...")
     configure_logging()
 
     try:
@@ -81,11 +81,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Backend API for Promptly Social Scribe - AI-powered social media content creation platform",
+    description="Backend API for Promptly - AI-powered professional social media content creation platform",
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
     openapi_url="/openapi.json" if settings.debug else None,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -95,6 +95,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -109,8 +110,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "error": "Validation Error",
             "message": "The request data is invalid",
-            "details": exc.errors()
-        }
+            "details": exc.errors(),
+        },
     )
 
 
@@ -125,8 +126,8 @@ async def general_exception_handler(request: Request, exc: Exception):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": "Internal Server Error",
-                "message": "An unexpected error occurred"
-            }
+                "message": "An unexpected error occurred",
+            },
         )
     else:
         return JSONResponse(
@@ -134,8 +135,8 @@ async def general_exception_handler(request: Request, exc: Exception):
             content={
                 "error": "Internal Server Error",
                 "message": str(exc),
-                "type": type(exc).__name__
-            }
+                "type": type(exc).__name__,
+            },
         )
 
 
@@ -143,14 +144,28 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all incoming requests for audit purposes."""
-    start_time = logger.bind(time=True)
+    # start_time = logger.bind(time=True)
 
     # Get client IP (handle reverse proxy headers)
     client_ip = (
-        request.headers.get("x-forwarded-for", "").split(",")[0].strip() or
-        request.headers.get("x-real-ip", "") or
-        request.client.host if request.client else "unknown"
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or request.headers.get("x-real-ip", "")
+        or request.client.host
+        if request.client
+        else "unknown"
     )
+
+    # Special logging for OPTIONS requests that are failing
+    if request.method == "OPTIONS" and "signin/google" in str(request.url):
+        headers_dict = dict(request.headers)
+        logger.info(
+            "OPTIONS request headers for signin/google",
+            extra={
+                "method": request.method,
+                "url": str(request.url),
+                "headers": headers_dict,
+            },
+        )
 
     # Log request
     logger.info(
@@ -160,7 +175,7 @@ async def log_requests(request: Request, call_next):
             "url": str(request.url),
             "client_ip": client_ip,
             "user_agent": request.headers.get("user-agent", ""),
-        }
+        },
     )
 
     # Process request
@@ -173,7 +188,7 @@ async def log_requests(request: Request, call_next):
             "status_code": response.status_code,
             "method": request.method,
             "url": str(request.url),
-        }
+        },
     )
 
     return response
@@ -188,7 +203,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
     return response
@@ -219,7 +236,7 @@ async def health_check():
         "status": "healthy",
         "version": settings.app_version,
         "environment": settings.environment,
-        "timestamp": "2024-01-01T00:00:00Z"
+        "timestamp": "2024-01-01T00:00:00Z",
     }
 
 
@@ -232,7 +249,7 @@ async def metrics():
         "app": settings.app_name,
         "version": settings.app_version,
         "status": "up",
-        "environment": settings.environment
+        "environment": settings.environment,
     }
 
 

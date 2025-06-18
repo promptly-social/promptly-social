@@ -24,7 +24,7 @@ A FastAPI-based backend service for the Promptly Social Scribe application, prov
 
 ## Project Structure
 
-```
+```bash
 backend/
 ├── app/
 │   ├── core/              # Core configuration and utilities
@@ -86,6 +86,7 @@ backend/
    ```
 
 5. **Run the application**
+
    ```bash
    uvicorn app.main:app --reload
    ```
@@ -104,7 +105,6 @@ Copy `env.example` to `.env` and configure the following:
 - `SUPABASE_KEY`: Supabase anon key
 - `SUPABASE_SERVICE_KEY`: Supabase service role key
 - `JWT_SECRET_KEY`: Secret key for JWT signing
-- `SECRET_KEY`: Application secret key
 
 ### Optional Variables
 

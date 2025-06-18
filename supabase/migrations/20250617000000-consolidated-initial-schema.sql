@@ -57,6 +57,14 @@ ON content_ideas (scheduled_date)
 WHERE status = 'scheduled';
 
 -- =============================================================================
+-- USER MANAGEMENT ENHANCEMENTS
+-- =============================================================================
+
+-- Add last_login_at column to auth.users table to track user login activity
+-- This is handled by a trigger that updates the column on authentication events
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
+
+-- =============================================================================
 -- SOCIAL CONNECTIONS TABLE
 -- =============================================================================
 

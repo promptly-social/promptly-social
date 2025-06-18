@@ -15,25 +15,25 @@ backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 # Set test environment variables before importing app modules
-os.environ.update({
-    "ENVIRONMENT": "testing",
-    "APP_NAME": "Test API",
-    "DEBUG": "true",
-    "DATABASE_URL": "sqlite:///./test.db",
-    "DATABASE_URL_ASYNC": "sqlite+aiosqlite:///./test.db",
-    "SUPABASE_URL": "https://test.supabase.co",
-    # Valid JWT format for Supabase keys to avoid validation errors
-    "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-    "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-    "JWT_SECRET_KEY": "test-jwt-secret-key",
-    "SECRET_KEY": "test-app-secret-key",
-    "CORS_ORIGINS": "http://localhost:3000,http://localhost:5173",
-    "BCRYPT_ROUNDS": "4",
-    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
-    "REFRESH_TOKEN_EXPIRE_DAYS": "7",
-    "LOG_LEVEL": "DEBUG",
-    "LOG_FORMAT": "console"
-})
+os.environ.update(
+    {
+        "ENVIRONMENT": "testing",
+        "APP_NAME": "Test API",
+        "DEBUG": "true",
+        "DATABASE_URL": "sqlite:///./test.db",
+        "DATABASE_URL_ASYNC": "sqlite+aiosqlite:///./test.db",
+        "SUPABASE_URL": "https://test.supabase.co",
+        # Valid JWT format for Supabase keys to avoid validation errors
+        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        "JWT_SECRET_KEY": "test-jwt-secret-key",
+        "CORS_ORIGINS": "http://localhost:3000,http://localhost:5173",
+        "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+        "REFRESH_TOKEN_EXPIRE_DAYS": "7",
+        "LOG_LEVEL": "DEBUG",
+        "LOG_FORMAT": "console",
+    }
+)
 
 
 @pytest.fixture(scope="session")
@@ -48,6 +48,7 @@ def event_loop():
 def test_client():
     """Create a test client for the FastAPI application."""
     from app.main import app
+
     return TestClient(app)
 
 
@@ -55,4 +56,5 @@ def test_client():
 def test_settings():
     """Provide test settings for the entire test session."""
     from app.core.config import settings
+
     return settings

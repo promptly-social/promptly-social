@@ -4,11 +4,14 @@ Uses SQLAlchemy with async support and connection pooling.
 """
 
 from typing import AsyncGenerator
+import logging
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # Metadata for naming conventions (helpful for migrations)
@@ -18,26 +21,24 @@ metadata = MetaData(
         "uq": "uq_%(table_name)s_%(column_0_name)s",
         "ck": "ck_%(table_name)s_%(constraint_name)s",
         "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-        "pk": "pk_%(table_name)s"
+        "pk": "pk_%(table_name)s",
     }
 )
 
 
 class Base(DeclarativeBase):
     """Base class for all database models."""
+
     metadata = metadata
 
 
 def get_engine_config():
     """Get engine configuration based on database URL."""
-    db_url = settings.database_url_async
-    is_sqlite = db_url.startswith('sqlite')
+    db_url = settings.get_async_database_url()
+    is_sqlite = db_url.startswith("sqlite")
 
     if is_sqlite:
-        return {
-            "echo": settings.debug,
-            "connect_args": {"check_same_thread": False}
-        }
+        return {"echo": settings.debug, "connect_args": {"check_same_thread": False}}
     else:
         return {
             "echo": settings.debug,
@@ -51,13 +52,10 @@ def get_engine_config():
 def get_sync_engine_config():
     """Get sync engine configuration based on database URL."""
     db_url = settings.database_url
-    is_sqlite = db_url.startswith('sqlite')
+    is_sqlite = db_url.startswith("sqlite")
 
     if is_sqlite:
-        return {
-            "echo": settings.debug,
-            "connect_args": {"check_same_thread": False}
-        }
+        return {"echo": settings.debug, "connect_args": {"check_same_thread": False}}
     else:
         return {
             "echo": settings.debug,
@@ -69,28 +67,18 @@ def get_sync_engine_config():
 
 
 # Async engine and session factory
-async_engine = create_async_engine(
-    settings.database_url_async,
-    **get_engine_config()
-)
+async_db_url = settings.get_async_database_url()
+logger.info(f"Creating async engine with URL: {async_db_url}")
+async_engine = create_async_engine(async_db_url, **get_engine_config())
 
 AsyncSessionLocal = async_sessionmaker(
-    async_engine,
-    class_=AsyncSession,
-    expire_on_commit=False
+    async_engine, class_=AsyncSession, expire_on_commit=False
 )
 
 # Sync engine for migrations and other sync operations
-sync_engine = create_engine(
-    settings.database_url,
-    **get_sync_engine_config()
-)
+sync_engine = create_engine(settings.database_url, **get_sync_engine_config())
 
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=sync_engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:

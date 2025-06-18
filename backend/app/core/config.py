@@ -23,7 +23,6 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(default="sqlite:///./app.db")
-    database_url_async: str = Field(default="sqlite+aiosqlite:///./app.db")
 
     # Supabase
     supabase_url: str = Field(default="https://test.supabase.co")
@@ -31,15 +30,15 @@ class Settings(BaseSettings):
     supabase_service_key: str = Field(default="test_service_key")
 
     # Security
-    secret_key: str = Field(default="dev_secret_key")
     jwt_secret_key: str = Field(default="dev_jwt_secret")
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30)
     refresh_token_expire_days: int = Field(default=7)
-    bcrypt_rounds: int = Field(default=12)
 
     # CORS - Use string instead of List to avoid JSON parsing
-    cors_origins: str = Field(default="http://localhost:3000,http://localhost:5173")
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173,http://localhost:8080"
+    )
 
     # Logging
     log_level: str = Field(default="INFO")
@@ -77,6 +76,34 @@ class Settings(BaseSettings):
         return [
             origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
         ]
+
+    def get_async_database_url(self) -> str:
+        """
+        Convert the base database URL to async version.
+
+        Returns:
+            str: Async database URL with appropriate driver
+        """
+        if self.database_url.startswith("postgresql://"):
+            async_url = self.database_url.replace(
+                "postgresql://", "postgresql+asyncpg://"
+            )
+            return async_url
+        elif self.database_url.startswith("postgresql+asyncpg://"):
+            # Already async PostgreSQL URL
+            return self.database_url
+        elif self.database_url.startswith("sqlite://"):
+            async_url = self.database_url.replace("sqlite://", "sqlite+aiosqlite://")
+            return async_url
+        elif self.database_url.startswith("sqlite:///"):
+            async_url = self.database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+            return async_url
+        elif self.database_url.startswith("sqlite+aiosqlite://"):
+            # Already async SQLite URL
+            return self.database_url
+        else:
+            # For other databases, assume they already have the correct driver
+            return self.database_url
 
 
 # Global settings instance

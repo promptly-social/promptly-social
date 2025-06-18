@@ -1,15 +1,34 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { apiClient, ApiError } from "@/lib/api";
+import {
+  getStoredToken,
+  getStoredRefreshToken,
+  setTokens,
+  clearTokens,
+  isTokenExpired,
+} from "@/lib/api-interceptor";
+import type { User } from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  loading: boolean;
+  signUp: (
+    email: string,
+    password: string,
+    fullName?: string
+  ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  loading: boolean;
+  refreshAuthToken: () => Promise<boolean>;
+  refreshUser: () => Promise<void>;
+  forceAuthRefresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -26,72 +45,220 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+  const refreshAuthToken = useCallback(async (): Promise<boolean> => {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) {
+      return false;
+    }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    try {
+      const tokenResponse = await apiClient.refreshToken(refreshToken);
+      setTokens(
+        tokenResponse.access_token,
+        tokenResponse.refresh_token,
+        tokenResponse.expires_in
+      );
+      return true;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      return false;
+    }
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+  // Initialize auth state on mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const token = getStoredToken();
+      console.log("Initializing auth state, token exists:", !!token);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-      },
-    });
-    return { error };
+      if (!token) {
+        console.log("No token found, setting loading to false");
+        setLoading(false);
+        return;
+      }
+
+      // Check if token is expired
+      if (isTokenExpired()) {
+        console.log("Token expired, attempting refresh");
+        const refreshed = await refreshAuthToken();
+        if (!refreshed) {
+          console.log("Token refresh failed, clearing tokens");
+          clearTokens();
+          setLoading(false);
+          return;
+        }
+        console.log("Token refreshed successfully");
+      }
+
+      // Fetch current user
+      try {
+        console.log("Fetching current user");
+        const currentUser = await apiClient.getCurrentUser();
+        console.log("Current user fetched successfully:", currentUser);
+        setUser(currentUser);
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+        // Only clear tokens if it's an auth error, not a network error
+        if (
+          error instanceof ApiError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          console.log("Auth error detected, clearing tokens");
+          clearTokens();
+          setUser(null);
+        }
+      }
+
+      setLoading(false);
+    };
+
+    initializeAuth();
+  }, [refreshAuthToken]);
+
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    try {
+      const response = await apiClient.signUp({
+        email,
+        password,
+        confirm_password: password,
+        full_name: fullName,
+      });
+
+      // Store tokens
+      setTokens(
+        response.tokens.access_token,
+        response.tokens.refresh_token,
+        response.tokens.expires_in
+      );
+
+      // Set user
+      setUser(response.user);
+
+      return { error: null };
+    } catch (error) {
+      console.error("Sign up failed:", error);
+      return {
+        error:
+          error instanceof ApiError
+            ? new Error(error.message)
+            : new Error("Sign up failed"),
+      };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const response = await apiClient.signIn({ email, password });
+
+      // Store tokens
+      setTokens(
+        response.tokens.access_token,
+        response.tokens.refresh_token,
+        response.tokens.expires_in
+      );
+
+      // Set user
+      setUser(response.user);
+
+      return { error: null };
+    } catch (error) {
+      console.error("Sign in failed:", error);
+      return {
+        error:
+          error instanceof ApiError
+            ? new Error(error.message)
+            : new Error("Sign in failed"),
+      };
+    }
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-    return { error };
+    try {
+      const redirectUrl = `${window.location.origin}/new-content`;
+      const response = await apiClient.signInWithGoogle(redirectUrl);
+
+      // Redirect to Google OAuth URL
+      window.location.href = response.url;
+
+      return { error: null };
+    } catch (error) {
+      console.error("Google sign in failed:", error);
+      return {
+        error:
+          error instanceof ApiError
+            ? new Error(error.message)
+            : new Error("Google sign in failed"),
+      };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await apiClient.signOut();
+    } catch (error) {
+      console.error("Sign out API call failed:", error);
+      // Continue with local cleanup even if API call fails
+    }
+
+    // Clear local state and tokens
+    clearTokens();
+    setUser(null);
+  };
+
+  const refreshUser = async () => {
+    try {
+      const currentUser = await apiClient.getCurrentUser();
+      setUser(currentUser);
+      console.log("User refreshed in context:", currentUser);
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+      // If this fails, the user might still be valid, just network issues
+      // Don't clear tokens unless it's an auth error
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        clearTokens();
+        setUser(null);
+      }
+    }
+  };
+
+  const forceAuthRefresh = async () => {
+    try {
+      const token = getStoredToken();
+      if (token) {
+        console.log("Force refreshing user data with stored token...");
+        const currentUser = await apiClient.getCurrentUser();
+        setUser(currentUser);
+        console.log("User data force refreshed:", currentUser);
+      }
+    } catch (error) {
+      console.error("Failed to force auth refresh:", error);
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        clearTokens();
+        setUser(null);
+      }
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        session,
+        loading,
         signUp,
         signIn,
         signInWithGoogle,
         signOut,
-        loading,
+        refreshAuthToken,
+        refreshUser,
+        forceAuthRefresh,
       }}
     >
       {children}

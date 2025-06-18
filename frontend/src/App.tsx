@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
@@ -15,6 +16,7 @@ import WritingStyle from "./pages/WritingStyle";
 import MyContent from "./pages/MyContent";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import OAuthCallback from "./pages/OAuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +31,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user) {
+  // Check for stored token as fallback to handle OAuth callback race condition
+  const hasToken = getStoredToken();
+
+  if (!user && !hasToken) {
     return <Navigate to="/login" replace />;
   }
 
@@ -48,7 +53,7 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/new-content" replace />;
   }
 
   return <>{children}</>;
@@ -138,6 +143,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/auth/callback" element={<OAuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

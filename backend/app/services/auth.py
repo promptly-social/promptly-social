@@ -92,14 +92,16 @@ class AuthService:
             if supabase_response["session"]:
                 tokens = await self._create_tokens(local_user)
                 await self._create_session(
-                    local_user.id, tokens["access_token"], tokens["refresh_token"]
+                    local_user.id, tokens.access_token, tokens.refresh_token
                 )
 
             logger.info(f"User registered successfully: {user_data.email}")
 
             return {
                 "error": None,
-                "user": UserResponse.model_validate(local_user),
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
                 "tokens": tokens,
                 "message": "User registered successfully. Please check your email for verification.",
             }
@@ -155,14 +157,16 @@ class AuthService:
             # Create tokens and session
             tokens = await self._create_tokens(local_user)
             await self._create_session(
-                local_user.id, tokens["access_token"], tokens["refresh_token"]
+                local_user.id, tokens.access_token, tokens.refresh_token
             )
 
             logger.info(f"User signed in successfully: {login_data.email}")
 
             return {
                 "error": None,
-                "user": UserResponse.model_validate(local_user),
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
                 "tokens": tokens,
                 "message": "Sign in successful",
             }
@@ -259,7 +263,7 @@ class AuthService:
 
             # Update session
             await self._update_session_tokens(
-                user.id, tokens["access_token"], tokens["refresh_token"]
+                user.id, tokens.access_token, tokens.refresh_token
             )
 
             logger.info(f"Token refreshed successfully for user: {user_id}")
@@ -293,11 +297,171 @@ class AuthService:
             if not user or not user.is_active:
                 return None
 
-            return UserResponse.model_validate(user)
+            return UserResponse.model_validate({**user.__dict__, "id": str(user.id)})
 
         except Exception as e:
             logger.error(f"Get current user failed: {e}")
             return None
+
+    async def handle_oauth_callback(
+        self, code: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Handle OAuth callback and create user session.
+
+        Args:
+            code: OAuth authorization code
+            redirect_to: Optional redirect URL
+
+        Returns:
+            Dict containing user and token information
+        """
+        try:
+            # Exchange code for session with Supabase
+            supabase_response = await supabase_client.handle_oauth_callback(
+                code, redirect_to
+            )
+
+            # Handle case where supabase_response might be a string
+            if isinstance(supabase_response, str):
+                return {
+                    "error": supabase_response,
+                    "user": None,
+                    "tokens": None,
+                }
+
+            if not isinstance(supabase_response, dict):
+                return {
+                    "error": "Invalid response from Supabase",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            if supabase_response.get("error"):
+                return {
+                    "error": supabase_response["error"],
+                    "user": None,
+                    "tokens": None,
+                }
+
+            supabase_user = supabase_response.get("user")
+            if not supabase_user:
+                return {
+                    "error": "OAuth authentication failed",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            # Get or create local user record
+            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
+            if not local_user:
+                # Create local user if doesn't exist
+                local_user = User(
+                    supabase_user_id=str(supabase_user.id),
+                    email=supabase_user.email,
+                    full_name=supabase_user.user_metadata.get("full_name"),
+                    is_verified=supabase_user.email_confirmed_at is not None,
+                )
+                self.db.add(local_user)
+                await self.db.commit()
+                await self.db.refresh(local_user)
+
+            # Update last login
+            await self._update_last_login(local_user.id)
+
+            # Create tokens and session
+            tokens = await self._create_tokens(local_user)
+            await self._create_session(
+                local_user.id, tokens.access_token, tokens.refresh_token
+            )
+
+            return {
+                "error": None,
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
+                "tokens": tokens,
+                "message": "OAuth sign in successful",
+            }
+
+        except Exception:
+            return {
+                "error": "OAuth authentication failed",
+                "user": None,
+                "tokens": None,
+            }
+
+    async def sign_in_with_google_token(
+        self, id_token: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Sign in with Google ID token.
+
+        Args:
+            id_token: Google ID token
+            redirect_to: Optional redirect URL
+
+        Returns:
+            Dict containing user and token information
+        """
+        try:
+            # Authenticate with Supabase using ID token
+            supabase_response = supabase_client.sign_in_with_google_token(id_token)
+
+            if supabase_response["error"]:
+                return {
+                    "error": supabase_response["error"],
+                    "user": None,
+                    "tokens": None,
+                }
+
+            supabase_user = supabase_response["user"]
+            if not supabase_user:
+                return {
+                    "error": "Google authentication failed",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            # Get or create local user record
+            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
+            if not local_user:
+                # Create local user if doesn't exist
+                local_user = User(
+                    supabase_user_id=str(supabase_user.id),
+                    email=supabase_user.email,
+                    full_name=supabase_user.user_metadata.get("full_name"),
+                    is_verified=supabase_user.email_confirmed_at is not None,
+                )
+                self.db.add(local_user)
+                await self.db.commit()
+                await self.db.refresh(local_user)
+
+            # Update last login
+            await self._update_last_login(local_user.id)
+
+            # Create tokens and session
+            tokens = await self._create_tokens(local_user)
+            await self._create_session(
+                local_user.id, tokens.access_token, tokens.refresh_token
+            )
+
+            return {
+                "error": None,
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
+                "tokens": tokens,
+                "message": "Google sign in successful",
+            }
+
+        except Exception as e:
+            logger.error(f"Google OAuth sign in failed: {e}")
+            return {
+                "error": "Google authentication failed",
+                "user": None,
+                "tokens": None,
+            }
 
     # Private helper methods
 
@@ -386,7 +550,7 @@ class AuthService:
                 session_token=access_token,
                 refresh_token=refresh_token,
                 expires_at=expires_at,
-                last_accessed_at=datetime.utcnow(),
+                last_used_at=datetime.utcnow(),
             )
         )
         await self.db.execute(stmt)

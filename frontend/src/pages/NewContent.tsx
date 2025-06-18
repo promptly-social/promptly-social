@@ -1,5 +1,5 @@
 import React from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { SuggestedPosts } from "@/components/SuggestedPosts";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
