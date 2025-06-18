@@ -8,37 +8,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime
 
 from app.core.database import get_async_db
 from app.services.content import ContentService
 from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
 from app.schemas.content import (
-    ContentIdeaCreate,
-    ContentIdeaUpdate,
-    ContentIdeaResponse,
-    ContentIdeaListResponse,
-    UserPreferencesUpdate,
-    UserPreferencesResponse,
-    SocialConnectionUpdate,
-    SocialConnectionResponse,
-    WritingStyleAnalysisUpdate,
-    PlatformAnalysisResponse,
-    SubstackAnalysisResponse,
-    PlatformAnalysisData,
-    SubstackData,
-    SubstackConnectionData,
+    ContentCreate,
+    ContentUpdate,
+    ContentResponse,
+    ContentListResponse,
+    PublicationCreate,
+    PublicationUpdate,
+    PublicationResponse,
 )
 
 # Create router
 router = APIRouter(prefix="/content", tags=["content"])
 
 
-# Content Ideas Endpoints
-@router.get("/ideas", response_model=ContentIdeaListResponse)
-async def get_content_ideas(
-    idea_status: Optional[List[str]] = Query(None, alias="status"),
+# Content Endpoints
+@router.get("/", response_model=ContentListResponse)
+async def get_content_list(
+    content_status: Optional[List[str]] = Query(None, alias="status"),
     content_type: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -47,471 +39,284 @@ async def get_content_ideas(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Get content ideas with filtering and pagination."""
+    """Get content with filtering and pagination."""
     try:
         content_service = ContentService(db)
-        result = await content_service.get_content_ideas(
+        result = await content_service.get_content_list(
             user_id=current_user.id,
-            status=idea_status,
+            status=content_status,
             content_type=content_type,
             page=page,
             size=size,
             order_by=order_by,
             order_direction=order_direction,
         )
-        return ContentIdeaListResponse(**result)
+        return ContentListResponse(**result)
     except Exception as e:
-        logger.error(f"Error getting content ideas: {e}")
+        logger.error(f"Error getting content list: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch content ideas",
+            detail="Failed to fetch content",
         )
 
 
-@router.get("/ideas/{content_id}", response_model=ContentIdeaResponse)
-async def get_content_idea(
+@router.get("/{content_id}", response_model=ContentResponse)
+async def get_content(
     content_id: UUID,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Get a specific content idea.
-    Replaces frontend supabase.from("content_ideas").select().eq("id", id).
+    Get a specific content item.
+    Replaces frontend supabase.from("contents").select().eq("id", id).
     """
     try:
         content_service = ContentService(db)
-        content_idea = await content_service.get_content_idea(
-            current_user.id, content_id
-        )
+        content = await content_service.get_content(current_user.id, content_id)
 
-        if not content_idea:
+        if not content:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Content idea not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Content not found"
             )
 
-        return ContentIdeaResponse.model_validate(content_idea)
+        # Create response without publications to avoid greenlet issues
+        content_dict = {
+            "id": content.id,
+            "user_id": content.user_id,
+            "title": content.title,
+            "original_input": content.original_input,
+            "generated_outline": content.generated_outline,
+            "content_type": content.content_type,
+            "status": content.status,
+            "created_at": content.created_at,
+            "updated_at": content.updated_at,
+            "publications": None,
+        }
+        return ContentResponse(**content_dict)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting content idea {content_id}: {e}")
+        logger.error(f"Error getting content {content_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch content idea",
+            detail="Failed to fetch content",
         )
 
 
-@router.post(
-    "/ideas", response_model=ContentIdeaResponse, status_code=status.HTTP_201_CREATED
-)
-async def create_content_idea(
-    content_data: ContentIdeaCreate,
+@router.post("/", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
+async def create_content(
+    content_data: ContentCreate,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Create a new content idea.
-    Replaces frontend supabase.from("content_ideas").insert().
+    Create a new content item.
+    Replaces frontend supabase.from("contents").insert().
     """
     try:
         content_service = ContentService(db)
-        content_idea = await content_service.create_content_idea(
-            current_user.id, content_data
-        )
-        return ContentIdeaResponse.model_validate(content_idea)
+        content = await content_service.create_content(current_user.id, content_data)
+        # Create response without publications to avoid greenlet issues
+        content_dict = {
+            "id": content.id,
+            "user_id": content.user_id,
+            "title": content.title,
+            "original_input": content.original_input,
+            "generated_outline": content.generated_outline,
+            "content_type": content.content_type,
+            "status": content.status,
+            "created_at": content.created_at,
+            "updated_at": content.updated_at,
+            "publications": None,
+        }
+        return ContentResponse(**content_dict)
     except Exception as e:
-        logger.error(f"Error creating content idea: {e}")
+        logger.error(f"Error creating content: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create content idea",
+            detail="Failed to create content",
         )
 
 
-@router.put("/ideas/{content_id}", response_model=ContentIdeaResponse)
-async def update_content_idea(
+@router.put("/{content_id}", response_model=ContentResponse)
+async def update_content(
     content_id: UUID,
-    update_data: ContentIdeaUpdate,
+    update_data: ContentUpdate,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Update a content idea."""
+    """Update a content item."""
     try:
         content_service = ContentService(db)
-        content_idea = await content_service.update_content_idea(
+        content = await content_service.update_content(
             current_user.id, content_id, update_data
         )
 
-        if not content_idea:
+        if not content:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Content idea not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Content not found"
             )
 
-        return ContentIdeaResponse.model_validate(content_idea)
+        # Create response without publications to avoid greenlet issues
+        content_dict = {
+            "id": content.id,
+            "user_id": content.user_id,
+            "title": content.title,
+            "original_input": content.original_input,
+            "generated_outline": content.generated_outline,
+            "content_type": content.content_type,
+            "status": content.status,
+            "created_at": content.created_at,
+            "updated_at": content.updated_at,
+            "publications": None,
+        }
+        return ContentResponse(**content_dict)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating content idea {content_id}: {e}")
+        logger.error(f"Error updating content {content_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update content idea",
+            detail="Failed to update content",
         )
 
 
-@router.delete("/ideas/{content_id}")
-async def delete_content_idea(
+@router.delete("/{content_id}")
+async def delete_content(
     content_id: UUID,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Delete a content idea.
-    Replaces frontend supabase.from("content_ideas").delete().eq("id", id).
+    Delete a content item.
+    Replaces frontend supabase.from("contents").delete().eq("id", id).
     """
     try:
         content_service = ContentService(db)
-        deleted = await content_service.delete_content_idea(current_user.id, content_id)
+        deleted = await content_service.delete_content(current_user.id, content_id)
 
         if not deleted:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Content idea not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Content not found"
             )
 
-        return {"message": "Content idea deleted successfully"}
+        return {"message": "Content deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting content idea {content_id}: {e}")
+        logger.error(f"Error deleting content {content_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete content idea",
+            detail="Failed to delete content",
         )
 
 
-# User Preferences Endpoints
-@router.get("/preferences", response_model=UserPreferencesResponse)
-async def get_user_preferences(
+# Publication Endpoints
+@router.post(
+    "/publications",
+    response_model=PublicationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_publication(
+    publication_data: PublicationCreate,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Get user preferences."""
+    """Create a new publication for a content item."""
     try:
         content_service = ContentService(db)
-        preferences = await content_service.get_user_preferences(current_user.id)
-
-        if not preferences:
-            # Return default preferences
-            return UserPreferencesResponse(
-                id=UUID("00000000-0000-0000-0000-000000000000"),
-                user_id=current_user.id,
-                topics_of_interest=[],
-                websites=[],
-                created_at=current_user.created_at,
-                updated_at=current_user.created_at,
-            )
-
-        return UserPreferencesResponse.model_validate(preferences)
+        publication = await content_service.create_publication(
+            current_user.id, publication_data
+        )
+        return PublicationResponse.model_validate(publication)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
-        logger.error(f"Error getting user preferences: {e}")
+        logger.error(f"Error creating publication: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch user preferences",
+            detail="Failed to create publication",
         )
 
 
-@router.put("/preferences", response_model=UserPreferencesResponse)
-async def update_user_preferences(
-    preferences_data: UserPreferencesUpdate,
+@router.put("/publications/{publication_id}", response_model=PublicationResponse)
+async def update_publication(
+    publication_id: UUID,
+    update_data: PublicationUpdate,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Create or update user preferences."""
+    """Update a publication."""
     try:
         content_service = ContentService(db)
-        preferences = await content_service.upsert_user_preferences(
-            current_user.id, preferences_data
-        )
-        return UserPreferencesResponse.model_validate(preferences)
-    except Exception as e:
-        logger.error(f"Error updating user preferences: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update user preferences",
+        publication = await content_service.update_publication(
+            current_user.id, publication_id, update_data
         )
 
-
-# Social Connections Endpoints
-@router.get("/social-connections", response_model=List[SocialConnectionResponse])
-async def get_social_connections(
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Get all social connections."""
-    try:
-        content_service = ContentService(db)
-        connections = await content_service.get_social_connections(current_user.id)
-        return [SocialConnectionResponse.model_validate(conn) for conn in connections]
-    except Exception as e:
-        logger.error(f"Error getting social connections: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch social connections",
-        )
-
-
-@router.get("/social-connections/{platform}", response_model=SocialConnectionResponse)
-async def get_social_connection(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Get a specific social connection.
-    Replaces frontend supabase.from("social_connections").select().eq("platform", platform).
-    """
-    try:
-        content_service = ContentService(db)
-        connection = await content_service.get_social_connection(
-            current_user.id, platform
-        )
-
-        if not connection:
+        if not publication:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Social connection for {platform} not found",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Publication not found"
             )
 
-        return SocialConnectionResponse.model_validate(connection)
+        return PublicationResponse.model_validate(publication)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting social connection {platform}: {e}")
+        logger.error(f"Error updating publication {publication_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch social connection",
+            detail="Failed to update publication",
         )
 
 
-@router.put("/social-connections/{platform}", response_model=SocialConnectionResponse)
-async def update_social_connection(
-    platform: str,
-    connection_data: SocialConnectionUpdate,
+@router.delete("/publications/{publication_id}")
+async def delete_publication(
+    publication_id: UUID,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Create or update a social connection."""
+    """Delete a publication."""
     try:
         content_service = ContentService(db)
-        connection = await content_service.upsert_social_connection(
-            current_user.id, platform, connection_data
-        )
-        return SocialConnectionResponse.model_validate(connection)
-    except Exception as e:
-        logger.error(f"Error updating social connection {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update social connection",
+        deleted = await content_service.delete_publication(
+            current_user.id, publication_id
         )
 
-
-# Writing Style Analysis Endpoints
-@router.get("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def get_writing_style_analysis(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Get writing style analysis for a platform."""
-    try:
-        content_service = ContentService(db)
-
-        # Check connection
-        connection = await content_service.get_social_connection(
-            current_user.id, platform
-        )
-        is_connected = connection is not None
-
-        # Get analysis
-        analysis = await content_service.get_writing_style_analysis(
-            current_user.id, platform
-        )
-
-        if analysis:
-            return PlatformAnalysisResponse(
-                analysis_data=PlatformAnalysisData(**analysis.analysis_data),
-                last_analyzed=analysis.last_analyzed_at.isoformat(),
-                is_connected=is_connected,
-            )
-        else:
-            return PlatformAnalysisResponse(
-                analysis_data=None, last_analyzed=None, is_connected=is_connected
-            )
-
-    except Exception as e:
-        logger.error(f"Error getting writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch writing style analysis",
-        )
-
-
-@router.post("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def run_writing_style_analysis(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Run writing style analysis for a platform."""
-    try:
-        content_service = ContentService(db)
-
-        # Check connection
-        connection = await content_service.get_social_connection(
-            current_user.id, platform
-        )
-        if not connection:
+        if not deleted:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Please connect your {platform} account first",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Publication not found"
             )
 
-        # Sample analysis data
-        sample_analysis = {
-            "writing_style": {
-                "tone": "Professional" if platform == "linkedin" else "Conversational",
-                "complexity": "Intermediate",
-                "avg_length": 150 if platform == "linkedin" else 800,
-                "key_themes": (
-                    ["Professional Growth", "Industry Insights", "Leadership"]
-                    if platform == "linkedin"
-                    else ["Deep Dives", "Analysis", "Commentary"]
-                ),
-            },
-            "topics": (
-                ["Technology", "Business Strategy", "Leadership", "Innovation"]
-                if platform == "linkedin"
-                else [
-                    "Technology",
-                    "Startups",
-                    "Product Development",
-                    "Industry Analysis",
-                ]
-            ),
-            "posting_patterns": {
-                "frequency": "Weekly",
-                "best_times": ["9:00 AM", "1:00 PM", "5:00 PM"],
-            },
-            "engagement_insights": {
-                "high_performing_topics": ["AI", "Remote Work", "Leadership"],
-                "content_types": ["Insights", "Personal Stories", "Industry Updates"],
-            },
-        }
-
-        # Save analysis
-        analysis_update = WritingStyleAnalysisUpdate(
-            analysis_data=sample_analysis, content_count=25
-        )
-
-        analysis = await content_service.upsert_writing_style_analysis(
-            current_user.id, platform, analysis_update
-        )
-
-        return PlatformAnalysisResponse(
-            analysis_data=PlatformAnalysisData(**analysis.analysis_data),
-            last_analyzed=analysis.last_analyzed_at.isoformat(),
-            is_connected=True,
-        )
-
+        return {"message": "Publication deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error running writing style analysis {platform}: {e}")
+        logger.error(f"Error deleting publication {publication_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to run writing style analysis",
+            detail="Failed to delete publication",
         )
 
 
-# Substack Analysis Endpoints
-@router.get("/substack-analysis", response_model=SubstackAnalysisResponse)
-async def get_substack_analysis(
+@router.get("/{content_id}/publications", response_model=List[PublicationResponse])
+async def get_content_publications(
+    content_id: UUID,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Get Substack analysis data."""
+    """Get all publications for a content item."""
     try:
         content_service = ContentService(db)
-        connection = await content_service.get_social_connection(
-            current_user.id, "substack"
+        publications = await content_service.get_publications_by_content(
+            current_user.id, content_id
         )
-
-        if not connection or not connection.connection_data:
-            return SubstackAnalysisResponse(
-                substack_data=[], is_connected=False, analyzed_at=None
-            )
-
-        connection_data = SubstackConnectionData(**connection.connection_data)
-
-        return SubstackAnalysisResponse(
-            substack_data=connection_data.substackData,
-            is_connected=True,
-            analyzed_at=connection_data.analyzed_at,
-        )
-
+        return [PublicationResponse.model_validate(pub) for pub in publications]
     except Exception as e:
-        logger.error(f"Error getting Substack analysis: {e}")
+        logger.error(f"Error getting publications for content {content_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch Substack analysis",
-        )
-
-
-@router.post("/substack-analysis", response_model=SubstackAnalysisResponse)
-async def run_substack_analysis(
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Run Substack analysis."""
-    try:
-        content_service = ContentService(db)
-
-        # Sample Substack data
-        sample_substack_data = [
-            SubstackData(
-                name="The Tech Observer",
-                url="https://techobserver.substack.com",
-                topics=["Technology", "AI", "Startups", "Innovation"],
-                subscriber_count=12500,
-                recent_posts=[
-                    {
-                        "title": "The Rise of AI Agents in 2024",
-                        "url": "https://techobserver.substack.com/p/ai-agents-2024",
-                        "published_date": "2024-01-15",
-                    }
-                ],
-            )
-        ]
-
-        # Update connection
-        connection_data = SubstackConnectionData(
-            substackData=sample_substack_data, analyzed_at=datetime.utcnow().isoformat()
-        )
-
-        connection_update = SocialConnectionUpdate(
-            is_active=True, connection_data=connection_data.model_dump()
-        )
-
-        await content_service.upsert_social_connection(
-            current_user.id, "substack", connection_update
-        )
-
-        return SubstackAnalysisResponse(
-            substack_data=sample_substack_data,
-            is_connected=True,
-            analyzed_at=connection_data.analyzed_at,
-        )
-
-    except Exception as e:
-        logger.error(f"Error running Substack analysis: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to run Substack analysis",
+            detail="Failed to fetch publications",
         )

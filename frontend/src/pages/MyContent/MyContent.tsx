@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AppLayout from "@/components/AppLayout";
-import {
-  contentApi,
-  type ContentIdea as ApiContentIdea,
-} from "@/lib/content-api";
+import { contentApi, type Content } from "@/lib/content-api";
 import { useToast } from "@/hooks/use-toast";
 import {
   ExternalLink,
@@ -27,13 +24,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type ContentIdea = ApiContentIdea;
-
 const MyContent: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [pastPosts, setPastPosts] = useState<ContentIdea[]>([]);
-  const [scheduledPosts, setScheduledPosts] = useState<ContentIdea[]>([]);
+  const [pastPosts, setPastPosts] = useState<Content[]>([]);
+  const [scheduledPosts, setScheduledPosts] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
 
@@ -48,7 +43,7 @@ const MyContent: React.FC = () => {
     setIsLoading(true);
     try {
       // Fetch past posts (published or failed)
-      const pastData = await contentApi.getContentIdeas({
+      const pastData = await contentApi.getContent({
         status: ["published", "failed"],
         order_by: "published_date",
         order_direction: "desc",
@@ -56,7 +51,7 @@ const MyContent: React.FC = () => {
       });
 
       // Fetch scheduled posts
-      const scheduledData = await contentApi.getContentIdeas({
+      const scheduledData = await contentApi.getContent({
         status: ["scheduled"],
         order_by: "scheduled_date",
         order_direction: "asc",
@@ -80,9 +75,8 @@ const MyContent: React.FC = () => {
   const cancelScheduledPost = async (postId: string) => {
     setIsCancelling(postId);
     try {
-      await contentApi.updateContentIdea(postId, {
+      await contentApi.updateContent(postId, {
         status: "draft",
-        scheduled_date: undefined,
       });
 
       // Move from scheduled to remove from list
@@ -215,19 +209,16 @@ const MyContent: React.FC = () => {
                                 {post.original_input.substring(0, 80)}...
                               </p>
                             </div>
-                            {getStatusBadge(
-                              post.status,
-                              post.publication_error
-                            )}
+                            {getStatusBadge(post.status)}
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>{formatDate(post.published_date)}</span>
-                            {post.linkedin_post_id && (
+                            <span>{formatDate(post.created_at)}</span>
+                            {post.publications && (
                               <Button variant="outline" size="sm" asChild>
                                 <a
-                                  href={`https://linkedin.com/feed/update/${post.linkedin_post_id}`}
+                                  href={`https://linkedin.com/feed/update/${post.publications[0].post_id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
@@ -236,9 +227,9 @@ const MyContent: React.FC = () => {
                               </Button>
                             )}
                           </div>
-                          {post.publication_error && (
+                          {post.publications && (
                             <p className="text-xs text-red-600 mt-2">
-                              {post.publication_error}
+                              {post.publications[0].publication_error}
                             </p>
                           )}
                         </CardContent>
@@ -276,24 +267,21 @@ const MyContent: React.FC = () => {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {getStatusBadge(
-                                  post.status,
-                                  post.publication_error
-                                )}
-                                {post.publication_error && (
+                                {getStatusBadge(post.status)}
+                                {post.publications && (
                                   <p className="text-xs text-red-600 mt-1">
-                                    {post.publication_error}
+                                    {post.publications[0].publication_error}
                                   </p>
                                 )}
                               </TableCell>
                               <TableCell>
-                                {formatDate(post.published_date)}
+                                {formatDate(post.created_at)}
                               </TableCell>
                               <TableCell>
-                                {post.linkedin_post_id && (
+                                {post.publications && (
                                   <Button variant="outline" size="sm" asChild>
                                     <a
-                                      href={`https://linkedin.com/feed/update/${post.linkedin_post_id}`}
+                                      href={`https://linkedin.com/feed/update/${post.publications[0].post_id}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                     >
@@ -354,7 +342,7 @@ const MyContent: React.FC = () => {
                         <CardContent className="pt-0">
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">
-                              {formatDate(post.scheduled_date)}
+                              {formatDate(post.publications[0].scheduled_date)}
                             </span>
                             <Button
                               variant="outline"
@@ -402,7 +390,9 @@ const MyContent: React.FC = () => {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {formatDate(post.scheduled_date)}
+                                {formatDate(
+                                  post.publications[0].scheduled_date
+                                )}
                               </TableCell>
                               <TableCell>
                                 <Button

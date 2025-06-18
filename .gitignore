@@ -54,4 +54,4 @@ venv.bak/
 .python-version
 
 .env
-test.db
+test_*.db

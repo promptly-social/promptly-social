@@ -8,24 +8,12 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, String, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID as PostgreSQL_UUID
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-
-
-def get_uuid_column():
-    """Get UUID column type that works with both PostgreSQL and SQLite."""
-    # For SQLite, we'll use String(36) to store UUID as string
-    # For PostgreSQL, we'll use native UUID type
-    from app.core.config import settings
-
-    if settings.database_url.startswith("sqlite"):
-        return String(36)
-    else:
-        return PostgreSQL_UUID(as_uuid=True)
+from app.models.helpers import get_uuid_column
 
 
 class User(Base):

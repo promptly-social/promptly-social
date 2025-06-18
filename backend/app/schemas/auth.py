@@ -47,6 +47,16 @@ class UserCreate(UserBase):
         return v
 
 
+class UserUpdate(UserBase):
+    """Schema for user update."""
+
+    full_name: Optional[str] = None
+    preferred_language: Optional[str] = None
+    timezone: Optional[str] = None
+    password: Optional[constr(min_length=8, max_length=100)] = None
+    confirm_password: Optional[str] = None
+
+
 class UserLogin(BaseModel):
     """Schema for user login."""
 

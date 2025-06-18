@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  contentApi,
+  profileApi,
   type UserPreferences as ApiUserPreferences,
-} from "@/lib/content-api";
+} from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
 
 type UserPreferencesData = Pick<
@@ -31,7 +31,7 @@ export const useUserPreferences = () => {
   const fetchPreferences = async () => {
     setIsLoading(true);
     try {
-      const data = await contentApi.getUserPreferences();
+      const data = await profileApi.getUserPreferences();
 
       setPreferences({
         topics_of_interest: data.topics_of_interest || [],
@@ -52,7 +52,7 @@ export const useUserPreferences = () => {
   const savePreferences = async () => {
     setIsSaving(true);
     try {
-      await contentApi.updateUserPreferences({
+      await profileApi.updateUserPreferences({
         topics_of_interest: preferences.topics_of_interest,
         websites: preferences.websites,
       });

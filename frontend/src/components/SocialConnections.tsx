@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
-  contentApi,
+  profileApi,
   type SocialConnection as ApiSocialConnection,
-} from "@/lib/content-api";
+} from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link2, Unlink, Users, FileText } from "lucide-react";
 
@@ -26,7 +26,7 @@ export const SocialConnections: React.FC = () => {
 
   const fetchConnections = async () => {
     try {
-      const data = await contentApi.getSocialConnections();
+      const data = await profileApi.getSocialConnections();
       setConnections(data || []);
     } catch (error) {
       console.error("Error fetching connections:", error);
@@ -43,7 +43,7 @@ export const SocialConnections: React.FC = () => {
     try {
       // For now, we'll create a basic connection without requiring username
       // In a real implementation, this would redirect to OAuth flow
-      await contentApi.updateSocialConnection(platform, {
+      await profileApi.updateSocialConnection(platform, {
         platform_username: `user_${platform}`, // Placeholder
         is_active: true,
       });
@@ -69,7 +69,7 @@ export const SocialConnections: React.FC = () => {
   const disconnectPlatform = async (platform: "substack" | "linkedin") => {
     setIsLoading(true);
     try {
-      await contentApi.updateSocialConnection(platform, {
+      await profileApi.updateSocialConnection(platform, {
         is_active: false,
       });
 

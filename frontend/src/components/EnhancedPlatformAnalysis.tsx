@@ -3,13 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  contentApi,
-  type PlatformAnalysisData,
-  type PlatformAnalysisResponse,
-} from "@/lib/content-api";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart3, Brain, TrendingUp, BookOpen } from "lucide-react";
+import { profileApi, PlatformAnalysisData } from "@/lib/profile-api";
 
 interface PlatformAnalysisProps {
   platform: string;
@@ -39,7 +35,7 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
 
   const fetchAnalysis = async () => {
     try {
-      const response = await contentApi.getWritingStyleAnalysis(platform);
+      const response = await profileApi.getWritingStyleAnalysis(platform);
 
       if (response.analysis_data) {
         setAnalysisData(response.analysis_data);
@@ -84,7 +80,7 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
         },
       };
 
-      const response = await contentApi.runWritingStyleAnalysis(platform);
+      const response = await profileApi.runWritingStyleAnalysis(platform);
 
       setAnalysisData(response.analysis_data);
       setLastAnalyzed(response.last_analyzed);
