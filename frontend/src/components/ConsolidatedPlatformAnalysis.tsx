@@ -1,11 +1,16 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { BarChart3 } from 'lucide-react';
-import { EnhancedPlatformAnalysis } from './EnhancedPlatformAnalysis';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { contentApi } from "@/lib/content-api";
+import { BarChart3 } from "lucide-react";
+import { EnhancedPlatformAnalysis } from "./EnhancedPlatformAnalysis";
 
 interface SocialConnection {
   platform: string;
@@ -15,44 +20,47 @@ interface SocialConnection {
 export const ConsolidatedPlatformAnalysis: React.FC = () => {
   const { user } = useAuth();
   const [connections, setConnections] = useState<SocialConnection[]>([]);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("");
 
   useEffect(() => {
     if (user) {
       fetchConnections();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchConnections = async () => {
     try {
-      const { data, error } = await supabase
-        .from('social_connections')
-        .select('platform, is_active')
-        .eq('user_id', user?.id)
-        .eq('is_active', true);
+      const data = await contentApi.getSocialConnections();
 
-      if (error) throw error;
-      const connectionsData = data || [];
+      // Filter for active connections
+      const connectionsData = data
+        .filter((conn) => conn.is_active)
+        .map((conn) => ({
+          platform: conn.platform,
+          is_active: conn.is_active,
+        }));
+
       setConnections(connectionsData);
-      
+
       // Auto-select first platform if available
       if (connectionsData.length > 0 && !selectedPlatform) {
         setSelectedPlatform(connectionsData[0].platform);
       }
     } catch (error) {
-      console.error('Error fetching connections:', error);
+      console.error("Error fetching connections:", error);
     }
   };
 
-  const isConnected = (platform: string) => 
-    connections.some(conn => conn.platform === platform && conn.is_active);
+  const isConnected = (platform: string) =>
+    connections.some((conn) => conn.platform === platform && conn.is_active);
 
   const getPlatformDisplayName = (platform: string) => {
     switch (platform) {
-      case 'substack':
-        return 'Substack';
-      case 'linkedin':
-        return 'LinkedIn';
+      case "substack":
+        return "Substack";
+      case "linkedin":
+        return "LinkedIn";
       default:
         return platform.charAt(0).toUpperCase() + platform.slice(1);
     }
@@ -70,7 +78,9 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
         <CardContent>
           <div className="text-center py-8">
             <p className="text-gray-600">No connected platforms found</p>
-            <p className="text-sm text-gray-500">Connect your social accounts to analyze your writing style</p>
+            <p className="text-sm text-gray-500">
+              Connect your social accounts to analyze your writing style
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -86,13 +96,19 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
               <BarChart3 className="w-5 h-5" />
               Platform Writing Styles
             </div>
-            <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+            <Select
+              value={selectedPlatform}
+              onValueChange={setSelectedPlatform}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select platform" />
               </SelectTrigger>
               <SelectContent>
                 {connections.map((connection) => (
-                  <SelectItem key={connection.platform} value={connection.platform}>
+                  <SelectItem
+                    key={connection.platform}
+                    value={connection.platform}
+                  >
                     {getPlatformDisplayName(connection.platform)}
                   </SelectItem>
                 ))}
@@ -103,9 +119,9 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
       </Card>
 
       {selectedPlatform && (
-        <EnhancedPlatformAnalysis 
-          platform={selectedPlatform} 
-          platformName={getPlatformDisplayName(selectedPlatform)} 
+        <EnhancedPlatformAnalysis
+          platform={selectedPlatform}
+          platformName={getPlatformDisplayName(selectedPlatform)}
           isConnected={isConnected(selectedPlatform)}
         />
       )}

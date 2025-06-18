@@ -1,6 +1,6 @@
 # Google OAuth Setup Guide
 
-This guide explains how to set up Google OAuth authentication for the Promptly Social Scribe application.
+This guide explains how to set up Google OAuth authentication for the Promptly application.
 
 ## Backend Setup
 

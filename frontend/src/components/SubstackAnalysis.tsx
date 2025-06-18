@@ -1,28 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { BookOpen, RefreshCw, ExternalLink, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  contentApi,
+  type SubstackData,
+  type SubstackAnalysisResponse,
+} from "@/lib/content-api";
+import { useToast } from "@/hooks/use-toast";
+import { BookOpen, RefreshCw, ExternalLink, TrendingUp } from "lucide-react";
 
-interface SubstackData {
-  name: string;
-  url: string;
-  topics: string[];
-  subscriber_count?: number;
-  recent_posts?: Array<{
-    title: string;
-    url: string;
-    published_date: string;
-  }>;
-}
-
-interface SubstackConnectionData {
-  substackData: SubstackData[];
-  analyzed_at: string;
-}
+// Using imported types from content-api
 
 export const SubstackAnalysis: React.FC = () => {
   const { user } = useAuth();
@@ -39,28 +28,14 @@ export const SubstackAnalysis: React.FC = () => {
 
   const checkSubstackConnection = async () => {
     try {
-      const { data, error } = await supabase
-        .from('social_connections')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('platform', 'substack')
-        .eq('is_active', true)
-        .maybeSingle();
+      const response = await contentApi.getSubstackAnalysis();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      if (data) {
-        setIsConnected(true);
-        // Parse existing substack data if available
-        if (data.connection_data) {
-          const connectionData = data.connection_data as unknown as SubstackConnectionData;
-          if (connectionData.substackData) {
-            setSubstackData(connectionData.substackData);
-          }
-        }
+      setIsConnected(response.is_connected);
+      if (response.substack_data) {
+        setSubstackData(response.substack_data);
       }
     } catch (error) {
-      console.error('Error checking Substack connection:', error);
+      console.error("Error checking Substack connection:", error);
     }
   };
 
@@ -78,14 +53,14 @@ export const SubstackAnalysis: React.FC = () => {
             {
               title: "The Rise of AI Agents in 2024",
               url: "https://techobserver.substack.com/p/ai-agents-2024",
-              published_date: "2024-01-15"
+              published_date: "2024-01-15",
             },
             {
               title: "Startup Funding Trends This Quarter",
               url: "https://techobserver.substack.com/p/funding-trends",
-              published_date: "2024-01-10"
-            }
-          ]
+              published_date: "2024-01-10",
+            },
+          ],
         },
         {
           name: "Product Strategy Weekly",
@@ -96,42 +71,25 @@ export const SubstackAnalysis: React.FC = () => {
             {
               title: "Building Products Users Actually Want",
               url: "https://productstrategy.substack.com/p/building-products",
-              published_date: "2024-01-12"
-            }
-          ]
-        }
+              published_date: "2024-01-12",
+            },
+          ],
+        },
       ];
 
-      // Prepare the connection data object
-      const connectionData: SubstackConnectionData = {
-        substackData: sampleSubstackData,
-        analyzed_at: new Date().toISOString()
-      };
+      // Run analysis via backend API
+      const response = await contentApi.runSubstackAnalysis();
 
-      // Save to database
-      const { error } = await supabase
-        .from('social_connections')
-        .upsert({
-          user_id: user?.id,
-          platform: 'substack',
-          is_active: true,
-          connection_data: connectionData as any,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,platform'
-        });
-
-      if (error) throw error;
-
-      setSubstackData(sampleSubstackData);
-      setIsConnected(true);
+      setSubstackData(response.substack_data);
+      setIsConnected(response.is_connected);
 
       toast({
         title: "Analysis Complete",
-        description: "Successfully analyzed your Substack subscriptions and topics",
+        description:
+          "Successfully analyzed your Substack subscriptions and topics",
       });
     } catch (error) {
-      console.error('Error analyzing Substack:', error);
+      console.error("Error analyzing Substack:", error);
       toast({
         title: "Analysis Error",
         description: "Failed to analyze Substack profile",
@@ -143,7 +101,7 @@ export const SubstackAnalysis: React.FC = () => {
   };
 
   const getAllTopics = () => {
-    const allTopics = substackData.flatMap(stack => stack.topics);
+    const allTopics = substackData.flatMap((stack) => stack.topics);
     return [...new Set(allTopics)];
   };
 
@@ -155,14 +113,18 @@ export const SubstackAnalysis: React.FC = () => {
           Substack Analysis
         </CardTitle>
         <p className="text-sm text-gray-600">
-          Analyze your Substack subscriptions to understand your content interests
+          Analyze your Substack subscriptions to understand your content
+          interests
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-600">
-              Status: <span className="font-medium">{isConnected ? 'Connected' : 'Not Connected'}</span>
+              Status:{" "}
+              <span className="font-medium">
+                {isConnected ? "Connected" : "Not Connected"}
+              </span>
             </p>
             {substackData.length > 0 && (
               <p className="text-xs text-gray-500">
@@ -183,7 +145,7 @@ export const SubstackAnalysis: React.FC = () => {
             ) : (
               <>
                 <TrendingUp className="w-4 h-4 mr-2" />
-                {isConnected ? 'Re-analyze' : 'Analyze Substacks'}
+                {isConnected ? "Re-analyze" : "Analyze Substacks"}
               </>
             )}
           </Button>
@@ -214,19 +176,28 @@ export const SubstackAnalysis: React.FC = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <h5 className="font-medium">{stack.name}</h5>
                           <Button variant="ghost" size="sm" asChild>
-                            <a href={stack.url} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={stack.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           </Button>
                         </div>
                         {stack.subscriber_count && (
                           <p className="text-xs text-gray-500 mb-2">
-                            {stack.subscriber_count.toLocaleString()} subscribers
+                            {stack.subscriber_count.toLocaleString()}{" "}
+                            subscribers
                           </p>
                         )}
                         <div className="flex flex-wrap gap-1">
                           {stack.topics.map((topic, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
+                            <Badge
+                              key={idx}
+                              variant="outline"
+                              className="text-xs"
+                            >
                               {topic}
                             </Badge>
                           ))}
@@ -245,7 +216,8 @@ export const SubstackAnalysis: React.FC = () => {
             <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">No Substack analysis available</p>
             <p className="text-sm text-gray-500">
-              Click "Analyze Substacks" to discover your content interests based on your subscriptions
+              Click "Analyze Substacks" to discover your content interests based
+              on your subscriptions
             </p>
           </div>
         )}

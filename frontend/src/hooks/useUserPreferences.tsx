@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  contentApi,
+  type UserPreferences as ApiUserPreferences,
+} from "@/lib/content-api";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface UserPreferencesData {
-  topics_of_interest: string[];
-  websites: string[];
-}
+type UserPreferencesData = Pick<
+  ApiUserPreferences,
+  "topics_of_interest" | "websites"
+>;
 
 export const useUserPreferences = () => {
   const [preferences, setPreferences] = useState<UserPreferencesData>({
@@ -22,25 +25,18 @@ export const useUserPreferences = () => {
     if (user) {
       fetchPreferences();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchPreferences = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("user_preferences")
-        .select("*")
-        .eq("user_id", user?.id)
-        .maybeSingle();
+      const data = await contentApi.getUserPreferences();
 
-      if (error && error.code !== "PGRST116") throw error;
-
-      if (data) {
-        setPreferences({
-          topics_of_interest: data.topics_of_interest || [],
-          websites: data.websites || [],
-        });
-      }
+      setPreferences({
+        topics_of_interest: data.topics_of_interest || [],
+        websites: data.websites || [],
+      });
     } catch (error) {
       console.error("Error fetching preferences:", error);
       toast({
@@ -56,19 +52,10 @@ export const useUserPreferences = () => {
   const savePreferences = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from("user_preferences").upsert(
-        {
-          user_id: user?.id,
-          topics_of_interest: preferences.topics_of_interest,
-          websites: preferences.websites,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "user_id",
-        }
-      );
-
-      if (error) throw error;
+      await contentApi.updateUserPreferences({
+        topics_of_interest: preferences.topics_of_interest,
+        websites: preferences.websites,
+      });
 
       toast({
         title: "Success",

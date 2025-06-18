@@ -1,6 +1,6 @@
-# Promptly Social Scribe - Backend API
+# Promptly - Backend API
 
-A FastAPI-based backend service for the Promptly Social Scribe application, providing authentication and user management with Supabase integration.
+A FastAPI-based backend service for the Promptly application, providing authentication and user management with Supabase integration.
 
 ## Features
 

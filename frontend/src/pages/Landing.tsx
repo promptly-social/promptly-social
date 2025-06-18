@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -21,7 +20,7 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-const Index = () => {
+const Landing = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -304,7 +303,7 @@ const Index = () => {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-100 text-center text-gray-500">
-            <p>&copy; 2024 Promptly. All rights reserved.</p>
+            <p>&copy; 2025 Promptly. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -312,4 +311,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Landing;

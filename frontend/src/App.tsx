@@ -8,15 +8,14 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import NewContent from "./pages/NewContent";
-import WritingStyle from "./pages/WritingStyle";
-import MyContent from "./pages/MyContent";
-import Settings from "./pages/Settings";
+import Landing from "./pages/Landing";
+import { Login, Signup } from "./pages/auth";
+import NewContent from "./pages/NewContent/NewContent";
+import Profile from "./pages/Profile/Profile";
+import MyContent from "./pages/MyContent/MyContent";
+import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
-import OAuthCallback from "./pages/OAuthCallback";
+import OAuthCallback from "./pages/auth/OAuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -71,7 +70,7 @@ const App = () => (
               path="/"
               element={
                 <AuthRoute>
-                  <Index />
+                  <Landing />
                 </AuthRoute>
               }
             />
@@ -111,7 +110,7 @@ const App = () => (
                   <SidebarProvider>
                     <div className="min-h-screen flex w-full">
                       <AppSidebar />
-                      <WritingStyle />
+                      <Profile />
                     </div>
                   </SidebarProvider>
                 </ProtectedRoute>
