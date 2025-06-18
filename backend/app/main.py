@@ -89,24 +89,9 @@ app = FastAPI(
 )
 
 # Configure CORS
-cors_origins = settings.get_cors_origins()
-# Add wildcard for development if no specific origins are configured
-if settings.environment == "development" and not cors_origins:
-    cors_origins = ["*"]
-elif settings.environment == "development":
-    # Ensure localhost variants are included for development
-    development_origins = [
-        "http://localhost:8080",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ]
-    cors_origins = list(set(cors_origins + development_origins))
-
-logger.info(f"CORS origins configured: {cors_origins}")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
