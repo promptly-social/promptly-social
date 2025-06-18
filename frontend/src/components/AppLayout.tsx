@@ -1,12 +1,30 @@
 import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { SuggestedPosts } from "@/components/SuggestedPosts";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { LogOut } from "lucide-react";
 
-const NewContent: React.FC = () => {
+interface AppLayoutProps {
+  title: string;
+  showWelcome?: boolean;
+  emailBreakpoint?: "sm" | "md";
+  additionalActions?: React.ReactNode;
+  children?: React.ReactNode;
+}
+
+const AppLayout: React.FC<AppLayoutProps> = ({
+  title,
+  showWelcome = false,
+  emailBreakpoint = "sm",
+  additionalActions,
+  children,
+}) => {
   const { user, signOut } = useAuth();
+
+  const emailClasses =
+    emailBreakpoint === "md"
+      ? "hidden md:inline text-gray-600 text-sm"
+      : "hidden sm:inline text-gray-600 text-sm";
 
   return (
     <SidebarInset>
@@ -15,12 +33,13 @@ const NewContent: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger />
             <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-              New Content
+              {title}
             </h1>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <span className="hidden sm:inline text-gray-600 text-sm">
-              Welcome, {user?.email}
+            {additionalActions}
+            <span className={emailClasses}>
+              {showWelcome ? `Welcome, ${user?.email}` : user?.email}
             </span>
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="w-4 h-4 sm:mr-2" />
@@ -29,14 +48,9 @@ const NewContent: React.FC = () => {
           </div>
         </div>
       </header>
-
-      <main className="py-4 px-4 sm:py-8 sm:px-6">
-        <div className="max-w-4xl mx-auto">
-          <SuggestedPosts />
-        </div>
-      </main>
+      {children}
     </SidebarInset>
   );
 };
 
-export default NewContent;
+export default AppLayout;

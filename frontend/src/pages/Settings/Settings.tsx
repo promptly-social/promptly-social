@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import AppLayout from "@/components/AppLayout";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, User, Bell, AlertTriangle, Trash2 } from "lucide-react";
+import { User, Bell, AlertTriangle, Trash2 } from "lucide-react";
 
 const Settings: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
 
@@ -36,27 +36,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <SidebarInset>
-      <header className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center justify-between p-4 sm:p-6">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <SidebarTrigger />
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-              Settings
-            </h1>
-          </div>
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            <span className="hidden md:inline text-gray-600 text-sm">
-              {user?.email}
-            </span>
-            <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <AppLayout title="Settings" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
           {/* Account Settings */}
@@ -186,7 +166,7 @@ const Settings: React.FC = () => {
           </Card>
         </div>
       </main>
-    </SidebarInset>
+    </AppLayout>
   );
 };
 

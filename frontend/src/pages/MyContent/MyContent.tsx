@@ -3,11 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { supabase } from "@/integrations/supabase/client";
+import AppLayout from "@/components/AppLayout";
+import {
+  contentApi,
+  type ContentIdea as ApiContentIdea,
+} from "@/lib/content-api";
 import { useToast } from "@/hooks/use-toast";
 import {
-  LogOut,
   ExternalLink,
   RefreshCw,
   Calendar,
@@ -25,21 +27,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface ContentIdea {
-  id: string;
-  title: string;
-  original_input: string;
-  content_type: string;
-  status: string;
-  scheduled_date: string | null;
-  published_date: string | null;
-  linkedin_post_id: string | null;
-  publication_error: string | null;
-  created_at: string;
-}
+type ContentIdea = ApiContentIdea;
 
 const MyContent: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [pastPosts, setPastPosts] = useState<ContentIdea[]>([]);
   const [scheduledPosts, setScheduledPosts] = useState<ContentIdea[]>([]);
@@ -50,34 +41,30 @@ const MyContent: React.FC = () => {
     if (user) {
       fetchContent();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchContent = async () => {
     setIsLoading(true);
     try {
       // Fetch past posts (published or failed)
-      const { data: pastData, error: pastError } = await supabase
-        .from("content_ideas")
-        .select("*")
-        .eq("user_id", user?.id)
-        .in("status", ["published", "failed"])
-        .order("published_date", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
-
-      if (pastError) throw pastError;
+      const pastData = await contentApi.getContentIdeas({
+        status: ["published", "failed"],
+        order_by: "published_date",
+        order_direction: "desc",
+        size: 100, // Get more past posts
+      });
 
       // Fetch scheduled posts
-      const { data: scheduledData, error: scheduledError } = await supabase
-        .from("content_ideas")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("status", "scheduled")
-        .order("scheduled_date", { ascending: true });
+      const scheduledData = await contentApi.getContentIdeas({
+        status: ["scheduled"],
+        order_by: "scheduled_date",
+        order_direction: "asc",
+        size: 100, // Get all scheduled posts
+      });
 
-      if (scheduledError) throw scheduledError;
-
-      setPastPosts(pastData || []);
-      setScheduledPosts(scheduledData || []);
+      setPastPosts(pastData.items || []);
+      setScheduledPosts(scheduledData.items || []);
     } catch (error) {
       console.error("Error fetching content:", error);
       toast({
@@ -93,15 +80,10 @@ const MyContent: React.FC = () => {
   const cancelScheduledPost = async (postId: string) => {
     setIsCancelling(postId);
     try {
-      const { error } = await supabase
-        .from("content_ideas")
-        .update({
-          status: "draft",
-          scheduled_date: null,
-        })
-        .eq("id", postId);
-
-      if (error) throw error;
+      await contentApi.updateContentIdea(postId, {
+        status: "draft",
+        scheduled_date: undefined,
+      });
 
       // Move from scheduled to remove from list
       setScheduledPosts((prev) => prev.filter((post) => post.id !== postId));
@@ -161,39 +143,26 @@ const MyContent: React.FC = () => {
     }
   };
 
-  return (
-    <SidebarInset>
-      <header className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center justify-between p-4 sm:p-6">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <SidebarTrigger />
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
-              My Content
-            </h1>
-          </div>
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            <Button
-              onClick={fetchContent}
-              disabled={isLoading}
-              variant="outline"
-              size="sm"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} sm:mr-2`}
-              />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <span className="hidden md:inline text-gray-600 text-sm">
-              {user?.email}
-            </span>
-            <Button onClick={signOut} variant="outline" size="sm">
-              <LogOut className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+  const refreshButton = (
+    <Button
+      onClick={fetchContent}
+      disabled={isLoading}
+      variant="outline"
+      size="sm"
+    >
+      <RefreshCw
+        className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} sm:mr-2`}
+      />
+      <span className="hidden sm:inline">Refresh</span>
+    </Button>
+  );
 
+  return (
+    <AppLayout
+      title="My Content"
+      emailBreakpoint="md"
+      additionalActions={refreshButton}
+    >
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-4 sm:mb-8">
@@ -460,7 +429,7 @@ const MyContent: React.FC = () => {
           </Tabs>
         </div>
       </main>
-    </SidebarInset>
+    </AppLayout>
   );
 };
 

@@ -14,7 +14,7 @@ import uvicorn
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
-from app.routers import auth
+from app.routers import auth, content
 
 
 # Configure logging
@@ -89,13 +89,29 @@ app = FastAPI(
 )
 
 # Configure CORS
+cors_origins = settings.get_cors_origins()
+# Add wildcard for development if no specific origins are configured
+if settings.environment == "development" and not cors_origins:
+    cors_origins = ["*"]
+elif settings.environment == "development":
+    # Ensure localhost variants are included for development
+    development_origins = [
+        "http://localhost:8080",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ]
+    cors_origins = list(set(cors_origins + development_origins))
+
+logger.info(f"CORS origins configured: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.get_cors_origins(),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 
@@ -234,6 +250,7 @@ async def add_security_headers(request: Request, call_next):
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(content.router, prefix="/api/v1")
 
 
 # Root endpoint
@@ -249,6 +266,24 @@ async def root():
     }
 
 
+# CORS preflight handler
+@app.options("/{path:path}")
+async def options_handler(request: Request):
+    """Handle OPTIONS requests for CORS preflight."""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*"
+            if settings.environment == "development"
+            else request.headers.get("origin", "*"),
+            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "600",
+        },
+    )
+
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -262,10 +297,10 @@ async def health_check():
 
 
 # Metrics endpoint (basic implementation)
+# In a production environment, integrate with Prometheus or similar
 @app.get("/metrics")
 async def metrics():
     """Basic metrics endpoint for monitoring."""
-    # In a production environment, you'd integrate with Prometheus or similar
     return {
         "app": settings.app_name,
         "version": settings.app_version,

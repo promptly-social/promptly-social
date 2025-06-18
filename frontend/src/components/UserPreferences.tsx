@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { Settings, Plus, X, Tag, Globe } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { contentApi } from "@/lib/content-api";
+import { useToast } from "@/hooks/use-toast";
+import { Settings, Plus, X, Tag, Globe } from "lucide-react";
 
 interface UserPreference {
   topics: string[];
@@ -18,10 +18,10 @@ export const UserPreferences: React.FC = () => {
   const { toast } = useToast();
   const [preferences, setPreferences] = useState<UserPreference>({
     topics: [],
-    websites: []
+    websites: [],
   });
-  const [newTopic, setNewTopic] = useState('');
-  const [newWebsite, setNewWebsite] = useState('');
+  const [newTopic, setNewTopic] = useState("");
+  const [newWebsite, setNewWebsite] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -29,27 +29,20 @@ export const UserPreferences: React.FC = () => {
     if (user) {
       loadPreferences();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadPreferences = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle();
+      const data = await contentApi.getUserPreferences();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      if (data) {
-        setPreferences({
-          topics: data.topics_of_interest || [],
-          websites: data.websites || []
-        });
-      }
+      setPreferences({
+        topics: data.topics_of_interest || [],
+        websites: data.websites || [],
+      });
     } catch (error) {
-      console.error('Error loading preferences:', error);
+      console.error("Error loading preferences:", error);
       toast({
         title: "Error",
         description: "Failed to load preferences",
@@ -63,25 +56,17 @@ export const UserPreferences: React.FC = () => {
   const savePreferences = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user?.id,
-          topics_of_interest: preferences.topics,
-          websites: preferences.websites,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (error) throw error;
+      await contentApi.updateUserPreferences({
+        topics_of_interest: preferences.topics,
+        websites: preferences.websites,
+      });
 
       toast({
         title: "Success",
         description: "Preferences saved successfully",
       });
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error("Error saving preferences:", error);
       toast({
         title: "Error",
         description: "Failed to save preferences",
@@ -94,47 +79,50 @@ export const UserPreferences: React.FC = () => {
 
   const addTopic = () => {
     if (newTopic.trim() && !preferences.topics.includes(newTopic.trim())) {
-      setPreferences(prev => ({
+      setPreferences((prev) => ({
         ...prev,
-        topics: [...prev.topics, newTopic.trim()]
+        topics: [...prev.topics, newTopic.trim()],
       }));
-      setNewTopic('');
+      setNewTopic("");
     }
   };
 
   const removeTopic = (topicToRemove: string) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      topics: prev.topics.filter(topic => topic !== topicToRemove)
+      topics: prev.topics.filter((topic) => topic !== topicToRemove),
     }));
   };
 
   const addWebsite = () => {
-    if (newWebsite.trim() && !preferences.websites.includes(newWebsite.trim())) {
-      setPreferences(prev => ({
+    if (
+      newWebsite.trim() &&
+      !preferences.websites.includes(newWebsite.trim())
+    ) {
+      setPreferences((prev) => ({
         ...prev,
-        websites: [...prev.websites, newWebsite.trim()]
+        websites: [...prev.websites, newWebsite.trim()],
       }));
-      setNewWebsite('');
+      setNewWebsite("");
     }
   };
 
   const removeWebsite = (websiteToRemove: string) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      websites: prev.websites.filter(website => website !== websiteToRemove)
+      websites: prev.websites.filter((website) => website !== websiteToRemove),
     }));
   };
 
   const handleTopicKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       addTopic();
     }
   };
 
   const handleWebsiteKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       addWebsite();
     }
@@ -158,7 +146,8 @@ export const UserPreferences: React.FC = () => {
           Content Preferences
         </CardTitle>
         <p className="text-xs sm:text-sm text-gray-600">
-          Configure your topics of interest and favorite websites to get personalized content suggestions
+          Configure your topics of interest and favorite websites to get
+          personalized content suggestions
         </p>
       </CardHeader>
       <CardContent className="space-y-4 sm:space-y-6">
@@ -166,9 +155,11 @@ export const UserPreferences: React.FC = () => {
         <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-blue-500" />
-            <h3 className="font-medium text-sm sm:text-base">Topics of Interest</h3>
+            <h3 className="font-medium text-sm sm:text-base">
+              Topics of Interest
+            </h3>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               placeholder="Add a topic (e.g., AI, Marketing, Startups)"
@@ -182,10 +173,14 @@ export const UserPreferences: React.FC = () => {
               <span className="text-sm">Add</span>
             </Button>
           </div>
-          
+
           <div className="flex flex-wrap gap-2">
             {preferences.topics.map((topic, index) => (
-              <Badge key={index} variant="secondary" className="text-xs sm:text-sm">
+              <Badge
+                key={index}
+                variant="secondary"
+                className="text-xs sm:text-sm"
+              >
                 {topic}
                 <Button
                   variant="ghost"
@@ -198,10 +193,11 @@ export const UserPreferences: React.FC = () => {
               </Badge>
             ))}
           </div>
-          
+
           {preferences.topics.length === 0 && (
             <p className="text-xs sm:text-sm text-gray-500 italic">
-              No topics added yet. Add topics you're interested in to get personalized suggestions.
+              No topics added yet. Add topics you're interested in to get
+              personalized suggestions.
             </p>
           )}
         </div>
@@ -210,9 +206,11 @@ export const UserPreferences: React.FC = () => {
         <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-green-500" />
-            <h3 className="font-medium text-sm sm:text-base">Favorite Websites</h3>
+            <h3 className="font-medium text-sm sm:text-base">
+              Favorite Websites
+            </h3>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               placeholder="Add a website (e.g., techcrunch.com, medium.com)"
@@ -226,10 +224,14 @@ export const UserPreferences: React.FC = () => {
               <span className="text-sm">Add</span>
             </Button>
           </div>
-          
+
           <div className="flex flex-wrap gap-2">
             {preferences.websites.map((website, index) => (
-              <Badge key={index} variant="outline" className="text-xs sm:text-sm">
+              <Badge
+                key={index}
+                variant="outline"
+                className="text-xs sm:text-sm"
+              >
                 {website}
                 <Button
                   variant="ghost"
@@ -242,21 +244,22 @@ export const UserPreferences: React.FC = () => {
               </Badge>
             ))}
           </div>
-          
+
           {preferences.websites.length === 0 && (
             <p className="text-xs sm:text-sm text-gray-500 italic">
-              No websites added yet. Add your favorite content sources for better recommendations.
+              No websites added yet. Add your favorite content sources for
+              better recommendations.
             </p>
           )}
         </div>
 
         <div className="pt-3 sm:pt-4 border-t border-gray-100">
-          <Button 
-            onClick={savePreferences} 
+          <Button
+            onClick={savePreferences}
             disabled={isSaving}
             className="w-full sm:w-auto"
           >
-            {isSaving ? 'Saving...' : 'Save Preferences'}
+            {isSaving ? "Saving..." : "Save Preferences"}
           </Button>
         </div>
       </CardContent>

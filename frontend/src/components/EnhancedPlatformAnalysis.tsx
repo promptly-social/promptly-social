@@ -1,12 +1,15 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { BarChart3, Brain, TrendingUp, BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  contentApi,
+  type PlatformAnalysisData,
+  type PlatformAnalysisResponse,
+} from "@/lib/content-api";
+import { useToast } from "@/hooks/use-toast";
+import { BarChart3, Brain, TrendingUp, BookOpen } from "lucide-react";
 
 interface PlatformAnalysisProps {
   platform: string;
@@ -14,28 +17,12 @@ interface PlatformAnalysisProps {
   isConnected: boolean;
 }
 
-interface AnalysisData {
-  writing_style: {
-    tone: string;
-    complexity: string;
-    avg_length: number;
-    key_themes: string[];
-  };
-  topics: string[];
-  posting_patterns: {
-    frequency: string;
-    best_times: string[];
-  };
-  engagement_insights: {
-    high_performing_topics: string[];
-    content_types: string[];
-  };
-}
+type AnalysisData = PlatformAnalysisData;
 
 export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
   platform,
   platformName,
-  isConnected
+  isConnected,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,26 +34,19 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
     if (user && isConnected) {
       fetchAnalysis();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, platform, isConnected]);
 
   const fetchAnalysis = async () => {
     try {
-      const { data, error } = await supabase
-        .from('writing_style_analysis')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('platform', platform)
-        .maybeSingle();
+      const response = await contentApi.getWritingStyleAnalysis(platform);
 
-      if (error && error.code !== 'PGRST116') throw error;
-
-      if (data) {
-        // Cast the Json type to AnalysisData via unknown
-        setAnalysisData(data.analysis_data as unknown as AnalysisData);
-        setLastAnalyzed(data.last_analyzed_at);
+      if (response.analysis_data) {
+        setAnalysisData(response.analysis_data);
+        setLastAnalyzed(response.last_analyzed);
       }
     } catch (error) {
-      console.error('Error fetching analysis:', error);
+      console.error("Error fetching analysis:", error);
     }
   };
 
@@ -77,50 +57,44 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
       // For now, we'll create sample analysis data
       const sampleAnalysis: AnalysisData = {
         writing_style: {
-          tone: platform === 'linkedin' ? 'Professional' : 'Conversational',
-          complexity: 'Intermediate',
-          avg_length: platform === 'linkedin' ? 150 : 800,
-          key_themes: platform === 'linkedin' 
-            ? ['Professional Growth', 'Industry Insights', 'Leadership']
-            : ['Deep Dives', 'Analysis', 'Commentary']
+          tone: platform === "linkedin" ? "Professional" : "Conversational",
+          complexity: "Intermediate",
+          avg_length: platform === "linkedin" ? 150 : 800,
+          key_themes:
+            platform === "linkedin"
+              ? ["Professional Growth", "Industry Insights", "Leadership"]
+              : ["Deep Dives", "Analysis", "Commentary"],
         },
-        topics: platform === 'linkedin'
-          ? ['Technology', 'Business Strategy', 'Leadership', 'Innovation']
-          : ['Technology', 'Startups', 'Product Development', 'Industry Analysis'],
+        topics:
+          platform === "linkedin"
+            ? ["Technology", "Business Strategy", "Leadership", "Innovation"]
+            : [
+                "Technology",
+                "Startups",
+                "Product Development",
+                "Industry Analysis",
+              ],
         posting_patterns: {
-          frequency: 'Weekly',
-          best_times: ['9:00 AM', '1:00 PM', '5:00 PM']
+          frequency: "Weekly",
+          best_times: ["9:00 AM", "1:00 PM", "5:00 PM"],
         },
         engagement_insights: {
-          high_performing_topics: ['AI', 'Remote Work', 'Leadership'],
-          content_types: ['Insights', 'Personal Stories', 'Industry Updates']
-        }
+          high_performing_topics: ["AI", "Remote Work", "Leadership"],
+          content_types: ["Insights", "Personal Stories", "Industry Updates"],
+        },
       };
 
-      const { error } = await supabase
-        .from('writing_style_analysis')
-        .upsert({
-          user_id: user?.id,
-          platform,
-          analysis_data: sampleAnalysis as unknown as any,
-          content_count: Math.floor(Math.random() * 50) + 10,
-          last_analyzed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,platform'
-        });
+      const response = await contentApi.runWritingStyleAnalysis(platform);
 
-      if (error) throw error;
-
-      setAnalysisData(sampleAnalysis);
-      setLastAnalyzed(new Date().toISOString());
+      setAnalysisData(response.analysis_data);
+      setLastAnalyzed(response.last_analyzed);
 
       toast({
         title: "Analysis Complete",
         description: `Successfully analyzed your ${platformName} writing style`,
       });
     } catch (error) {
-      console.error('Error running analysis:', error);
+      console.error("Error running analysis:", error);
       toast({
         title: "Analysis Error",
         description: "Failed to analyze writing style",
@@ -154,12 +128,8 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
               <Brain className="w-5 h-5" />
               {platformName} Writing Analysis
             </CardTitle>
-            <Button
-              onClick={runAnalysis}
-              disabled={isAnalyzing}
-              size="sm"
-            >
-              {isAnalyzing ? 'Analyzing...' : 'Analyze Writing Style'}
+            <Button onClick={runAnalysis} disabled={isAnalyzing} size="sm">
+              {isAnalyzing ? "Analyzing..." : "Analyze Writing Style"}
             </Button>
           </div>
           {lastAnalyzed && (
@@ -168,7 +138,7 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
             </p>
           )}
         </CardHeader>
-        
+
         {analysisData && (
           <CardContent className="space-y-6">
             {/* Writing Style */}
@@ -180,19 +150,27 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Tone</p>
-                  <p className="font-medium">{analysisData.writing_style.tone}</p>
+                  <p className="font-medium">
+                    {analysisData.writing_style.tone}
+                  </p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Complexity</p>
-                  <p className="font-medium">{analysisData.writing_style.complexity}</p>
+                  <p className="font-medium">
+                    {analysisData.writing_style.complexity}
+                  </p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Avg Length</p>
-                  <p className="font-medium">{analysisData.writing_style.avg_length} words</p>
+                  <p className="font-medium">
+                    {analysisData.writing_style.avg_length} words
+                  </p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Frequency</p>
-                  <p className="font-medium">{analysisData.posting_patterns.frequency}</p>
+                  <p className="font-medium">
+                    {analysisData.posting_patterns.frequency}
+                  </p>
                 </div>
               </div>
             </div>
@@ -228,11 +206,13 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
             <div>
               <h4 className="font-medium mb-3">High-Performing Topics</h4>
               <div className="flex flex-wrap gap-2">
-                {analysisData.engagement_insights.high_performing_topics.map((topic, index) => (
-                  <Badge key={index} className="bg-green-100 text-green-800">
-                    {topic}
-                  </Badge>
-                ))}
+                {analysisData.engagement_insights.high_performing_topics.map(
+                  (topic, index) => (
+                    <Badge key={index} className="bg-green-100 text-green-800">
+                      {topic}
+                    </Badge>
+                  )
+                )}
               </div>
             </div>
           </CardContent>
