@@ -1,5 +1,5 @@
 """API routers package."""
 
-from . import auth, content
+from . import auth, content, profile
 
-__all__ = ["auth", "content"]
+__all__ = ["auth", "content", "profile"]

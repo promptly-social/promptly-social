@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { contentApi } from "@/lib/content-api";
+import { profileApi } from "@/lib/profile-api";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Plus, X, Tag, Globe } from "lucide-react";
 
@@ -35,7 +35,7 @@ export const UserPreferences: React.FC = () => {
   const loadPreferences = async () => {
     setIsLoading(true);
     try {
-      const data = await contentApi.getUserPreferences();
+      const data = await profileApi.getUserPreferences();
 
       setPreferences({
         topics: data.topics_of_interest || [],
@@ -56,7 +56,7 @@ export const UserPreferences: React.FC = () => {
   const savePreferences = async () => {
     setIsSaving(true);
     try {
-      await contentApi.updateUserPreferences({
+      await profileApi.updateUserPreferences({
         topics_of_interest: preferences.topics,
         websites: preferences.websites,
       });

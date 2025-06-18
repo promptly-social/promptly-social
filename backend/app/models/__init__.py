@@ -1,23 +1,19 @@
 """Models module."""
 
 from .user import User
-from .content import (
-    ContentIdea,
+from .content import Content, Publication, SuggestedPost
+from .profile import (
     UserPreferences,
-    SocialConnection,
     WritingStyleAnalysis,
-    ImportedContent,
-    ScrapedContent,
-    SuggestedPost,
+    SocialConnection,
 )
 
 __all__ = [
     "User",
-    "ContentIdea",
-    "UserPreferences",
-    "SocialConnection",
-    "WritingStyleAnalysis",
-    "ImportedContent",
-    "ScrapedContent",
+    "Content",
+    "Publication",
     "SuggestedPost",
+    "UserPreferences",
+    "WritingStyleAnalysis",
+    "SocialConnection",
 ]

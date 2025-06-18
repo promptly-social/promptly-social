@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { contentApi } from "@/lib/content-api";
+import { profileApi } from "@/lib/profile-api";
 import { BarChart3 } from "lucide-react";
 import { EnhancedPlatformAnalysis } from "./EnhancedPlatformAnalysis";
 
@@ -31,7 +31,7 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
 
   const fetchConnections = async () => {
     try {
-      const data = await contentApi.getSocialConnections();
+      const data = await profileApi.getSocialConnections();
 
       // Filter for active connections
       const connectionsData = data

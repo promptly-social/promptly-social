@@ -14,7 +14,7 @@ import uvicorn
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
-from app.routers import auth, content
+from app.routers import auth, content, profile
 
 
 # Configure logging
@@ -236,6 +236,7 @@ async def add_security_headers(request: Request, call_next):
 # Include routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(content.router, prefix="/api/v1")
+app.include_router(profile.router, prefix="/api/v1")
 
 
 # Root endpoint

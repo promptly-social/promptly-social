@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  contentApi,
+  profileApi,
   type SubstackData,
   type SubstackAnalysisResponse,
-} from "@/lib/content-api";
+} from "@/lib/profile-api";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, RefreshCw, ExternalLink, TrendingUp } from "lucide-react";
 
@@ -28,7 +28,7 @@ export const SubstackAnalysis: React.FC = () => {
 
   const checkSubstackConnection = async () => {
     try {
-      const response = await contentApi.getSubstackAnalysis();
+      const response = await profileApi.getSubstackAnalysis();
 
       setIsConnected(response.is_connected);
       if (response.substack_data) {
@@ -78,7 +78,7 @@ export const SubstackAnalysis: React.FC = () => {
       ];
 
       // Run analysis via backend API
-      const response = await contentApi.runSubstackAnalysis();
+      const response = await profileApi.runSubstackAnalysis();
 
       setSubstackData(response.substack_data);
       setIsConnected(response.is_connected);
