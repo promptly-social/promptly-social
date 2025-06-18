@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 * follow the best practices and conventions in Python 
 * always use the latest version of dependencies when possible
-* follow the best security and compliance practices, e.g. create audit logs, user session management, least previlige principles, follow SOC-II, GDPR, and HIPPA, create appropriate IAM roles and resources, etc.
+* follow the best security and compliance practices, e.g. create audit logs, user session management, least previlige principles, follow SOC-II and GDPR, create appropriate IAM roles and resources, etc.
 * follow the best python file structure conventions for a monorepo
 * follow object oriented design principles
 * when developing AI agents or AI workflow, think of delegating to smaller agents and creating smaller workflow
@@ -20,4 +20,4 @@ alwaysApply: false
 * Consistent error handling
 * Type safety throughout the application
 * Update the corresponding tests when you make changes
-* The logs should follow SOC-II, HIPPA, and GDPR standards
+* The logs should follow SOC-II and GDPR standards

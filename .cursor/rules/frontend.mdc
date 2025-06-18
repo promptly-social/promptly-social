@@ -16,4 +16,4 @@ alwaysApply: false
 * Consistent error handling
 * Type safety throughout the application
 * Update the corresponding tests when you make changes
-* The logs should follow SOC-II, HIPPA, and GDPR standards
+* The logs should follow SOC-II and GDPR standards
