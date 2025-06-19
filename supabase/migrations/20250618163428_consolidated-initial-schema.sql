@@ -1,10 +1,4 @@
 -- Consolidated migration - combines all previous migrations
--- This replaces migrations:
--- - 20250617211524-68bec0a5-ed59-4195-8764-261d7df38a6d.sql
--- - 20250617213106-825cca1f-8616-4cea-b053-776d4fef802f.sql
--- - 20250617215859-06ef5951-5f59-433d-9e19-fdb4ba45cab3.sql
--- - 20250617220430-e9c20174-84cf-4f74-b48d-a993aaacaea0.sql
--- - 20250617224855-e5eaf63c-3006-4b18-a837-579cf2759750.sql
 
 -- =============================================================================
 -- CONTENT IDEAS TABLE
@@ -13,7 +7,7 @@
 -- Create a table to store content ideas and their generated outlines
 CREATE TABLE public.content_ideas (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   title TEXT NOT NULL,
   generated_outline JSONB,
   content_type TEXT NOT NULL CHECK (content_type IN ('blog_post', 'linkedin_post')),
@@ -56,13 +50,6 @@ CREATE INDEX idx_content_ideas_scheduled
 ON content_ideas (scheduled_date) 
 WHERE status = 'scheduled';
 
--- =============================================================================
--- USER MANAGEMENT ENHANCEMENTS
--- =============================================================================
-
--- Add last_login_at column to auth.users table to track user login activity
--- This is handled by a trigger that updates the column on authentication events
-ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
 
 -- =============================================================================
 -- SOCIAL CONNECTIONS TABLE
@@ -71,7 +58,7 @@ ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIM
 -- Create a table to store social media connections
 CREATE TABLE public.social_connections (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   platform TEXT NOT NULL CHECK (platform IN ('substack', 'linkedin')),
   platform_username TEXT,
   connection_data JSONB,
@@ -112,7 +99,7 @@ CREATE POLICY "Users can delete their own social connections"
 -- Create a table to store imported content for analysis
 CREATE TABLE public.imported_content (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   platform TEXT NOT NULL CHECK (platform IN ('substack', 'linkedin')),
   title TEXT,
   content TEXT NOT NULL,
@@ -153,9 +140,9 @@ CREATE POLICY "Users can delete their own imported content"
 -- Create a table to store writing style analysis
 CREATE TABLE public.writing_style_analysis (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   platform TEXT NOT NULL CHECK (platform IN ('substack', 'linkedin')),
-  analysis_data JSONB NOT NULL,
+  analysis_data TEXT NOT NULL DEFAULT '',
   content_count INTEGER NOT NULL DEFAULT 0,
   last_analyzed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -194,7 +181,7 @@ CREATE POLICY "Users can delete their own writing style analysis"
 -- Add user preferences table
 CREATE TABLE public.user_preferences (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   topics_of_interest TEXT[] DEFAULT '{}',
   websites TEXT[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -228,7 +215,7 @@ CREATE POLICY "Users can update their own preferences"
 -- Add scraped content table
 CREATE TABLE public.scraped_content (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   source_url TEXT NOT NULL,
@@ -260,7 +247,7 @@ CREATE POLICY "Users can insert their own scraped content"
 -- Add suggested posts table
 CREATE TABLE public.suggested_posts (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL,
+  user_id UUID REFERENCES public.users NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   original_source_id UUID REFERENCES public.scraped_content(id),

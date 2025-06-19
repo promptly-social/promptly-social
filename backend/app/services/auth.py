@@ -3,7 +3,7 @@ Authentication service containing business logic for user management.
 Integrates Supabase auth with local database operations.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -500,7 +500,7 @@ class AuthService:
         self, user_id: str, access_token: str, refresh_token: str
     ) -> UserSession:
         """Create a new user session."""
-        expires_at = datetime.utcnow() + timedelta(
+        expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
 
@@ -520,7 +520,7 @@ class AuthService:
         stmt = (
             update(User)
             .where(User.id == user_id)
-            .values(last_login_at=datetime.utcnow())
+            .values(last_login_at=datetime.now(timezone.utc))
         )
         await self.db.execute(stmt)
         await self.db.commit()
@@ -530,7 +530,7 @@ class AuthService:
         stmt = (
             update(UserSession)
             .where(UserSession.session_token == access_token)
-            .values(revoked_at=datetime.utcnow())
+            .values(revoked_at=datetime.now(timezone.utc))
         )
         await self.db.execute(stmt)
         await self.db.commit()
@@ -539,7 +539,7 @@ class AuthService:
         self, user_id: str, access_token: str, refresh_token: str
     ) -> None:
         """Update session tokens."""
-        expires_at = datetime.utcnow() + timedelta(
+        expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
 
@@ -550,7 +550,7 @@ class AuthService:
                 session_token=access_token,
                 refresh_token=refresh_token,
                 expires_at=expires_at,
-                last_used_at=datetime.utcnow(),
+                last_used_at=datetime.now(timezone.utc),
             )
         )
         await self.db.execute(stmt)

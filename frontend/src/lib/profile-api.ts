@@ -22,6 +22,8 @@ export interface SocialConnection {
   platform_username: string | null;
   connection_data?: unknown;
   is_active: boolean;
+  analysis_started_at?: string | null;
+  analysis_completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,28 +34,14 @@ export interface SocialConnectionUpdate {
   is_active?: boolean;
 }
 
-export interface PlatformAnalysisData {
-  writing_style: {
-    tone: string;
-    complexity: string;
-    avg_length: number;
-    key_themes: string[];
-  };
-  topics: string[];
-  posting_patterns: {
-    frequency: string;
-    best_times: string[];
-  };
-  engagement_insights: {
-    high_performing_topics: string[];
-    content_types: string[];
-  };
-}
-
 export interface PlatformAnalysisResponse {
-  analysis_data: PlatformAnalysisData | null;
+  analysis_data: string | null;
   last_analyzed: string | null;
   is_connected: boolean;
+}
+
+export interface WritingStyleAnalysisUpdate {
+  analysis_data?: string;
 }
 
 export interface SubstackData {
@@ -72,6 +60,9 @@ export interface SubstackAnalysisResponse {
   substack_data: SubstackData[];
   is_connected: boolean;
   analyzed_at: string | null;
+  analysis_started_at?: string | null;
+  analysis_completed_at?: string | null;
+  is_analyzing?: boolean;
 }
 
 // Profile API
@@ -116,13 +107,20 @@ export const profileApi = {
     });
   },
 
+  async updateWritingStyleAnalysis(platform: string, data: WritingStyleAnalysisUpdate): Promise<PlatformAnalysisResponse> {
+    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
   // Substack Analysis
   async getSubstackAnalysis(): Promise<SubstackAnalysisResponse> {
     return apiClient.request<SubstackAnalysisResponse>('/profile/substack-analysis');
   },
 
   async runSubstackAnalysis(): Promise<SubstackAnalysisResponse> {
-    return apiClient.request<SubstackAnalysisResponse>('/profile/substack-analysis', {
+    return apiClient.request<SubstackAnalysisResponse>('/profile/analyze-substack', {
       method: 'POST',
     });
   },

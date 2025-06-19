@@ -4,7 +4,7 @@ Content service for handling content-related business logic.
 
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_, desc, asc
 from sqlalchemy.orm import selectinload
@@ -134,7 +134,7 @@ class ContentService:
 
             update_dict = update_data.model_dump(exclude_unset=True)
             if update_dict:
-                update_dict["updated_at"] = datetime.utcnow()
+                update_dict["updated_at"] = datetime.now(timezone.utc)
                 for key, value in update_dict.items():
                     setattr(content, key, value)
 
@@ -217,7 +217,7 @@ class ContentService:
 
             update_dict = update_data.model_dump(exclude_unset=True)
             if update_dict:
-                update_dict["updated_at"] = datetime.utcnow()
+                update_dict["updated_at"] = datetime.now(timezone.utc)
                 for key, value in update_dict.items():
                     setattr(publication, key, value)
 

@@ -33,7 +33,7 @@ class WritingStyleAnalysis(Base):
     id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(get_uuid_column(), nullable=False)
     platform = Column(String, nullable=False)
-    analysis_data = Column(get_json_column(), nullable=False)
+    analysis_data = Column(String, nullable=False)
     content_count = Column(Integer, default=0, nullable=False)
     last_analyzed_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -60,6 +60,8 @@ class SocialConnection(Base):
     platform_username = Column(String)
     connection_data = Column(get_json_column())
     is_active = Column(Boolean, default=True, nullable=False)
+    analysis_started_at = Column(DateTime(timezone=True))
+    analysis_completed_at = Column(DateTime(timezone=True))
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

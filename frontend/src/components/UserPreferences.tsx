@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { profileApi } from "@/lib/profile-api";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Plus, X, Tag, Globe } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserPreference {
   topics: string[];
@@ -53,17 +54,17 @@ export const UserPreferences: React.FC = () => {
     }
   };
 
-  const savePreferences = async () => {
+  const savePreferencesToBackend = async (newPreferences: UserPreference) => {
     setIsSaving(true);
     try {
       await profileApi.updateUserPreferences({
-        topics_of_interest: preferences.topics,
-        websites: preferences.websites,
+        topics_of_interest: newPreferences.topics,
+        websites: newPreferences.websites,
       });
 
       toast({
         title: "Success",
-        description: "Preferences saved successfully",
+        description: "Preferences saved automatically",
       });
     } catch (error) {
       console.error("Error saving preferences:", error);
@@ -77,41 +78,55 @@ export const UserPreferences: React.FC = () => {
     }
   };
 
-  const addTopic = () => {
+  const addTopic = async () => {
     if (newTopic.trim() && !preferences.topics.includes(newTopic.trim())) {
-      setPreferences((prev) => ({
-        ...prev,
-        topics: [...prev.topics, newTopic.trim()],
-      }));
+      const newPreferences = {
+        ...preferences,
+        topics: [...preferences.topics, newTopic.trim()],
+      };
+
+      setPreferences(newPreferences);
       setNewTopic("");
+      await savePreferencesToBackend(newPreferences);
     }
   };
 
-  const removeTopic = (topicToRemove: string) => {
-    setPreferences((prev) => ({
-      ...prev,
-      topics: prev.topics.filter((topic) => topic !== topicToRemove),
-    }));
+  const removeTopic = async (topicToRemove: string) => {
+    const newPreferences = {
+      ...preferences,
+      topics: preferences.topics.filter((topic) => topic !== topicToRemove),
+    };
+
+    setPreferences(newPreferences);
+    await savePreferencesToBackend(newPreferences);
   };
 
-  const addWebsite = () => {
+  const addWebsite = async () => {
     if (
       newWebsite.trim() &&
       !preferences.websites.includes(newWebsite.trim())
     ) {
-      setPreferences((prev) => ({
-        ...prev,
-        websites: [...prev.websites, newWebsite.trim()],
-      }));
+      const newPreferences = {
+        ...preferences,
+        websites: [...preferences.websites, newWebsite.trim()],
+      };
+
+      setPreferences(newPreferences);
       setNewWebsite("");
+      await savePreferencesToBackend(newPreferences);
     }
   };
 
-  const removeWebsite = (websiteToRemove: string) => {
-    setPreferences((prev) => ({
-      ...prev,
-      websites: prev.websites.filter((website) => website !== websiteToRemove),
-    }));
+  const removeWebsite = async (websiteToRemove: string) => {
+    const newPreferences = {
+      ...preferences,
+      websites: preferences.websites.filter(
+        (website) => website !== websiteToRemove
+      ),
+    };
+
+    setPreferences(newPreferences);
+    await savePreferencesToBackend(newPreferences);
   };
 
   const handleTopicKeyPress = (e: React.KeyboardEvent) => {
@@ -128,16 +143,6 @@ export const UserPreferences: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-4 sm:p-6">
-          <div className="text-center">Loading preferences...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -147,7 +152,10 @@ export const UserPreferences: React.FC = () => {
         </CardTitle>
         <p className="text-xs sm:text-sm text-gray-600">
           Configure your topics of interest and favorite websites to get
-          personalized content suggestions
+          personalized content suggestions. Changes are saved automatically.
+          {isSaving && (
+            <span className="ml-2 text-blue-600 font-medium">Saving...</span>
+          )}
         </p>
       </CardHeader>
       <CardContent className="space-y-4 sm:space-y-6">
@@ -165,33 +173,44 @@ export const UserPreferences: React.FC = () => {
               placeholder="Add a topic (e.g., AI, Marketing, Startups)"
               value={newTopic}
               onChange={(e) => setNewTopic(e.target.value)}
-              onKeyPress={handleTopicKeyPress}
+              onKeyDown={handleTopicKeyPress}
               className="flex-1 text-sm sm:text-base"
+              disabled={isSaving}
             />
-            <Button onClick={addTopic} size="sm" className="w-full sm:w-auto">
+            <Button
+              onClick={addTopic}
+              size="sm"
+              className="w-full sm:w-auto"
+              disabled={isSaving || !newTopic.trim()}
+            >
               <Plus className="w-4 h-4 mr-1 sm:mr-2" />
               <span className="text-sm">Add</span>
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {preferences.topics.map((topic, index) => (
-              <Badge
-                key={index}
-                variant="secondary"
-                className="text-xs sm:text-sm"
-              >
-                {topic}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeTopic(topic)}
-                  className="ml-2 h-auto p-0 hover:bg-transparent"
+            {isLoading ? (
+              <Skeleton className="w-full h-8" />
+            ) : (
+              preferences.topics.map((topic, index) => (
+                <Badge
+                  key={index}
+                  variant="secondary"
+                  className="text-xs sm:text-sm"
                 >
-                  <X className="w-3 h-3" />
-                </Button>
-              </Badge>
-            ))}
+                  {topic}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeTopic(topic)}
+                    className="ml-2 h-auto p-0 hover:bg-transparent"
+                    disabled={isSaving}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </Badge>
+              ))
+            )}
           </div>
 
           {preferences.topics.length === 0 && (
@@ -216,33 +235,44 @@ export const UserPreferences: React.FC = () => {
               placeholder="Add a website (e.g., techcrunch.com, medium.com)"
               value={newWebsite}
               onChange={(e) => setNewWebsite(e.target.value)}
-              onKeyPress={handleWebsiteKeyPress}
+              onKeyDown={handleWebsiteKeyPress}
               className="flex-1 text-sm sm:text-base"
+              disabled={isSaving}
             />
-            <Button onClick={addWebsite} size="sm" className="w-full sm:w-auto">
+            <Button
+              onClick={addWebsite}
+              size="sm"
+              className="w-full sm:w-auto"
+              disabled={isSaving || !newWebsite.trim()}
+            >
               <Plus className="w-4 h-4 mr-1 sm:mr-2" />
               <span className="text-sm">Add</span>
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {preferences.websites.map((website, index) => (
-              <Badge
-                key={index}
-                variant="outline"
-                className="text-xs sm:text-sm"
-              >
-                {website}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeWebsite(website)}
-                  className="ml-2 h-auto p-0 hover:bg-transparent"
+            {isLoading ? (
+              <Skeleton className="w-full h-8" />
+            ) : (
+              preferences.websites.map((website, index) => (
+                <Badge
+                  key={index}
+                  variant="outline"
+                  className="text-xs sm:text-sm"
                 >
-                  <X className="w-3 h-3" />
-                </Button>
-              </Badge>
-            ))}
+                  {website}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeWebsite(website)}
+                    className="ml-2 h-auto p-0 hover:bg-transparent"
+                    disabled={isSaving}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </Badge>
+              ))
+            )}
           </div>
 
           {preferences.websites.length === 0 && (
@@ -251,16 +281,6 @@ export const UserPreferences: React.FC = () => {
               better recommendations.
             </p>
           )}
-        </div>
-
-        <div className="pt-3 sm:pt-4 border-t border-gray-100">
-          <Button
-            onClick={savePreferences}
-            disabled={isSaving}
-            className="w-full sm:w-auto"
-          >
-            {isSaving ? "Saving..." : "Save Preferences"}
-          </Button>
         </div>
       </CardContent>
     </Card>

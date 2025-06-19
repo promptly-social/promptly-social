@@ -4,9 +4,11 @@ Content service for handling content-related business logic.
 
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+import os
+import httpx
 
 from loguru import logger
 
@@ -18,7 +20,6 @@ from app.models.profile import (
 from app.schemas.profile import (
     UserPreferencesUpdate,
     SocialConnectionUpdate,
-    WritingStyleAnalysisUpdate,
 )
 
 
@@ -50,7 +51,7 @@ class ProfileService:
             if existing:
                 # Update existing preferences
                 update_dict = preferences_data.model_dump()
-                update_dict["updated_at"] = datetime.utcnow()
+                update_dict["updated_at"] = datetime.now(timezone.utc)
 
                 for key, value in update_dict.items():
                     setattr(existing, key, value)
@@ -106,18 +107,37 @@ class ProfileService:
             )
             raise
 
+    async def get_social_connection_for_analysis(
+        self, user_id: UUID, platform: str
+    ) -> Optional[SocialConnection]:
+        """Get a specific social connection for analysis (doesn't filter by is_active)."""
+        try:
+            query = select(SocialConnection).where(
+                and_(
+                    SocialConnection.user_id == user_id,
+                    SocialConnection.platform == platform,
+                )
+            )
+            result = await self.db.execute(query)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            logger.error(
+                f"Error getting social connection {platform} for analysis for {user_id}: {e}"
+            )
+            raise
+
     async def upsert_social_connection(
         self, user_id: UUID, platform: str, connection_data: SocialConnectionUpdate
     ) -> SocialConnection:
         """Create or update a social connection."""
         try:
             # Check if connection exists
-            existing = await self.get_social_connection(user_id, platform)
+            existing = await self.get_social_connection_for_analysis(user_id, platform)
 
             if existing:
                 # Update existing connection
                 update_dict = connection_data.model_dump(exclude_unset=True)
-                update_dict["updated_at"] = datetime.utcnow()
+                update_dict["updated_at"] = datetime.now(timezone.utc)
 
                 for key, value in update_dict.items():
                     setattr(existing, key, value)
@@ -146,6 +166,103 @@ class ProfileService:
             )
             raise
 
+    async def analyze_substack(self, user_id: UUID) -> Optional[SocialConnection]:
+        """
+        Analyze Substack content for a user.
+
+        This method:
+        1. Sets analysis_started_at timestamp
+        2. Triggers async edge function for analysis
+        3. Edge function will set analysis_completed_at when done
+
+        Args:
+            user_id: UUID of the user to analyze
+
+        Returns:
+            Updated SocialConnection with analysis_started_at set
+        """
+        try:
+            # Get the Substack connection
+            connection = await self.get_social_connection_for_analysis(
+                user_id, "substack"
+            )
+
+            if not connection:
+                logger.warning(f"No Substack connection found for user {user_id}")
+                return None
+
+            if not connection.platform_username:
+                logger.warning(
+                    f"No platform username set for Substack connection for user {user_id}"
+                )
+                return None
+
+            # Set analysis_started_at timestamp
+            connection.analysis_started_at = datetime.now(timezone.utc)
+            connection.analysis_completed_at = None  # Reset completed timestamp
+
+            await self.db.commit()
+            await self.db.refresh(connection)
+
+            logger.info(f"Started substack analysis for user {user_id}")
+
+            # Trigger async edge function
+            await self._trigger_substack_analysis(user_id, connection.platform_username)
+
+            return connection
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error starting substack analysis for {user_id}: {e}")
+            raise
+
+    async def _trigger_substack_analysis(
+        self, user_id: UUID, platform_username: str
+    ) -> None:
+        """
+        Trigger the Supabase Edge Function for Substack analysis.
+        Made configurable to switch to GCP Cloud Run later.
+        """
+        try:
+            await self._trigger_gcp_cloud_run(user_id, platform_username)
+
+        except Exception as e:
+            logger.error(f"Error triggering edge function for user {user_id}: {e}")
+            raise
+
+    async def _trigger_gcp_cloud_run(
+        self, user_id: UUID, platform_username: str
+    ) -> None:
+        """Trigger GCP Cloud Run function for analysis."""
+        try:
+            gcp_function_url = os.getenv("GCP_ANALYSIS_FUNCTION_URL")
+
+            if not gcp_function_url:
+                logger.error("Missing GCP Cloud Run function URL")
+                return
+
+            payload = {"user_id": str(user_id), "platform_username": platform_username}
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    gcp_function_url,
+                    json=payload,
+                    timeout=10.0,  # Don't wait for completion, just trigger
+                )
+
+                if response.status_code not in [200, 202]:
+                    logger.error(
+                        f"Failed to trigger GCP function: {response.status_code} - {response.text}"
+                    )
+                else:
+                    logger.info(
+                        f"Successfully triggered GCP Cloud Run function for user {user_id}"
+                    )
+
+        except Exception as e:
+            logger.error(f"Error triggering GCP Cloud Run function: {e}")
+            raise
+
     # Writing Style Analysis Operations
     async def get_writing_style_analysis(
         self, user_id: UUID, platform: str
@@ -167,7 +284,7 @@ class ProfileService:
             raise
 
     async def upsert_writing_style_analysis(
-        self, user_id: UUID, platform: str, analysis_data: WritingStyleAnalysisUpdate
+        self, user_id: UUID, platform: str, analysis_data: str
     ) -> WritingStyleAnalysis:
         """Create or update writing style analysis."""
         try:
@@ -176,13 +293,13 @@ class ProfileService:
 
             if existing:
                 # Update existing analysis
-                update_dict = analysis_data.model_dump(exclude_unset=True)
-                update_dict["updated_at"] = datetime.utcnow()
+                update_dict = {"analysis_data": analysis_data}
+                update_dict["updated_at"] = datetime.now(timezone.utc)
                 if (
                     "last_analyzed_at" not in update_dict
                     or update_dict["last_analyzed_at"] is None
                 ):
-                    update_dict["last_analyzed_at"] = datetime.utcnow()
+                    update_dict["last_analyzed_at"] = datetime.now(timezone.utc)
 
                 for key, value in update_dict.items():
                     setattr(existing, key, value)
@@ -192,18 +309,10 @@ class ProfileService:
                 logger.info(f"Updated writing style analysis {platform} for {user_id}")
                 return existing
             else:
-                # Create new analysis
-                create_dict = analysis_data.model_dump(exclude_unset=True)
-                if "analysis_data" not in create_dict:
-                    raise ValueError("analysis_data is required for new analysis")
-
                 analysis = WritingStyleAnalysis(
                     user_id=user_id,
                     platform=platform,
-                    analysis_data=create_dict["analysis_data"],
-                    content_count=create_dict.get("content_count", 0),
-                    last_analyzed_at=create_dict.get("last_analyzed_at")
-                    or datetime.utcnow(),
+                    analysis_data=analysis_data,
                 )
                 self.db.add(analysis)
                 await self.db.commit()

@@ -3,7 +3,7 @@ Security utilities for authentication and authorization.
 Implements JWT token handling and password hashing following best practices.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -30,9 +30,9 @@ def create_access_token(
         Encoded JWT token string
     """
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
 
@@ -53,7 +53,9 @@ def create_refresh_token(subject: Union[str, int]) -> str:
     Returns:
         Encoded JWT refresh token string
     """
-    expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
+    expire = datetime.now(timezone.utc) + timedelta(
+        days=settings.refresh_token_expire_days
+    )
 
     to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
 
@@ -131,7 +133,7 @@ def generate_password_reset_token(email: str) -> str:
         Password reset token
     """
     delta = timedelta(hours=24)  # Reset tokens expire in 24 hours
-    expire = datetime.utcnow() + delta
+    expire = datetime.now(timezone.utc) + delta
 
     to_encode = {"exp": expire, "sub": email, "type": "password_reset"}
 
