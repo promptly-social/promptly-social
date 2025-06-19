@@ -1,14 +1,47 @@
+User-agent: *
+Allow: /
+Disallow: /auth/
+Disallow: /my-content
+Disallow: /new-content
+Disallow: /profile
+Disallow: /settings
+
 User-agent: Googlebot
 Allow: /
+Disallow: /auth/
+Disallow: /my-content
+Disallow: /new-content
+Disallow: /profile
+Disallow: /settings
 
 User-agent: Bingbot
 Allow: /
+Disallow: /auth/
+Disallow: /my-content
+Disallow: /new-content
+Disallow: /profile
+Disallow: /settings
 
 User-agent: Twitterbot
 Allow: /
+Allow: /login
+Allow: /signup
+Allow: /early-access
 
 User-agent: facebookexternalhit
 Allow: /
+Allow: /login
+Allow: /signup
+Allow: /early-access
 
-User-agent: *
+User-agent: LinkedInBot
 Allow: /
+Allow: /login
+Allow: /signup
+Allow: /early-access
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://promptly.social/sitemap.xml

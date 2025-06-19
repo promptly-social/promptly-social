@@ -9,13 +9,14 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import { Login, Signup } from "./pages/auth";
+import { Login /* , Signup */ } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
 import MyContent from "./pages/MyContent/MyContent";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/auth/OAuthCallback";
+import EarlyAccess from "./pages/EarlyAccess";
 
 const queryClient = new QueryClient();
 
@@ -86,10 +87,18 @@ const App = () => (
               path="/signup"
               element={
                 <AuthRoute>
-                  <Signup />
+                  <EarlyAccess />
                 </AuthRoute>
               }
             />
+            {/* <Route
+              path="/signup"
+              element={
+                <AuthRoute>
+                  <Signup />
+                </AuthRoute>
+              }
+            /> */}
             <Route
               path="/new-content"
               element={
