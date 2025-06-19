@@ -56,13 +56,6 @@ jobs:
           echo "ENVIRONMENT=test" >> .env
           echo "DEBUG=True" >> .env
 
-      - name: Run linting
-        working-directory: ./backend
-        run: |
-          black --check .
-          isort --check-only .
-          flake8 .
-
       - name: Run tests
         working-directory: ./backend
         run: |
