@@ -49,7 +49,7 @@ resource "google_project_service" "iam_credentials_api" {
 resource "google_iam_workload_identity_pool" "github_pool" {
   project                   = var.project_id
   workload_identity_pool_id = "${var.app_name}-github-pool"
-  display_name              = "Workload Identity Pool for ${var.app_name}"
+  display_name              = "WIF Pool for ${var.app_name}"
   description               = "Allows GitHub Actions to securely authenticate with GCP"
   depends_on                = [google_project_service.iam_api]
 }
@@ -65,6 +65,7 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "google.subject"       = "assertion.sub"
     "attribute.repository" = "assertion.repository"
   }
+  attribute_condition = "attribute.repository == '${var.github_repo}'"
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
@@ -94,7 +95,10 @@ resource "google_service_account_iam_binding" "terraform_sa_wif_binding" {
   members = [
     "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}",
   ]
-  depends_on = [google_project_service.iam_credentials_api]
+  depends_on = [
+    google_project_service.iam_credentials_api,
+    google_iam_workload_identity_pool_provider.github_provider,
+  ]
 }
 
 # --- Outputs ---

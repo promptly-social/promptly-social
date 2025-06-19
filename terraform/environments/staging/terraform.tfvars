@@ -25,4 +25,7 @@ cors_origins = [
 ]
 
 # GitHub repository for Workload Identity Federation
-github_repo = "your-github-owner/your-github-repo" 
+github_repo = "promptly-social/promptly-social" 
+
+# API Domain Name
+api_domain_name = "api.staging.promptly.social" 

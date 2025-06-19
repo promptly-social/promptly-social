@@ -1,5 +1,5 @@
 # Production Environment Configuration
-project_id = "your-gcp-project-id"
+project_id = "promptly-social"
 region     = "us-central1"
 zone       = "us-central1-a"
 
@@ -26,7 +26,7 @@ cors_origins = [
 ]
 
 # GitHub repository for Workload Identity Federation
-github_repo = "your-github-owner/your-github-repo"
+github_repo = "promptly-social/promptly-social"
 
 # API Domain Name
 api_domain_name = "api.promptly.social" 
