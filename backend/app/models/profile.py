@@ -23,6 +23,7 @@ class UserPreferences(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    bio = Column(String, default="")
 
 
 class WritingStyleAnalysis(Base):

@@ -21,10 +21,10 @@ def test_analysis(username: str):
     print("-" * 50)
 
     analyzer = SubstackAnalyzer(
-        max_posts=10, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
+        max_posts=5, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
     )
     try:
-        result = analyzer.analyze_substack(username)
+        result = analyzer.analyze_substack(username, "")
 
         print("✅ Analysis completed successfully!")
         print("\n📊 Results Summary:")

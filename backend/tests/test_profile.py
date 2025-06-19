@@ -94,6 +94,7 @@ class TestProfileService:
         preferences_data = UserPreferencesUpdate(
             topics_of_interest=["AI", "Technology"],
             websites=["example.com", "test.com"],
+            bio="this is the user's bio",
         )
         preferences = await profile_service.upsert_user_preferences(
             test_user.id, preferences_data
@@ -101,6 +102,7 @@ class TestProfileService:
 
         assert preferences.topics_of_interest == ["AI", "Technology"]
         assert preferences.websites == ["example.com", "test.com"]
+        assert preferences.bio == "this is the user's bio"
 
         # Update preferences
         update_data = UserPreferencesUpdate(
@@ -222,6 +224,7 @@ class TestProfileEndpoints:
                 user_id=mock_current_user.id,
                 topics_of_interest=["AI", "Tech"],
                 websites=["example.com"],
+                bio="this is the user's bio",
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
             )
@@ -230,6 +233,7 @@ class TestProfileEndpoints:
             preferences_data = {
                 "topics_of_interest": ["AI", "Tech"],
                 "websites": ["example.com"],
+                "bio": "this is the user's bio",
             }
 
             response = test_client.put(
@@ -241,6 +245,7 @@ class TestProfileEndpoints:
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
             assert data["topics_of_interest"] == ["AI", "Tech"]
+            assert data["bio"] == "this is the user's bio"
 
     def test_get_social_connections_endpoint(
         self, test_client, mock_current_user, mock_db

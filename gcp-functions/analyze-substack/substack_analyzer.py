@@ -8,6 +8,7 @@ It fetches Substack newsletters, parses content, and performs NLP analysis.
 import logging
 import json
 from typing import Dict, List, Any
+import random
 
 from openai import OpenAI
 from substack_api import User, Newsletter
@@ -26,7 +27,9 @@ class SubstackAnalyzer:
             api_key=openrouter_api_key,
         )
 
-    def analyze_substack(self, platform_username: str) -> Dict[str, Any]:
+    def analyze_substack(
+        self, platform_username: str, current_bio: str
+    ) -> Dict[str, Any]:
         """
         Main analysis method that orchestrates the full analysis process.
 
@@ -49,35 +52,46 @@ class SubstackAnalyzer:
                 # TODO: surface the error to the user
                 return self._create_empty_analysis(platform_username)
 
-            # Step 1: get a list of subscriptions, and persist them to the database
-            subscriptions = self.user.get_subscriptions()
-            websites = [
-                f"https://{subscription['domain']}" for subscription in subscriptions
-            ]
+            # # Step 1: get a list of subscriptions, and persist them to the database
+            # subscriptions = self.user.get_subscriptions()
+            # websites = [
+            #     f"https://{subscription['domain']}" for subscription in subscriptions
+            # ]
 
-            # Step 2: get a list of post URLs from user's subscriptions
-            subscription_posts = []
-            for website in websites:
-                subscription_posts.extend(self._fetch_substack_posts(website))
+            # # Step 2: get a list of post URLs from user's subscriptions
+            # subscription_posts = []
+            # for website in websites:
+            #     subscription_posts.extend(self._fetch_substack_posts(website))
+
+            # # randomly sample 100 posts at most from the list of posts to avoid rate limiting and costs
+            # # this should be enough to get a good analysis of the user's content preferences
+            # subscription_posts_sample = random.sample(
+            #     subscription_posts, min(len(subscription_posts), 100)
+            # )
 
             # Step 3: get a list of post URLs from user's newsletter
             newsletter_url = f"https://{platform_username}.substack.com"
             newsletter_posts = self._fetch_substack_posts(newsletter_url)
 
-            # Step 4: combine the two lists to generate a list of topics
-            posts = subscription_posts + newsletter_posts
+            # # Step 4: combine the two lists to generate a list of topics
+            # posts = subscription_posts_sample + newsletter_posts
 
-            topics = self._analyze_topics(posts)
+            # topics = self._analyze_topics(posts)
 
-            # Step 5 Analyze writing style
-            writing_style = self._analyze_writing_style(newsletter_posts)
+            # Step 5 analyze writing style
+            # writing_style = self._analyze_writing_style(newsletter_posts)
+
+            # Step 6: create the user's bio
+            substack_bio = self.user.get_raw_data().get("bio", "")
+            bio = self._create_user_bio(newsletter_posts, substack_bio, current_bio)
 
             # Compile results
             analysis_result = {
                 "writing_style": writing_style,
                 "writing_content_count": len(newsletter_posts),
-                "topics": topics,
-                "websites": websites,
+                "topics": [],
+                "websites": [],
+                "bio": bio,
             }
 
             logger.info(f"Substack analysis completed for {platform_username}")
@@ -184,7 +198,6 @@ class SubstackAnalyzer:
         )
 
         raw_content = response.choices[0].message.content
-        print(raw_content)
         content_json = self._extract_json_from_llm_response(raw_content)
 
         if content_json.get("error"):
@@ -194,6 +207,38 @@ class SubstackAnalyzer:
 
         return content_json.get("topics", [])
 
+    def _create_user_bio(
+        self, posts: List[Dict], substack_bio: str, current_bio: str
+    ) -> str:
+        """Create a user bio from a list of posts and a current bio."""
+        if not posts:
+            return substack_bio or current_bio
+
+        urls = "\n".join(posts)
+        prompt = f"""
+        You are an expert at creating a user bio from a list of posts, their stubstack bio, and a current bio.
+        You are given a list of URLs to posts and a current bio.
+        Your task is to create a user bio from the posts and the current bio.
+        Return the user bio in plain text format. The substack bio and current bio might be empyt or incomplete.
+        If the substack bio and/or the current bio are given, update them based on your analysis.
+        The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.
+        This will be used as a persona for LLM to generate content in their style, preferences, and point of view.
+        URLs: {urls}
+        Substack bio: {substack_bio}
+        Current bio: {current_bio}
+        """
+
+        response = self.openrouter_client.chat.completions.create(
+            model="google/gemini-2.5-pro",
+            extra_body={
+                "models": ["openai/gpt-4o"],
+            },
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+        )
+
+        return response.choices[0].message.content
+
     def _create_empty_analysis(self, username: str) -> Dict[str, Any]:
         """Create empty analysis result when no posts are found."""
         return {
@@ -201,6 +246,7 @@ class SubstackAnalyzer:
             "topics": [],
             "websites": [],
             "writing_content_count": 0,
+            "bio": "",
         }
 
     def _extract_json_from_llm_response(self, response: str) -> Dict[str, Any]:
