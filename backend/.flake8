@@ -1,0 +1,24 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E203, E266, E501, W503, F403, F401
+max-complexity = 18
+select = B,C,E,F,W,T4,B9
+exclude = 
+    .git,
+    __pycache__,
+    docs/source/conf.py,
+    old,
+    build,
+    dist,
+    .venv,
+    venv,
+    .env,
+    migrations,
+    alembic
+
+per-file-ignores =
+    __init__.py:F401
+    */test_*.py:S101
+    */conftest.py:F401,F403
+
+docstring-convention = google 

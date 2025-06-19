@@ -19,7 +19,7 @@ This guide explains how to set up Google OAuth authentication for the Promptly a
    - Application type: Web application
    - Authorized JavaScript origins:
      - `http://localhost:3000` (development)
-     - `https://yourdomain.com` (production)
+     - `https://promptly.social` (production)
    - Authorized redirect URIs:
      - `http://localhost:8000/auth/callback/google` (development)
      - `https://yourapi.com/auth/callback/google` (production)
