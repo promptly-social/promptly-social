@@ -77,4 +77,10 @@ variable "github_repo" {
 variable "api_domain_name" {
   description = "The custom domain name for the API (e.g., 'api.yourdomain.com')"
   type        = string
+}
+
+variable "manage_cloud_run_service" {
+  description = "If true, Terraform will manage the Cloud Run service. Set to false to manage it via a separate pipeline."
+  type        = bool
+  default     = false
 } 

@@ -1,0 +1,88 @@
+name: Terraform Deploy Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment (staging/production)"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      action:
+        description: "Terraform action"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      image_tag:
+        description: "Docker image tag to deploy (required for apply). e.g. main-9a56f6c"
+        required: false
+        type: string
+
+env:
+  TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+  TF_VAR_region: ${{ secrets.GCP_REGION }}
+  TF_VAR_environment: ${{ github.event.inputs.environment }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    defaults:
+      run:
+        working-directory: ./terraform/environments/${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Authenticate to Google Cloud (Keyless)
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Terraform backend
+        run: |
+          sed -i.bak 's/bucket = ""/bucket = "${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}"/' backend.tf
+          rm backend.tf.bak
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          IMAGE_TAG_VAR=""
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            IMAGE_TAG_VAR="-var=image_tag=${{ github.event.inputs.image_tag }}"
+          fi
+          terraform plan -detailed-exitcode -out=tfplan -var="manage_cloud_run_service=true" $IMAGE_TAG_VAR
+          echo "plan_exitcode=$?" >> $GITHUB_OUTPUT
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode == '2'
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          terraform plan -destroy -out=destroy_plan -var="manage_cloud_run_service=true"
+          terraform apply -auto-approve destroy_plan

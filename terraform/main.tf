@@ -184,6 +184,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
 }
 
 module "cloud_run_service" {
+  count  = var.manage_cloud_run_service ? 1 : 0
   source = "../../modules/cloud-run-service"
 
   project_id                 = var.project_id
