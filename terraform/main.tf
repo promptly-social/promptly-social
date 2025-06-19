@@ -14,6 +14,8 @@ provider "google" {
   zone    = var.zone
 }
 
+data "google_project" "current" {}
+
 # Enable required APIs
 resource "google_project_service" "apis" {
   for_each = toset([
@@ -61,13 +63,41 @@ resource "google_project_iam_member" "cloud_run_permissions" {
   member  = "serviceAccount:${google_service_account.app_sa.email}"
 }
 
+# Workload Identity Federation for GitHub Actions
+resource "google_iam_workload_identity_pool" "github_pool" {
+  workload_identity_pool_id = "${var.app_name}-github-pool"
+  display_name              = "${var.app_name} GitHub Actions Pool"
+  description               = "Workload Identity Pool for GitHub Actions CI/CD"
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_iam_workload_identity_pool_provider" "github_provider" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-provider"
+  display_name                       = "GitHub OIDC Provider"
+  description                        = "OIDC provider for GitHub Actions"
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.actor"      = "assertion.actor"
+    "attribute.repository" = "assertion.repository"
+  }
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
 # Allow GitHub Actions to impersonate the Application Service Account
 resource "google_service_account_iam_binding" "app_sa_wif_binding" {
   service_account_id = google_service_account.app_sa.name
   role               = "roles/iam.workloadIdentityUser"
   members = [
     # Allow workflows from your GitHub repository to impersonate this SA
-    "principalSet://iam.googleapis.com/projects/${var.project_id}/locations/global/workloadIdentityPools/${var.app_name}-github-pool/attribute.repository/${var.github_repo}"
+    "principalSet://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
+  ]
+
+  depends_on = [
+    google_iam_workload_identity_pool_provider.github_provider
   ]
 }
 
@@ -180,11 +210,6 @@ resource "google_cloud_run_service" "backend" {
         env {
           name  = "ENVIRONMENT"
           value = var.environment
-        }
-
-        env {
-          name  = "PORT"
-          value = "8000"
         }
 
         env {
