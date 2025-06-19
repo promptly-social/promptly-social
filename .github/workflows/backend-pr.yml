@@ -1,11 +1,8 @@
-name: Backend PR - Build and Test
+name: PR Checks - Build and Test
 
 on:
   pull_request:
-    branches: [main, develop]
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-pr.yml"
+    branches: [main]
 
 jobs:
   test:
