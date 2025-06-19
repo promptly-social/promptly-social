@@ -10,6 +10,7 @@ from app.schemas.profile import (
     SubstackAnalysisResponse,
     SubstackConnectionData,
     SubstackData,
+    WritingStyleAnalysisUpdate,
 )
 from app.services.profile import ProfileService
 from app.schemas.auth import UserResponse
@@ -231,6 +232,61 @@ async def run_writing_style_analysis(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to run writing style analysis",
+        )
+
+
+@router.put("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
+async def update_writing_style_analysis(
+    platform: str,
+    update_data: WritingStyleAnalysisUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Update writing style analysis for a platform."""
+    try:
+        profile_service = ProfileService(db)
+
+        # Check if analysis exists
+        existing_analysis = await profile_service.get_writing_style_analysis(
+            current_user.id, platform
+        )
+
+        if not existing_analysis:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Writing style analysis for {platform} not found",
+            )
+
+        # Update analysis data if provided
+        if update_data.analysis_data is not None:
+            analysis = await profile_service.upsert_writing_style_analysis(
+                current_user.id, platform, update_data.analysis_data
+            )
+
+            # Check connection status
+            connection = await profile_service.get_social_connection(
+                current_user.id, platform
+            )
+            is_connected = connection is not None
+
+            return PlatformAnalysisResponse(
+                analysis_data=analysis.analysis_data,
+                last_analyzed=analysis.last_analyzed_at.isoformat(),
+                is_connected=is_connected,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="analysis_data is required for update",
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating writing style analysis {platform}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update writing style analysis",
         )
 
 

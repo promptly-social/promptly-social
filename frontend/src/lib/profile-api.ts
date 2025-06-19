@@ -40,6 +40,10 @@ export interface PlatformAnalysisResponse {
   is_connected: boolean;
 }
 
+export interface WritingStyleAnalysisUpdate {
+  analysis_data?: string;
+}
+
 export interface SubstackData {
   name: string;
   url: string;
@@ -100,6 +104,13 @@ export const profileApi = {
   async runWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
     return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
       method: 'POST',
+    });
+  },
+
+  async updateWritingStyleAnalysis(platform: string, data: WritingStyleAnalysisUpdate): Promise<PlatformAnalysisResponse> {
+    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   },
 
