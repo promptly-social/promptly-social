@@ -54,7 +54,9 @@ resource "google_project_iam_member" "cloud_run_permissions" {
     "roles/secretmanager.secretAccessor",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
-    "roles/cloudtrace.agent"
+    "roles/cloudtrace.agent",
+    "roles/run.admin",
+    "roles/iam.serviceAccountUser"
   ])
 
   project = var.project_id

@@ -18,8 +18,6 @@ output "cloud_run_service_name" {
   value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_name : "n/a"
 }
 
-# CloudSQL outputs removed - using Supabase
-
 output "artifact_registry_repository" {
   description = "Full name of the Artifact Registry repository"
   value       = google_artifact_registry_repository.backend_repo.name
