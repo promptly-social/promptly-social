@@ -62,6 +62,14 @@ resource "google_project_iam_member" "cloud_run_permissions" {
   member  = "serviceAccount:${google_service_account.app_sa.email}"
 }
 
+# Allow the service account to push to the Artifact Registry repository
+resource "google_artifact_registry_repository_iam_member" "writer" {
+  location   = google_artifact_registry_repository.backend_repo.location
+  repository = google_artifact_registry_repository.backend_repo.repository_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.app_sa.email}"
+}
+
 # Workload Identity Federation for GitHub Actions
 resource "google_iam_workload_identity_pool" "github_pool" {
   workload_identity_pool_id = "${var.app_name}-github-pool"
