@@ -1,0 +1,115 @@
+variable "project_id" {
+  description = "The GCP project ID."
+  type        = string
+}
+
+variable "region" {
+  description = "The GCP region for the Cloud Run service."
+  type        = string
+}
+
+variable "app_name" {
+  description = "The name of the application."
+  type        = string
+}
+
+variable "environment" {
+  description = "The deployment environment (e.g., 'staging', 'production')."
+  type        = string
+}
+
+variable "cloud_run_min_instances" {
+  description = "The minimum number of container instances for Cloud Run."
+  type        = number
+  default     = 0
+}
+
+variable "cloud_run_max_instances" {
+  description = "The maximum number of container instances for Cloud Run."
+  type        = number
+  default     = 2
+}
+
+variable "cloud_run_cpu" {
+  description = "The CPU limit for the Cloud Run container."
+  type        = string
+  default     = "1000m"
+}
+
+variable "cloud_run_memory" {
+  description = "The memory limit for the Cloud Run container."
+  type        = string
+  default     = "512Mi"
+}
+
+variable "service_account_email" {
+  description = "The email of the service account for the Cloud Run service."
+  type        = string
+}
+
+variable "docker_registry_location" {
+  description = "The location of the Docker Artifact Registry."
+  type        = string
+}
+
+variable "backend_repo_repository_id" {
+  description = "The repository ID of the backend container image."
+  type        = string
+}
+
+variable "cors_origins" {
+  description = "A list of allowed CORS origins."
+  type        = list(string)
+}
+
+variable "jwt_secret_name" {
+  description = "The name of the Secret Manager secret for the JWT secret key."
+  type        = string
+}
+
+variable "supabase_url_name" {
+  description = "The name of the Secret Manager secret for the Supabase URL."
+  type        = string
+}
+
+variable "supabase_key_name" {
+  description = "The name of the Secret Manager secret for the Supabase key."
+  type        = string
+}
+
+variable "supabase_service_key_name" {
+  description = "The name of the Secret Manager secret for the Supabase service key."
+  type        = string
+}
+
+variable "google_client_id_name" {
+  description = "The name of the Secret Manager secret for the Google Client ID."
+  type        = string
+}
+
+variable "google_client_secret_name" {
+  description = "The name of the Secret Manager secret for the Google Client Secret."
+  type        = string
+}
+
+variable "gcp_analysis_function_url_name" {
+  description = "The name of the Secret Manager secret for the GCP Analysis Function URL."
+  type        = string
+}
+
+variable "api_domain_name" {
+  description = "The custom domain name for the API."
+  type        = string
+}
+
+variable "image_tag" {
+  description = "The tag for the container image to deploy."
+  type        = string
+  default     = "latest"
+}
+
+variable "enable_public_access" {
+  description = "Flag to enable public access to the Cloud Run service"
+  type        = bool
+  default     = true
+}

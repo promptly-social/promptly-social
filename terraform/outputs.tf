@@ -8,15 +8,15 @@ output "region" {
   value       = var.region
 }
 
-# output "cloud_run_service_url" {
-#   description = "The URL of the deployed Cloud Run service."
-#   value       = google_cloud_run_service.backend.status[0].url
-# }
+output "cloud_run_service_url" {
+  description = "The URL of the deployed Cloud Run service."
+  value       = module.cloud_run_service.cloud_run_service_url
+}
 
-# output "cloud_run_service_name" {
-#   description = "The name of the deployed Cloud Run service."
-#   value       = google_cloud_run_service.backend.name
-# }
+output "cloud_run_service_name" {
+  description = "The name of the deployed Cloud Run service."
+  value       = module.cloud_run_service.cloud_run_service_name
+}
 
 # CloudSQL outputs removed - using Supabase
 
@@ -48,7 +48,7 @@ output "secret_manager_secrets" {
   ]
 }
 
-# output "dns_records_for_custom_api_domain" {
-#   description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-#   value       = google_cloud_run_domain_mapping.api_domain_mapping.status[0].resource_records
-# } 
+output "dns_records_for_custom_api_domain" {
+  description = "The DNS records needed to map the custom API domain to the Cloud Run service."
+  value       = module.cloud_run_service.dns_records_for_custom_api_domain
+} 

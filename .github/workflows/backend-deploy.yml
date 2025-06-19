@@ -103,6 +103,7 @@ jobs:
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest .
 
       - name: Push Docker image
+        id: push_image
         run: |
           DOCKER_TAG="${{ github.event.inputs.docker_tag }}"
           if [ -z "$DOCKER_TAG" ]; then
@@ -112,45 +113,18 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG}
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest
 
-      - name: Deploy to Cloud Run
+          echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Cloud Run using Terraform
+        id: deploy
+        uses: ./.github/workflows/terraform-apply-cloud-run.yml
+        with:
+          environment: ${{ github.event.inputs.environment }}
+          image_tag: ${{ steps.push_image.outputs.tag }}
+
+      - name: Set Service URL Env Var
         run: |
-          DOCKER_TAG="${{ github.event.inputs.docker_tag }}"
-          if [ -z "$DOCKER_TAG" ]; then
-            DOCKER_TAG="main-$(git rev-parse --short HEAD)"
-          fi
-
-          # Set min instances based on environment
-          MIN_INSTANCES=0
-          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            MIN_INSTANCES=1
-          fi
-
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG} \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --port=8000 \
-            --memory=2Gi \
-            --cpu=2 \
-            --min-instances=${MIN_INSTANCES} \
-            --max-instances=100 \
-            --timeout=300 \
-            --concurrency=80 \
-            --set-env-vars="ENVIRONMENT=${{ github.event.inputs.environment }}" \
-            --set-secrets="JWT_SECRET_KEY=JWT_SECRET_KEY:latest" \
-            --set-secrets="SUPABASE_URL=SUPABASE_URL:latest" \
-            --set-secrets="SUPABASE_KEY=SUPABASE_KEY:latest" \
-            --set-secrets="SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest" \
-            --set-secrets="GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest" \
-            --set-secrets="GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest" \
-            --set-secrets="GCP_ANALYSIS_FUNCTION_URL=GCP_ANALYSIS_FUNCTION_URL:latest"
-
-      - name: Get service URL
-        run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format='value(status.url)')
-          echo "Service deployed to: $SERVICE_URL"
-          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+          echo "SERVICE_URL=${{ steps.deploy.outputs.service_url }}" >> $GITHUB_ENV
 
       - name: Test deployment
         run: |
