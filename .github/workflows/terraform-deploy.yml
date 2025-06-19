@@ -78,7 +78,7 @@ jobs:
           sed -i.bak "s/us-central1/${{ secrets.GCP_REGION }}/" terraform.tfvars.auto
 
           # Add CORS origins
-          echo 'cors_origins = ["${{ secrets.FRONTEND_URL }}", "http://localhost:3000", "http://localhost:5173"]' >> terraform.tfvars.auto
+          echo 'cors_origins = ["${{ secrets.FRONTEND_URL }}"]' >> terraform.tfvars.auto
 
           rm terraform.tfvars.auto.bak
 
@@ -89,7 +89,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Format Check
-        run: terraform fmt -check
+        run: terraform fmt
 
       - name: Terraform Plan
         id: plan

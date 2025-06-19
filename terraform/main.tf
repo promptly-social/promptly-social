@@ -154,18 +154,18 @@ resource "google_cloud_run_service" "backend" {
   template {
     metadata {
       annotations = {
-        "autoscaling.knative.dev/minScale" = var.cloud_run_min_instances
-        "autoscaling.knative.dev/maxScale" = var.cloud_run_max_instances
+        "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
+        "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
         "run.googleapis.com/execution-environment" = "gen2"
       }
     }
 
     spec {
       service_account_name = google_service_account.app_sa.email
-      
+
       containers {
         image = "${var.docker_registry_location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.backend_repo.repository_id}/backend:latest"
-        
+
         ports {
           container_port = 8000
         }
@@ -192,7 +192,7 @@ resource "google_cloud_run_service" "backend" {
           value = join(",", var.cors_origins)
         }
 
-# DATABASE_URL removed - using Supabase
+        # DATABASE_URL removed - using Supabase
 
         env {
           name = "JWT_SECRET_KEY"
