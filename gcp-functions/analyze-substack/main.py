@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def get_supabase_client() -> Client:
     """Initialize Supabase client."""
     supabase_url = os.getenv("SUPABASE_URL")
-    supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
 
     if not supabase_url or not supabase_service_key:
         raise ValueError("Missing Supabase configuration")

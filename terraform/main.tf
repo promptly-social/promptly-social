@@ -40,7 +40,6 @@ resource "google_artifact_registry_repository" "backend_repo" {
   depends_on = [google_project_service.apis]
 }
 
-# Removed CloudSQL resources - using Supabase instead
 
 # Service account for Cloud Run
 resource "google_service_account" "app_sa" {
@@ -101,7 +100,7 @@ resource "google_service_account_iam_binding" "app_sa_wif_binding" {
   ]
 }
 
-# Secret Manager secrets (DATABASE_URL removed - using Supabase)
+# Secret Manager secrets
 
 resource "google_secret_manager_secret" "jwt_secret" {
   secret_id = "JWT_SECRET_KEY"
@@ -177,147 +176,153 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
 }
 
 # Cloud Run service
-resource "google_cloud_run_service" "backend" {
-  name     = "${var.app_name}-backend-${var.environment}"
-  location = var.region
-
-  template {
-    metadata {
-      annotations = {
-        "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
-        "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
-        "run.googleapis.com/execution-environment" = "gen2"
-      }
-    }
-
-    spec {
-      service_account_name = google_service_account.app_sa.email
-
-      containers {
-        image = "${var.docker_registry_location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.backend_repo.repository_id}/backend:latest"
-
-        ports {
-          container_port = 8000
-        }
-
-        resources {
-          limits = {
-            cpu    = var.cloud_run_cpu
-            memory = var.cloud_run_memory
-          }
-        }
-
-        env {
-          name  = "ENVIRONMENT"
-          value = var.environment
-        }
-
-        env {
-          name  = "CORS_ORIGINS"
-          value = join(",", var.cors_origins)
-        }
-
-        # DATABASE_URL removed - using Supabase
-
-        env {
-          name = "JWT_SECRET_KEY"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.jwt_secret.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "SUPABASE_URL"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.supabase_url.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "SUPABASE_KEY"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.supabase_key.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "SUPABASE_SERVICE_KEY"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.supabase_service_key.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "GOOGLE_CLIENT_ID"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.google_client_id.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "GOOGLE_CLIENT_SECRET"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.google_client_secret.secret_id
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "GCP_ANALYSIS_FUNCTION_URL"
-          value_from {
-            secret_key_ref {
-              name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
-              key  = "latest"
-            }
-          }
-        }
-      }
-    }
-  }
-
-  traffic {
-    percent         = 100
-    latest_revision = true
-  }
-
-  depends_on = [google_project_service.apis, google_artifact_registry_repository.backend_repo]
-}
+# resource "google_cloud_run_service" "backend" {
+#   name     = "${var.app_name}-backend-${var.environment}"
+#   location = var.region
+# 
+#   template {
+#     metadata {
+#       annotations = {
+#         "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
+#         "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
+#         "run.googleapis.com/execution-environment" = "gen2"
+#       }
+#     }
+# 
+#     spec {
+#       service_account_name = google_service_account.app_sa.email
+# 
+#       containers {
+#         image = "${var.docker_registry_location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.backend_repo.repository_id}/backend:latest"
+# 
+#         ports {
+#           container_port = 8000
+#         }
+# 
+#         resources {
+#           limits = {
+#             cpu    = var.cloud_run_cpu
+#             memory = var.cloud_run_memory
+#           }
+#         }
+# 
+#         env {
+#           name  = "ENVIRONMENT"
+#           value = var.environment
+#         }
+# 
+#         # PORT is set automatically by Cloud Run
+#         # env {
+#         #   name  = "PORT"
+#         #   value = "8000"
+#         # }
+# 
+#         env {
+#           name  = "CORS_ORIGINS"
+#           value = join(",", var.cors_origins)
+#         }
+# 
+#         # DATABASE_URL removed - using Supabase
+# 
+#         env {
+#           name = "JWT_SECRET_KEY"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.jwt_secret.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+# 
+#         env {
+#           name = "SUPABASE_URL"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.supabase_url.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+# 
+#         env {
+#           name = "SUPABASE_KEY"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.supabase_key.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+# 
+#         env {
+#           name = "SUPABASE_SERVICE_KEY"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.supabase_service_key.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+# 
+#         env {
+#           name = "GOOGLE_CLIENT_ID"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.google_client_id.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+# 
+#         env {
+#           name = "GOOGLE_CLIENT_SECRET"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.google_client_secret.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+# 
+#         env {
+#           name = "GCP_ANALYSIS_FUNCTION_URL"
+#           value_from {
+#             secret_key_ref {
+#               name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+#               key  = "latest"
+#             }
+#           }
+#         }
+#       }
+#     }
+#   }
+# 
+#   traffic {
+#     percent         = 100
+#     latest_revision = true
+#   }
+# 
+#   depends_on = [google_project_service.apis, google_artifact_registry_repository.backend_repo]
+# }
 
 # Allow public access to Cloud Run service
-resource "google_cloud_run_service_iam_member" "public_access" {
-  service  = google_cloud_run_service.backend.name
-  location = google_cloud_run_service.backend.location
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# resource "google_cloud_run_service_iam_member" "public_access" {
+#   service  = google_cloud_run_service.backend.name
+#   location = google_cloud_run_service.backend.location
+#   role     = "roles/run.invoker"
+#   member   = "allUsers"
+# }
 
 # Map the custom domain to the Cloud Run service
-resource "google_cloud_run_domain_mapping" "api_domain_mapping" {
-  location = google_cloud_run_service.backend.location
-  name     = var.api_domain_name
-
-  metadata {
-    namespace = var.project_id
-  }
-
-  spec {
-    route_name = google_cloud_run_service.backend.name
-  }
-} 
+# resource "google_cloud_run_domain_mapping" "api_domain_mapping" {
+#   location = google_cloud_run_service.backend.location
+#   name     = var.api_domain_name
+# 
+#   metadata {
+#     namespace = var.project_id
+#   }
+# 
+#   spec {
+#     route_name = google_cloud_run_service.backend.name
+#   }
+# } 
