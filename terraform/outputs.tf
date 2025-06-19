@@ -10,12 +10,12 @@ output "region" {
 
 output "cloud_run_service_url" {
   description = "The URL of the deployed Cloud Run service."
-  value       = module.cloud_run_service.cloud_run_service_url
+  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_url : "n/a"
 }
 
 output "cloud_run_service_name" {
   description = "The name of the deployed Cloud Run service."
-  value       = module.cloud_run_service.cloud_run_service_name
+  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_name : "n/a"
 }
 
 # CloudSQL outputs removed - using Supabase
@@ -50,5 +50,5 @@ output "secret_manager_secrets" {
 
 output "dns_records_for_custom_api_domain" {
   description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-  value       = module.cloud_run_service.dns_records_for_custom_api_domain
+  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].dns_records_for_custom_api_domain : "n/a"
 } 
