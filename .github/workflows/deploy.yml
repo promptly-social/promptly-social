@@ -115,6 +115,7 @@ jobs:
           SERVICE_URL=$(gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${{ steps.push_image.outputs.tag }} \
             --region ${{ env.REGION }} \
+            --port 8000 \
             --project ${{ env.PROJECT_ID }} \
             --format 'value(status.url)')
           echo "service_url=${SERVICE_URL}" >> $GITHUB_OUTPUT
