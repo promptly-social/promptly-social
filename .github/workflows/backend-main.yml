@@ -34,7 +34,6 @@ jobs:
         working-directory: ./backend
         run: |
           cp env.example .env
-          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_promptly" >> .env
           echo "JWT_SECRET_KEY=test-jwt-secret-key-for-testing-only" >> .env
           echo "SUPABASE_URL=https://test.supabase.co" >> .env
           echo "SUPABASE_KEY=test-anon-key" >> .env

@@ -54,6 +54,7 @@ jobs:
           echo "SUPABASE_KEY=test-anon-key" >> .env
           echo "SUPABASE_SERVICE_KEY=test-service-key" >> .env
           echo "ENVIRONMENT=test" >> .env
+          echo "DEBUG=True" >> .env
 
       - name: Run linting
         working-directory: ./backend

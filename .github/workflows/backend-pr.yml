@@ -10,6 +10,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix:
         python-version: [3.11]
@@ -30,13 +33,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Authenticate to Google Cloud (Keyless)
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
 
       - name: Set up test environment
         working-directory: ./backend
         run: |
-                  cp env.example .env
-        # Override with test values - no DATABASE_URL needed (using Supabase)
-        echo "JWT_SECRET_KEY=test-jwt-secret-key-for-testing-only" >> .env
+          cp env.example .env
+          # Override with test values - no DATABASE_URL needed (using Supabase)
+          echo "JWT_SECRET_KEY=test-jwt-secret-key-for-testing-only" >> .env
           echo "SUPABASE_URL=https://test.supabase.co" >> .env
           echo "SUPABASE_KEY=test-anon-key" >> .env
           echo "SUPABASE_SERVICE_KEY=test-service-key" >> .env
@@ -96,12 +106,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run security scan
-        uses: securecodewarrior/github-action-add-sarif@v1
-        with:
-          sarif-file: "security-scan.sarif"
-        continue-on-error: true
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -110,7 +114,14 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Add SCW Training to Trivy results
+        uses: SecureCodeWarrior/github-action-add-sarif-contextual-training@v1
+        with:
+          inputSarifFile: "trivy-results.sarif"
+          outputSarifFile: "trivy-results.processed.sarif"
+        continue-on-error: true
+
+      - name: Upload enriched Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: "trivy-results.sarif"
+          sarif_file: "trivy-results.processed.sarif"
