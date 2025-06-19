@@ -288,6 +288,10 @@ resource "google_cloud_run_domain_mapping" "api_domain_mapping" {
   location = google_cloud_run_service.backend.location
   name     = var.api_domain_name
 
+  metadata {
+    namespace = var.project_id
+  }
+
   spec {
     route_name = google_cloud_run_service.backend.name
   }
