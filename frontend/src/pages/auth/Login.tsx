@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Mail } from "lucide-react";
+import { PenTool, Mail } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -91,7 +91,7 @@ const Login = () => {
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4 sm:mb-6">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <PenTool className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
               Promptly
@@ -184,7 +184,7 @@ const Login = () => {
                   to="/signup"
                   className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
                 >
-                  Sign up
+                  Join Early Access
                 </Link>
               </div>
             </form>
