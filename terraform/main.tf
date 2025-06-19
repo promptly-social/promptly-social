@@ -78,9 +78,9 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
   description                        = "OIDC provider for GitHub Actions"
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
-    "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
   }
+  attribute_condition = "assertion.repository_owner == 'promptly-social'"
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
@@ -160,17 +160,17 @@ resource "google_secret_manager_secret" "gcp_analysis_function_url" {
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
-  for_each = toset([
-    google_secret_manager_secret.jwt_secret.secret_id,
-    google_secret_manager_secret.supabase_url.secret_id,
-    google_secret_manager_secret.supabase_key.secret_id,
-    google_secret_manager_secret.supabase_service_key.secret_id,
-    google_secret_manager_secret.google_client_id.secret_id,
-    google_secret_manager_secret.google_client_secret.secret_id,
-    google_secret_manager_secret.gcp_analysis_function_url.secret_id
-  ])
+  for_each = {
+    jwt_secret            = google_secret_manager_secret.jwt_secret
+    supabase_url          = google_secret_manager_secret.supabase_url
+    supabase_key          = google_secret_manager_secret.supabase_key
+    supabase_service_key  = google_secret_manager_secret.supabase_service_key
+    google_client_id      = google_secret_manager_secret.google_client_id
+    google_client_secret  = google_secret_manager_secret.google_client_secret
+    gcp_analysis_function_url = google_secret_manager_secret.gcp_analysis_function_url
+  }
 
-  secret_id = each.value
+  secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.app_sa.email}"
 }
