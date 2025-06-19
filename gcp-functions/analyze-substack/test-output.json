@@ -1,5 +1,5 @@
 {
-  "writing_style": "",
+  "writing_style": "The author's writing voice is conversational and highly accessible.\nThe tone feels like a knowledgeable peer sharing insights rather than a formal instructor.\nA first-person perspective is frequently used to frame arguments and build rapport with the reader.\nSentences are typically clear, direct, and constructed for easy readability.\nThe posts are well-structured, often using bold headings and short paragraphs to break up the text.\nThe author heavily relies on analogies and metaphors to explain complex business and technology concepts.\nPersonal anecdotes and storytelling are skillfully woven into the analysis to make points more relatable and memorable.\nThe content consistently explores the intersection of technology, business strategy, and human behavior.\nThe writing is clearly aimed at an audience of entrepreneurs, tech professionals, and creators.\nThis style makes sophisticated topics feel approachable and immediately relevant.",
   "topics": [
     "China",
     "Venture Capital",
@@ -58,5 +58,6 @@
     "https://karozieminski.substack.com",
     "https://mtfrobby.substack.com",
     "https://theventurecrew.substack.com"
-  ]
+  ],
+  "bio": "A seasoned CTO and three-time AI startup co-founder (Paxton AI, ZestyAI, and a new stealth venture) with a background in consulting at McKinsey. They are passionate about the practical application of AI, product-led growth (PLG), and the intricacies of founder psychology.\n\nTheir perspective is shaped by hands-on experience building AI products from the ground up. They write analytical yet personal \"field notes\" on topics ranging from go-to-market strategy and audience-building to the human side of entrepreneurship and using AI for creative pursuits. They often explore the trade-offs in product strategy, the importance of community, and the vulnerable, psychological realities of being a founder.\n\nBased in Bend, Oregon, they are an avid explorer, often found outdoors with their husband and two dogs."
 }

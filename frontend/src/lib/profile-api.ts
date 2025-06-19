@@ -6,13 +6,15 @@ export interface UserPreferences {
   user_id: string;
   topics_of_interest: string[];
   websites: string[];
+  bio: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface UserPreferencesUpdate {
-  topics_of_interest: string[];
-  websites: string[];
+  topics_of_interest?: string[];
+  websites?: string[];
+  bio?: string;
 }
 
 export interface SocialConnection {

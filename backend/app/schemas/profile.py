@@ -9,6 +9,7 @@ class UserPreferencesBase(BaseModel):
 
     topics_of_interest: List[str] = Field(default_factory=list)
     websites: List[str] = Field(default_factory=list)
+    bio: str = Field(default="")
 
 
 class UserPreferencesCreate(UserPreferencesBase):

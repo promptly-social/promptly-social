@@ -25,7 +25,7 @@ def get_supabase_client() -> Client:
     return create_client(supabase_url, supabase_service_key)
 
 
-def fetch_substack_content(platform_username: str) -> Dict[str, Any]:
+def fetch_substack_content(platform_username: str, current_bio: str) -> Dict[str, Any]:
     """
     Fetch and analyze Substack content using the SubstackAnalyzer.
     """
@@ -38,7 +38,7 @@ def fetch_substack_content(platform_username: str) -> Dict[str, Any]:
     analyzer = SubstackAnalyzer(
         max_posts=max_posts, openrouter_api_key=openrouter_api_key
     )
-    return analyzer.analyze_substack(platform_username)
+    return analyzer.analyze_substack(platform_username, current_bio)
 
 
 async def update_analysis_results(
@@ -48,9 +48,10 @@ async def update_analysis_results(
 ) -> None:
     """Update the social connection with analysis results."""
     try:
-        # Store websites & topics
+        # Store websites, topics, and bio
         websites = analysis_result.get("websites", [])
         topics = analysis_result.get("topics", [])
+        bio = analysis_result.get("bio", "")
 
         # Fetch user preferences without .single() to avoid error when no records exist
         user_preferences_result = (
@@ -80,6 +81,8 @@ async def update_analysis_results(
                 set(existing_topics + topics)
             )
 
+            user_preferences.data["bio"] = bio
+
             preferences_response = (
                 supabase.table("user_preferences")
                 .update(user_preferences.data)
@@ -95,6 +98,7 @@ async def update_analysis_results(
                         "user_id": user_id,
                         "websites": websites,
                         "topics_of_interest": topics,
+                        "bio": bio,
                     }
                 )
                 .execute()
@@ -252,9 +256,18 @@ def analyze_substack(request):
             logger.error(error_msg)
             return (json.dumps({"success": False, "error": error_msg}), 400, headers)
 
+        user_preferences_response = (
+            supabase.table("user_preferences")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        current_bio = user_preferences_response.data[0].get("bio", "")
+
         # Perform the analysis
         try:
-            analysis_result = fetch_substack_content(platform_username)
+            analysis_result = fetch_substack_content(platform_username, current_bio)
 
             # Update database with results
             asyncio.run(

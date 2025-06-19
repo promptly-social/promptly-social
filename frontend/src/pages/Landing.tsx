@@ -95,7 +95,7 @@ const Landing = () => {
               workflow with AI that understands your style.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-1">
               <Link to="/signup">
                 <Button
                   size="lg"
@@ -108,7 +108,7 @@ const Landing = () => {
             </div>
 
             {/* Trust Indicators */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-8 border-t border-gray-100">
+            {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-8 border-t border-gray-100">
               {[
                 { metric: "10K+", label: "Content Pieces Created" },
                 { metric: "95%", label: "Time Saved" },
@@ -124,7 +124,7 @@ const Landing = () => {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> */}
           </div>
         </div>
       </section>
@@ -146,26 +146,20 @@ const Landing = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                icon: Mic,
-                title: "Voice to Content",
-                description:
-                  "Transform spoken ideas into structured content with advanced speech recognition and AI processing.",
-                gradient: "from-gray-800 to-gray-900",
-              },
-              {
-                icon: FileText,
-                title: "Intelligent Outlines",
-                description:
-                  "Generate comprehensive content structures with key points and logical flow optimization.",
-                gradient: "from-gray-700 to-gray-800",
-              },
-              {
                 icon: Sparkles,
                 title: "Personal Style AI",
                 description:
                   "Learn and replicate your unique writing voice across all content types and platforms.",
                 gradient: "from-gray-900 to-black",
               },
+              {
+                icon: FileText,
+                title: "Daily Content Suggestions",
+                description:
+                  "Get daily content suggestions based on your writing style and preferences.",
+                gradient: "from-gray-700 to-gray-800",
+              },
+
               {
                 icon: Image,
                 title: "Visual Content",

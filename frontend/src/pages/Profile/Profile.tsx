@@ -2,6 +2,7 @@ import React from "react";
 import { SocialConnections } from "@/components/SocialConnections";
 import { ConsolidatedPlatformAnalysis } from "@/components/ConsolidatedPlatformAnalysis";
 import { UserPreferences } from "@/components/UserPreferences";
+import { UserBio } from "@/components/UserBio";
 import AppLayout from "@/components/AppLayout";
 
 const Profile: React.FC = () => {
@@ -17,6 +18,9 @@ const Profile: React.FC = () => {
           </div>
 
           <div className="space-y-6 sm:space-y-8">
+            {/* User Bio */}
+            <UserBio />
+
             {/* User Preferences */}
             <UserPreferences />
 
