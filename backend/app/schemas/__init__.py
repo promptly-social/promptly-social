@@ -40,7 +40,6 @@ from .profile import (
     WritingStyleData,
     PostingPatterns,
     EngagementInsights,
-    PlatformAnalysisData,
     PlatformAnalysisResponse,
 )
 

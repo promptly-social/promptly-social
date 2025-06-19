@@ -9,8 +9,8 @@ import os
 from datetime import datetime, timezone
 from uuid import uuid4
 from unittest.mock import patch
-from fastapi.testclient import TestClient
 from fastapi import status
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -26,12 +26,17 @@ from app.services.profile import ProfileService
 from app.schemas.profile import (
     UserPreferencesUpdate,
     SocialConnectionUpdate,
-    WritingStyleAnalysisUpdate,
 )
 from app.schemas.auth import UserResponse
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_profile.db"
+
+
+@pytest.fixture
+def test_client():
+    """Create test client."""
+    return TestClient(app)
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -138,22 +143,15 @@ class TestProfileService:
     @pytest.mark.asyncio
     async def test_writing_style_analysis_operations(self, profile_service, test_user):
         """Test writing style analysis CRUD operations."""
-        # Create analysis
-        analysis_data = WritingStyleAnalysisUpdate(
-            analysis_data={
-                "tone": "professional",
-                "complexity": "intermediate",
-                "topics": ["technology", "business"],
-            },
-            content_count=10,
-        )
+        # Create analysis - updated to match service signature
+        analysis_data_str = "this is the writing style analysis data"
         analysis = await profile_service.upsert_writing_style_analysis(
-            test_user.id, "linkedin", analysis_data
+            test_user.id, "linkedin", analysis_data_str
         )
 
         assert analysis.platform == "linkedin"
-        assert analysis.analysis_data["tone"] == "professional"
-        assert analysis.content_count == 10
+        assert analysis.analysis_data == "this is the writing style analysis data"
+        assert analysis.content_count == 0  # Default value
 
         # Get analysis
         retrieved = await profile_service.get_writing_style_analysis(
@@ -315,23 +313,7 @@ class TestProfileEndpoints:
                     id=str(uuid4()),
                     user_id=mock_current_user.id,
                     platform="linkedin",
-                    analysis_data={
-                        "writing_style": {
-                            "tone": "Professional",
-                            "complexity": "intermediate",
-                            "avg_length": 150,
-                            "key_themes": ["business", "technology"],
-                        },
-                        "topics": ["AI", "business", "technology"],
-                        "posting_patterns": {
-                            "frequency": "weekly",
-                            "best_times": ["9AM", "2PM"],
-                        },
-                        "engagement_insights": {
-                            "high_performing_topics": ["AI", "business"],
-                            "content_types": ["article", "post"],
-                        },
-                    },
+                    analysis_data="this is the writing style analysis data",
                     content_count=25,
                     last_analyzed_at=datetime.now(timezone.utc),
                     created_at=datetime.now(timezone.utc),
@@ -352,39 +334,295 @@ class TestProfileEndpoints:
     def test_run_substack_analysis_endpoint(
         self, test_client, mock_current_user, mock_db
     ):
-        """Test POST /profile/substack-analysis endpoint."""
+        """Test POST /profile/analyze-substack endpoint."""
         with patch(
-            "app.services.profile.ProfileService.upsert_social_connection"
-        ) as mock_service:
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            with patch(
+                "app.services.profile.ProfileService._trigger_gcp_cloud_run"
+            ) as mock_trigger:
+                with patch.object(mock_db, "commit") as mock_commit:
+                    with patch.object(mock_db, "refresh") as mock_refresh:
+                        # Mock the connection that get_social_connection_for_analysis returns
+                        mock_connection = SocialConnection(
+                            id=str(uuid4()),
+                            user_id=mock_current_user.id,
+                            platform="substack",
+                            platform_username="testnewsletter",
+                            is_active=True,
+                            connection_data={
+                                "analysis_result": {
+                                    "topics": ["Technology", "AI"],
+                                    "subscriber_insights": {
+                                        "estimated_subscribers": 1000
+                                    },
+                                    "recent_posts": [
+                                        {
+                                            "title": "Test Post",
+                                            "url": "https://test.com",
+                                        }
+                                    ],
+                                }
+                            },
+                            analysis_started_at=datetime.now(timezone.utc),
+                            analysis_completed_at=datetime.now(timezone.utc),
+                            created_at=datetime.now(timezone.utc),
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        mock_get_connection.return_value = mock_connection
+                        mock_trigger.return_value = (
+                            None  # Async function that doesn't return anything
+                        )
+                        mock_commit.return_value = None
+                        mock_refresh.return_value = None
+
+                        response = test_client.post(
+                            "/api/v1/profile/analyze-substack",
+                            headers={"Authorization": "Bearer test_token"},
+                        )
+
+                        assert response.status_code == status.HTTP_200_OK
+                        data = response.json()
+                        assert data["is_connected"] is True
+                        assert len(data["substack_data"]) > 0
+                        assert data["substack_data"][0]["topics"] == [
+                            "Technology",
+                            "AI",
+                        ]
+                        assert (
+                            data["is_analyzing"] is True
+                        )  # Analysis is started but not completed
+                        assert data["analysis_started_at"] is not None
+                        assert data["analysis_completed_at"] is None
+
+    def test_run_substack_analysis_no_connection(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-substack when no Substack connection exists."""
+        with patch(
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            mock_get_connection.return_value = None
+
+            response = test_client.post(
+                "/api/v1/profile/analyze-substack",
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+            data = response.json()
+            assert "Substack connection not found" in data["detail"]
+
+    def test_run_substack_analysis_no_username(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-substack when connection has no platform_username."""
+        with patch(
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            # Mock connection without platform_username
             mock_connection = SocialConnection(
                 id=str(uuid4()),
                 user_id=mock_current_user.id,
                 platform="substack",
+                platform_username=None,  # No username set
                 is_active=True,
-                connection_data={
-                    "substackData": [
-                        {
-                            "name": "Test Newsletter",
-                            "url": "https://test.substack.com",
-                            "topics": ["Technology"],
-                        }
-                    ],
-                    "analyzed_at": "2024-01-01T00:00:00Z",
-                },
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
             )
-            mock_service.return_value = mock_connection
+            mock_get_connection.return_value = mock_connection
 
             response = test_client.post(
-                "/api/v1/profile/substack-analysis",
+                "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
             )
 
-            assert response.status_code == status.HTTP_200_OK
+            assert response.status_code == status.HTTP_404_NOT_FOUND
             data = response.json()
-            assert data["is_connected"] is True
-            assert len(data["substack_data"]) > 0
+            assert "not configured" in data["detail"]
+
+    def test_run_substack_analysis_gcp_failure(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-substack when GCP Cloud Run fails."""
+        with patch(
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            with patch(
+                "app.services.profile.ProfileService._trigger_gcp_cloud_run"
+            ) as mock_trigger:
+                with patch.object(mock_db, "commit") as mock_commit:
+                    with patch.object(mock_db, "refresh") as mock_refresh:
+                        # Mock valid connection
+                        mock_connection = SocialConnection(
+                            id=str(uuid4()),
+                            user_id=mock_current_user.id,
+                            platform="substack",
+                            platform_username="testnewsletter",
+                            is_active=True,
+                            created_at=datetime.now(timezone.utc),
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        mock_get_connection.return_value = mock_connection
+                        mock_commit.return_value = None
+                        mock_refresh.return_value = None
+
+                        # Mock GCP failure
+                        mock_trigger.side_effect = Exception("GCP Cloud Run failed")
+
+                        response = test_client.post(
+                            "/api/v1/profile/analyze-substack",
+                            headers={"Authorization": "Bearer test_token"},
+                        )
+
+                        assert (
+                            response.status_code
+                            == status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+                        data = response.json()
+                        assert "Failed to run Substack analysis" in data["detail"]
+
+    def test_run_substack_analysis_database_error(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-substack when database commit fails."""
+        with patch(
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            with patch.object(mock_db, "commit") as mock_commit:
+                with patch.object(mock_db, "rollback") as mock_rollback:
+                    # Mock valid connection
+                    mock_connection = SocialConnection(
+                        id=str(uuid4()),
+                        user_id=mock_current_user.id,
+                        platform="substack",
+                        platform_username="testnewsletter",
+                        is_active=True,
+                        created_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                    mock_get_connection.return_value = mock_connection
+
+                    # Mock database commit failure
+                    mock_commit.side_effect = Exception("Database error")
+                    mock_rollback.return_value = None
+
+                    response = test_client.post(
+                        "/api/v1/profile/analyze-substack",
+                        headers={"Authorization": "Bearer test_token"},
+                    )
+
+                    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+                    data = response.json()
+                    assert "Failed to run Substack analysis" in data["detail"]
+                    mock_rollback.assert_called_once()
+
+    def test_run_substack_analysis_completed_analysis(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-substack with a completed analysis."""
+        with patch(
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            with patch(
+                "app.services.profile.ProfileService._trigger_gcp_cloud_run"
+            ) as mock_trigger:
+                with patch.object(mock_db, "commit") as mock_commit:
+                    with patch.object(mock_db, "refresh") as mock_refresh:
+                        # Mock connection with completed analysis
+                        completed_time = datetime.now(timezone.utc)
+                        mock_connection = SocialConnection(
+                            id=str(uuid4()),
+                            user_id=mock_current_user.id,
+                            platform="substack",
+                            platform_username="testnewsletter",
+                            is_active=True,
+                            connection_data={
+                                "analysis_result": {
+                                    "topics": ["Business", "Entrepreneurship"],
+                                    "subscriber_insights": {
+                                        "estimated_subscribers": 5000
+                                    },
+                                    "recent_posts": [
+                                        {
+                                            "title": "Building a Startup",
+                                            "url": "https://test.substack.com/p/startup",
+                                        }
+                                    ],
+                                }
+                            },
+                            analysis_started_at=completed_time,
+                            analysis_completed_at=completed_time,
+                            created_at=datetime.now(timezone.utc),
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        mock_get_connection.return_value = mock_connection
+                        mock_trigger.return_value = None
+                        mock_commit.return_value = None
+                        mock_refresh.return_value = None
+
+                        response = test_client.post(
+                            "/api/v1/profile/analyze-substack",
+                            headers={"Authorization": "Bearer test_token"},
+                        )
+
+                        assert response.status_code == status.HTTP_200_OK
+                        data = response.json()
+                        assert data["is_connected"] is True
+                        assert len(data["substack_data"]) > 0
+                        assert data["substack_data"][0]["topics"] == [
+                            "Business",
+                            "Entrepreneurship",
+                        ]
+                        assert data["substack_data"][0]["subscriber_count"] == 5000
+                        assert data["is_analyzing"] is True  # Analysis was restarted
+                        assert data["analysis_started_at"] is not None
+                        assert (
+                            data["analysis_completed_at"] is None
+                        )  # Reset when analysis starts
+
+    def test_run_substack_analysis_no_analysis_data(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-substack when connection has no analysis data."""
+        with patch(
+            "app.services.profile.ProfileService.get_social_connection_for_analysis"
+        ) as mock_get_connection:
+            with patch(
+                "app.services.profile.ProfileService._trigger_gcp_cloud_run"
+            ) as mock_trigger:
+                with patch.object(mock_db, "commit") as mock_commit:
+                    with patch.object(mock_db, "refresh") as mock_refresh:
+                        # Mock connection without analysis data
+                        mock_connection = SocialConnection(
+                            id=str(uuid4()),
+                            user_id=mock_current_user.id,
+                            platform="substack",
+                            platform_username="testnewsletter",
+                            is_active=True,
+                            connection_data={},  # No analysis_result
+                            analysis_started_at=datetime.now(timezone.utc),
+                            analysis_completed_at=None,
+                            created_at=datetime.now(timezone.utc),
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        mock_get_connection.return_value = mock_connection
+                        mock_trigger.return_value = None
+                        mock_commit.return_value = None
+                        mock_refresh.return_value = None
+
+                        response = test_client.post(
+                            "/api/v1/profile/analyze-substack",
+                            headers={"Authorization": "Bearer test_token"},
+                        )
+
+                        assert response.status_code == status.HTTP_200_OK
+                        data = response.json()
+                        assert data["is_connected"] is True
+                        assert len(data["substack_data"]) == 0  # No data available
+                        assert data["is_analyzing"] is True  # Analysis in progress
+                        assert data["analysis_started_at"] is not None
+                        assert data["analysis_completed_at"] is None
 
     def test_unauthorized_access(self, test_client):
         """Test unauthorized access to endpoints."""

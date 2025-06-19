@@ -7,7 +7,8 @@ import {
   type SocialConnection as ApiSocialConnection,
 } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link2, Unlink, Users, FileText } from "lucide-react";
+import { Link2, Unlink, Users } from "lucide-react";
+import { SubstackConnection } from "./SubstackConnection";
 
 type SocialConnection = ApiSocialConnection;
 
@@ -38,7 +39,7 @@ export const SocialConnections: React.FC = () => {
     }
   };
 
-  const connectPlatform = async (platform: "substack" | "linkedin") => {
+  const connectPlatform = async (platform: "linkedin") => {
     setIsLoading(true);
     try {
       // For now, we'll create a basic connection without requiring username
@@ -66,7 +67,7 @@ export const SocialConnections: React.FC = () => {
     }
   };
 
-  const disconnectPlatform = async (platform: "substack" | "linkedin") => {
+  const disconnectPlatform = async (platform: "linkedin") => {
     setIsLoading(true);
     try {
       await profileApi.updateSocialConnection(platform, {
@@ -94,17 +95,9 @@ export const SocialConnections: React.FC = () => {
   const getConnection = (platform: string) =>
     connections.find((conn) => conn.platform === platform && conn.is_active);
 
-  const substackConnection = getConnection("substack");
   const linkedinConnection = getConnection("linkedin");
 
   const platforms = [
-    {
-      name: "Substack",
-      key: "substack" as const,
-      icon: FileText,
-      color: "orange",
-      connection: substackConnection,
-    },
     {
       name: "LinkedIn",
       key: "linkedin" as const,
@@ -123,6 +116,10 @@ export const SocialConnections: React.FC = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Substack Connection Component */}
+        <SubstackConnection />
+
+        {/* Other Platform Connections */}
         {platforms.map((platform) => (
           <div
             key={platform.key}

@@ -52,41 +52,33 @@ WHERE linkedin_post_id IS NOT NULL
    OR published_date IS NOT NULL 
    OR publication_error IS NOT NULL;
 
--- 4. Rename content_ideas table to contents
+-- 4. Drop old policies for content_ideas before renaming the table
+DROP POLICY IF EXISTS "Users can view their own content ideas" ON content_ideas;
+DROP POLICY IF EXISTS "Users can create their own content ideas" ON content_ideas;
+DROP POLICY IF EXISTS "Users can update their own content ideas" ON content_ideas;
+DROP POLICY IF EXISTS "Users can delete their own content ideas" ON content_ideas;
+
+-- 5. Rename content_ideas table to contents
 ALTER TABLE content_ideas RENAME TO contents;
 
--- 5. Drop the publication-related columns from contents table
+-- 6. Drop the publication-related columns from contents table
 ALTER TABLE contents 
     DROP COLUMN IF EXISTS scheduled_date,
     DROP COLUMN IF EXISTS published_date,
     DROP COLUMN IF EXISTS publication_error,
     DROP COLUMN IF EXISTS linkedin_post_id;
 
--- 6. Add foreign key constraint to publications table
+-- 7. Add foreign key constraint to publications table
 ALTER TABLE publications 
     ADD CONSTRAINT fk_publications_content_id 
     FOREIGN KEY (content_id) REFERENCES contents(id) 
     ON DELETE CASCADE;
 
--- 7. Update the suggested_posts table foreign key reference
-ALTER TABLE suggested_posts 
-    RENAME COLUMN content_idea_id TO content_id;
+-- 8. The suggested_posts table already has the correct structure
+-- It references scraped_content via original_source_id, which is the intended design
+-- No changes needed to suggested_posts table structure
 
--- Add foreign key constraint for suggested_posts if it doesn't exist
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name = 'fk_suggested_posts_content_id'
-    ) THEN
-        ALTER TABLE suggested_posts 
-            ADD CONSTRAINT fk_suggested_posts_content_id 
-            FOREIGN KEY (content_id) REFERENCES contents(id) 
-            ON DELETE SET NULL;
-    END IF;
-END $$;
-
--- 8. Create updated_at trigger for publications table
+-- 9. Create updated_at trigger for publications table
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -100,27 +92,20 @@ CREATE TRIGGER update_publications_updated_at
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
--- 9. Update any existing RLS policies if they exist
--- Drop old policies for content_ideas (they won't apply to contents)
-DROP POLICY IF EXISTS "Users can view their own content ideas" ON content_ideas;
-DROP POLICY IF EXISTS "Users can insert their own content ideas" ON content_ideas;
-DROP POLICY IF EXISTS "Users can update their own content ideas" ON content_ideas;
-DROP POLICY IF EXISTS "Users can delete their own content ideas" ON content_ideas;
-
 -- Create new RLS policies for contents table
 ALTER TABLE contents ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own content" ON contents
-    FOR SELECT USING (auth.uid()::text = user_id);
+    FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert their own content" ON contents
-    FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can update their own content" ON contents
-    FOR UPDATE USING (auth.uid()::text = user_id);
+    FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own content" ON contents
-    FOR DELETE USING (auth.uid()::text = user_id);
+    FOR DELETE USING (auth.uid() = user_id);
 
 -- Create RLS policies for publications table
 ALTER TABLE publications ENABLE ROW LEVEL SECURITY;
@@ -130,7 +115,7 @@ CREATE POLICY "Users can view publications for their content" ON publications
         EXISTS (
             SELECT 1 FROM contents 
             WHERE contents.id = publications.content_id 
-            AND contents.user_id = auth.uid()::text
+            AND contents.user_id = auth.uid()
         )
     );
 
@@ -139,7 +124,7 @@ CREATE POLICY "Users can insert publications for their content" ON publications
         EXISTS (
             SELECT 1 FROM contents 
             WHERE contents.id = content_id 
-            AND contents.user_id = auth.uid()::text
+            AND contents.user_id = auth.uid()
         )
     );
 
@@ -148,7 +133,7 @@ CREATE POLICY "Users can update publications for their content" ON publications
         EXISTS (
             SELECT 1 FROM contents 
             WHERE contents.id = publications.content_id 
-            AND contents.user_id = auth.uid()::text
+            AND contents.user_id = auth.uid()
         )
     );
 
@@ -157,7 +142,7 @@ CREATE POLICY "Users can delete publications for their content" ON publications
         EXISTS (
             SELECT 1 FROM contents 
             WHERE contents.id = publications.content_id 
-            AND contents.user_id = auth.uid()::text
+            AND contents.user_id = auth.uid()
         )
     );
 

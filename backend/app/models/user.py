@@ -4,7 +4,7 @@ Includes User and UserSession models with audit logging and soft deletes.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, String, Text, ForeignKey
@@ -92,7 +92,7 @@ class User(Base):
 
     def soft_delete(self) -> None:
         """Soft delete the user by setting deleted_at timestamp."""
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(timezone.utc)
         self.is_active = False
 
     def restore(self) -> None:
@@ -165,7 +165,7 @@ class UserSession(Base):
     @hybrid_property
     def is_expired(self) -> bool:
         """Check if session is expired."""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     @hybrid_property
     def is_revoked(self) -> bool:
@@ -179,13 +179,13 @@ class UserSession(Base):
 
     def revoke(self) -> None:
         """Revoke the session."""
-        self.revoked_at = datetime.utcnow()
+        self.revoked_at = datetime.now(timezone.utc)
         self.is_active = False
 
     def extend_expiration(self, new_expiration: datetime) -> None:
         """Extend session expiration."""
         self.expires_at = new_expiration
-        self.last_used_at = datetime.utcnow()
+        self.last_used_at = datetime.now(timezone.utc)
 
     def __repr__(self) -> str:
         return f"<UserSession(id={self.id}, user_id={self.user_id}, is_valid={self.is_valid})>"

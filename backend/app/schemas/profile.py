@@ -54,6 +54,8 @@ class SocialConnectionUpdate(BaseModel):
     platform_username: Optional[str] = None
     connection_data: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
+    analysis_started_at: Optional[datetime] = None
+    analysis_completed_at: Optional[datetime] = None
 
 
 class SocialConnectionResponse(SocialConnectionBase):
@@ -64,6 +66,8 @@ class SocialConnectionResponse(SocialConnectionBase):
     id: UUID
     user_id: UUID
     connection_data: Optional[Dict[str, Any]] = None
+    analysis_started_at: Optional[datetime] = None
+    analysis_completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -72,7 +76,7 @@ class WritingStyleAnalysisBase(BaseModel):
     """Base schema for writing style analysis."""
 
     platform: str
-    analysis_data: Dict[str, Any]
+    analysis_data: str
     content_count: int = 0
 
 
@@ -85,7 +89,7 @@ class WritingStyleAnalysisCreate(WritingStyleAnalysisBase):
 class WritingStyleAnalysisUpdate(BaseModel):
     """Schema for updating writing style analysis."""
 
-    analysis_data: Optional[Dict[str, Any]] = None
+    analysis_data: Optional[str] = None
     content_count: Optional[int] = None
     last_analyzed_at: Optional[datetime] = None
 
@@ -154,6 +158,9 @@ class SubstackAnalysisResponse(BaseModel):
     substack_data: List[SubstackData]
     is_connected: bool
     analyzed_at: Optional[str] = None
+    analysis_started_at: Optional[str] = None
+    analysis_completed_at: Optional[str] = None
+    is_analyzing: bool = False
 
 
 # Platform analysis schemas
@@ -180,18 +187,9 @@ class EngagementInsights(BaseModel):
     content_types: List[str]
 
 
-class PlatformAnalysisData(BaseModel):
-    """Schema for platform analysis data."""
-
-    writing_style: WritingStyleData
-    topics: List[str]
-    posting_patterns: PostingPatterns
-    engagement_insights: EngagementInsights
-
-
 class PlatformAnalysisResponse(BaseModel):
     """Schema for platform analysis response."""
 
-    analysis_data: Optional[PlatformAnalysisData] = None
+    analysis_data: Optional[str] = None
     last_analyzed: Optional[str] = None
     is_connected: bool

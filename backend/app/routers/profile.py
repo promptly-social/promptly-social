@@ -7,18 +7,15 @@ from app.schemas.profile import (
     SocialConnectionResponse,
     SocialConnectionUpdate,
     PlatformAnalysisResponse,
-    PlatformAnalysisData,
     SubstackAnalysisResponse,
     SubstackConnectionData,
     SubstackData,
-    WritingStyleAnalysisUpdate,
 )
 from app.services.profile import ProfileService
 from app.schemas.auth import UserResponse
 from app.core.database import get_async_db
 from app.routers.auth import get_current_user
 from loguru import logger
-from datetime import datetime
 from uuid import UUID
 
 
@@ -175,7 +172,7 @@ async def get_writing_style_analysis(
 
         if analysis:
             return PlatformAnalysisResponse(
-                analysis_data=PlatformAnalysisData(**analysis.analysis_data),
+                analysis_data=analysis.analysis_data,
                 last_analyzed=analysis.last_analyzed_at.isoformat(),
                 is_connected=is_connected,
             )
@@ -206,55 +203,23 @@ async def run_writing_style_analysis(
         connection = await profile_service.get_social_connection(
             current_user.id, platform
         )
+
         if not connection:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Please connect your {platform} account first",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Social connection for {platform} not found",
             )
 
-        # Sample analysis data
-        sample_analysis = {
-            "writing_style": {
-                "tone": "Professional" if platform == "linkedin" else "Conversational",
-                "complexity": "Intermediate",
-                "avg_length": 150 if platform == "linkedin" else 800,
-                "key_themes": (
-                    ["Professional Growth", "Industry Insights", "Leadership"]
-                    if platform == "linkedin"
-                    else ["Deep Dives", "Analysis", "Commentary"]
-                ),
-            },
-            "topics": (
-                ["Technology", "Business Strategy", "Leadership", "Innovation"]
-                if platform == "linkedin"
-                else [
-                    "Technology",
-                    "Startups",
-                    "Product Development",
-                    "Industry Analysis",
-                ]
-            ),
-            "posting_patterns": {
-                "frequency": "Weekly",
-                "best_times": ["9:00 AM", "1:00 PM", "5:00 PM"],
-            },
-            "engagement_insights": {
-                "high_performing_topics": ["AI", "Remote Work", "Leadership"],
-                "content_types": ["Insights", "Personal Stories", "Industry Updates"],
-            },
-        }
+        # For now, create a mock analysis - in real implementation this would trigger actual analysis
+        mock_analysis_data = f"Writing style analysis for {platform} - placeholder data"
 
-        # Save analysis
-        analysis_update = WritingStyleAnalysisUpdate(
-            analysis_data=sample_analysis, content_count=25
-        )
-
+        # Create or update analysis
         analysis = await profile_service.upsert_writing_style_analysis(
-            current_user.id, platform, analysis_update
+            current_user.id, platform, mock_analysis_data
         )
 
         return PlatformAnalysisResponse(
-            analysis_data=PlatformAnalysisData(**analysis.analysis_data),
+            analysis_data=analysis.analysis_data,
             last_analyzed=analysis.last_analyzed_at.isoformat(),
             is_connected=True,
         )
@@ -278,21 +243,79 @@ async def get_substack_analysis(
     """Get Substack analysis data."""
     try:
         profile_service = ProfileService(db)
-        connection = await profile_service.get_social_connection(
+        connection = await profile_service.get_social_connection_for_analysis(
             current_user.id, "substack"
         )
 
-        if not connection or not connection.connection_data:
+        if not connection:
             return SubstackAnalysisResponse(
-                substack_data=[], is_connected=False, analyzed_at=None
+                substack_data=[],
+                is_connected=False,
+                analyzed_at=None,
+                analysis_started_at=None,
+                analysis_completed_at=None,
+                is_analyzing=False,
             )
 
-        connection_data = SubstackConnectionData(**connection.connection_data)
+        # Prepare response based on current connection state
+        substack_data = []
+        analyzed_at = None
+        analysis_started_at = (
+            connection.analysis_started_at.isoformat()
+            if connection.analysis_started_at
+            else None
+        )
+        analysis_completed_at = (
+            connection.analysis_completed_at.isoformat()
+            if connection.analysis_completed_at
+            else None
+        )
+        is_analyzing = (
+            connection.analysis_started_at is not None
+            and connection.analysis_completed_at is None
+        )
+
+        # Check for new analysis results
+        if (
+            connection.connection_data
+            and "analysis_result" in connection.connection_data
+        ):
+            analysis_result = connection.connection_data["analysis_result"]
+
+            # Convert analysis result to SubstackData format
+            substack_data = [
+                SubstackData(
+                    name=connection.platform_username or "Unknown",
+                    url=f"https://{connection.platform_username}.substack.com"
+                    if connection.platform_username
+                    else "",
+                    topics=analysis_result.get("topics", []),
+                    subscriber_count=analysis_result.get("subscriber_insights", {}).get(
+                        "estimated_subscribers"
+                    ),
+                    recent_posts=analysis_result.get("recent_posts", []),
+                )
+            ]
+            analyzed_at = analysis_completed_at
+
+        # Check for legacy format (for backward compatibility)
+        elif (
+            connection.connection_data and "substackData" in connection.connection_data
+        ):
+            try:
+                connection_data = SubstackConnectionData(**connection.connection_data)
+                substack_data = connection_data.substackData
+                analyzed_at = connection_data.analyzed_at
+            except Exception as e:
+                logger.warning(f"Failed to parse legacy substack data: {e}")
 
         return SubstackAnalysisResponse(
-            substack_data=connection_data.substackData,
+            substack_data=substack_data,
             is_connected=True,
-            analyzed_at=connection_data.analyzed_at,
+            analyzed_at=analyzed_at,
+            analysis_started_at=analysis_started_at,
+            analysis_completed_at=analysis_completed_at,
+            is_analyzing=is_analyzing,
         )
 
     except Exception as e:
@@ -303,7 +326,7 @@ async def get_substack_analysis(
         )
 
 
-@router.post("/substack-analysis", response_model=SubstackAnalysisResponse)
+@router.post("/analyze-substack", response_model=SubstackAnalysisResponse)
 async def run_substack_analysis(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
@@ -312,42 +335,67 @@ async def run_substack_analysis(
     try:
         profile_service = ProfileService(db)
 
-        # Sample Substack data
-        sample_substack_data = [
-            SubstackData(
-                name="The Tech Observer",
-                url="https://techobserver.substack.com",
-                topics=["Technology", "AI", "Startups", "Innovation"],
-                subscriber_count=12500,
-                recent_posts=[
-                    {
-                        "title": "The Rise of AI Agents in 2024",
-                        "url": "https://techobserver.substack.com/p/ai-agents-2024",
-                        "published_date": "2024-01-15",
-                    }
-                ],
+        # Start the analysis
+        connection = await profile_service.analyze_substack(current_user.id)
+
+        if not connection:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Substack connection not found or not configured",
             )
-        ]
 
-        # Update connection
-        connection_data = SubstackConnectionData(
-            substackData=sample_substack_data, analyzed_at=datetime.utcnow().isoformat()
+        # Prepare response based on current connection state
+        substack_data = []
+        analyzed_at = None
+        analysis_started_at = (
+            connection.analysis_started_at.isoformat()
+            if connection.analysis_started_at
+            else None
+        )
+        analysis_completed_at = (
+            connection.analysis_completed_at.isoformat()
+            if connection.analysis_completed_at
+            else None
+        )
+        is_analyzing = (
+            connection.analysis_started_at is not None
+            and connection.analysis_completed_at is None
         )
 
-        connection_update = SocialConnectionUpdate(
-            is_active=True, connection_data=connection_data.model_dump()
-        )
+        # If analysis is completed, extract the data
+        if (
+            connection.connection_data
+            and "analysis_result" in connection.connection_data
+        ):
+            analysis_result = connection.connection_data["analysis_result"]
 
-        await profile_service.upsert_social_connection(
-            current_user.id, "substack", connection_update
-        )
+            # Convert analysis result to SubstackData format
+            substack_data = [
+                SubstackData(
+                    name=connection.platform_username or "Unknown",
+                    url=f"https://{connection.platform_username}.substack.com"
+                    if connection.platform_username
+                    else "",
+                    topics=analysis_result.get("topics", []),
+                    subscriber_count=analysis_result.get("subscriber_insights", {}).get(
+                        "estimated_subscribers"
+                    ),
+                    recent_posts=analysis_result.get("recent_posts", []),
+                )
+            ]
+            analyzed_at = analysis_completed_at
 
         return SubstackAnalysisResponse(
-            substack_data=sample_substack_data,
+            substack_data=substack_data,
             is_connected=True,
-            analyzed_at=connection_data.analyzed_at,
+            analyzed_at=analyzed_at,
+            analysis_started_at=analysis_started_at,
+            analysis_completed_at=analysis_completed_at,
+            is_analyzing=is_analyzing,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error running Substack analysis: {e}")
         raise HTTPException(

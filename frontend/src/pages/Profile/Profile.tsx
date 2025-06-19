@@ -2,7 +2,6 @@ import React from "react";
 import { SocialConnections } from "@/components/SocialConnections";
 import { ConsolidatedPlatformAnalysis } from "@/components/ConsolidatedPlatformAnalysis";
 import { UserPreferences } from "@/components/UserPreferences";
-import { SubstackAnalysis } from "@/components/SubstackAnalysis";
 import AppLayout from "@/components/AppLayout";
 
 const Profile: React.FC = () => {
@@ -23,9 +22,6 @@ const Profile: React.FC = () => {
 
             {/* Social Connections */}
             <SocialConnections />
-
-            {/* Substack Analysis */}
-            <SubstackAnalysis />
 
             {/* Consolidated Platform Analysis */}
             <ConsolidatedPlatformAnalysis />

@@ -22,7 +22,7 @@ export const EnhancedPlatformAnalysis: React.FC<PlatformAnalysisProps> = ({
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [analysisData, setAnalysisData] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalyzed, setLastAnalyzed] = useState<string | null>(null);
 
