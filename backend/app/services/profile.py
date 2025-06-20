@@ -2,25 +2,19 @@
 Content service for handling content-related business logic.
 """
 
+import os
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-import os
+
 import httpx
-
 from loguru import logger
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.profile import (
-    UserPreferences,
-    SocialConnection,
-    WritingStyleAnalysis,
-)
-from app.schemas.profile import (
-    UserPreferencesUpdate,
-    SocialConnectionUpdate,
-)
+from app.models.profile import (SocialConnection, UserPreferences,
+                                WritingStyleAnalysis)
+from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate
 
 
 class ProfileService:

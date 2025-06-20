@@ -3,28 +3,22 @@ Authentication router with endpoints for user management.
 Provides API endpoints that mirror the frontend AuthContext functionality.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from loguru import logger
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_async_db
+from app.schemas.auth import (AuthResponse, GoogleAuthRequest,
+                              GoogleSignInWithToken, PasswordResetRequest,
+                              RefreshTokenRequest, SuccessResponse,
+                              TokenResponse, UserCreate, UserLogin,
+                              UserResponse)
 from app.services.auth import AuthService
-from app.schemas.auth import (
-    UserCreate,
-    UserLogin,
-    UserResponse,
-    AuthResponse,
-    TokenResponse,
-    RefreshTokenRequest,
-    GoogleAuthRequest,
-    GoogleSignInWithToken,
-    PasswordResetRequest,
-    SuccessResponse,
-)
 
 # Create router
 router = APIRouter(prefix="/auth", tags=["authentication"])

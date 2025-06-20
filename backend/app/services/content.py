@@ -2,21 +2,18 @@
 Content service for handling content-related business logic.
 """
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID
 from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, and_, desc, asc
-from sqlalchemy.orm import selectinload
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
 from loguru import logger
+from sqlalchemy import and_, asc, delete, desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.content import Content, Publication
-from app.schemas.content import (
-    ContentCreate,
-    ContentUpdate,
-    PublicationCreate,
-    PublicationUpdate,
-)
+from app.schemas.content import (ContentCreate, ContentUpdate,
+                                 PublicationCreate, PublicationUpdate)
 
 
 class ContentService:

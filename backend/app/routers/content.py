@@ -3,25 +3,21 @@ Content router with endpoints for content management.
 Replaces all frontend direct Supabase calls with backend API endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from loguru import logger
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_async_db
-from app.services.content import ContentService
 from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
-from app.schemas.content import (
-    ContentCreate,
-    ContentUpdate,
-    ContentResponse,
-    ContentListResponse,
-    PublicationCreate,
-    PublicationUpdate,
-    PublicationResponse,
-)
+from app.schemas.content import (ContentCreate, ContentListResponse,
+                                 ContentResponse, ContentUpdate,
+                                 PublicationCreate, PublicationResponse,
+                                 PublicationUpdate)
+from app.services.content import ContentService
 
 # Create router
 router = APIRouter(prefix="/content", tags=["content"])

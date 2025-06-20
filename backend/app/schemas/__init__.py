@@ -1,47 +1,21 @@
 """Schemas module."""
 
-from .auth import (
-    UserCreate,
-    UserResponse,
-    TokenResponse,
-    UserUpdate,
-)
-from .content import (
-    ContentBase,
-    ContentCreate,
-    ContentUpdate,
-    ContentResponse,
-    ContentListResponse,
-    PublicationBase,
-    PublicationCreate,
-    PublicationUpdate,
-    PublicationResponse,
-)
-
-from .profile import (
-    UserPreferencesBase,
-    UserPreferencesCreate,
-    UserPreferencesUpdate,
-    UserPreferencesResponse,
-    SocialConnectionBase,
-    SocialConnectionCreate,
-    SocialConnectionUpdate,
-    SocialConnectionResponse,
-    WritingStyleAnalysisBase,
-    WritingStyleAnalysisCreate,
-    WritingStyleAnalysisUpdate,
-    WritingStyleAnalysisResponse,
-    SuggestedPostBase,
-    SuggestedPostCreate,
-    SuggestedPostResponse,
-    SubstackData,
-    SubstackConnectionData,
-    SubstackAnalysisResponse,
-    WritingStyleData,
-    PostingPatterns,
-    EngagementInsights,
-    PlatformAnalysisResponse,
-)
+from .auth import TokenResponse, UserCreate, UserResponse, UserUpdate
+from .content import (ContentBase, ContentCreate, ContentListResponse,
+                      ContentResponse, ContentUpdate, PublicationBase,
+                      PublicationCreate, PublicationResponse,
+                      PublicationUpdate)
+from .profile import (EngagementInsights, PlatformAnalysisResponse,
+                      PostingPatterns, SocialConnectionBase,
+                      SocialConnectionCreate, SocialConnectionResponse,
+                      SocialConnectionUpdate, SubstackAnalysisResponse,
+                      SubstackConnectionData, SubstackData, SuggestedPostBase,
+                      SuggestedPostCreate, SuggestedPostResponse,
+                      UserPreferencesBase, UserPreferencesCreate,
+                      UserPreferencesResponse, UserPreferencesUpdate,
+                      WritingStyleAnalysisBase, WritingStyleAnalysisCreate,
+                      WritingStyleAnalysisResponse, WritingStyleAnalysisUpdate,
+                      WritingStyleData)
 
 __all__ = [
     # Auth schemas

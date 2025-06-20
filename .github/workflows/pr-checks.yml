@@ -32,12 +32,6 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Authenticate to Google Cloud (Keyless)
-        uses: "google-github-actions/auth@v2"
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
-
       - name: Set up test environment
         working-directory: ./backend
         run: |
@@ -111,6 +105,11 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
 
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
       - name: Add SCW Training to Trivy results
         uses: SecureCodeWarrior/github-action-add-sarif-contextual-training@v1
         with:
@@ -119,6 +118,6 @@ jobs:
         continue-on-error: true
 
       - name: Upload enriched Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results.processed.sarif"
