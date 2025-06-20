@@ -102,20 +102,20 @@ resource "google_cloud_run_service" "backend" {
 
         env {
           name = "GCP_ANALYSIS_FUNCTION_URL"
-          value_from = {
-            secret_key_ref = {
-              secret  = var.gcp_analysis_function_url_name
-              version = "latest"
+          value_from {
+            secret_key_ref {
+              name = var.gcp_analysis_function_url_name
+              key  = "latest"
             }
           }
         }
 
         env {
           name = "OPENROUTER_API_KEY"
-          value_from = {
-            secret_key_ref = {
-              secret  = var.openrouter_api_key_name
-              version = "latest"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_api_key_name
+              key  = "latest"
             }
           }
         }
