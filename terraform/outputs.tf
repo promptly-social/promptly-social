@@ -48,5 +48,5 @@ output "secret_manager_secrets" {
 
 output "dns_records_for_custom_api_domain" {
   description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].dns_records_for_custom_api_domain : "n/a"
+  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].dns_records_for_custom_api_domain : []
 } 
