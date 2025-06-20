@@ -34,7 +34,7 @@ github_repo = "your-github-owner/your-github-repo"
 ```
 
 - `project_id`: The ID of your GCP project.
-- `github_repo`: The path to your repository (e.g., `promptly-social-scribe/promptly-social-scribe`).
+- `github_repo`: The path to your repository (e.g., `promptly-social/promptly-social`).
 
 ### 3. Apply Terraform
 
