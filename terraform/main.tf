@@ -64,9 +64,9 @@ resource "google_project_iam_member" "cloud_run_permissions" {
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/cloudtrace.agent",
-    "roles/run.admin",
-    "roles/iam.serviceAccountUser",
-    "roles/compute.loadBalancerAdmin"
+    "roles/run.developer",
+    "roles/compute.loadBalancerAdmin",
+    "roles/artifactregistry.writer"
   ])
 
   project = var.project_id
@@ -120,6 +120,20 @@ resource "google_service_account_iam_binding" "app_sa_user_binding" {
 resource "google_service_account_iam_binding" "app_sa_wif_binding" {
   service_account_id = google_service_account.app_sa.name
   role               = "roles/iam.workloadIdentityUser"
+  members = [
+    # Allow workflows from your GitHub repository to impersonate this SA
+    "principalSet://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
+  ]
+
+  depends_on = [
+    google_iam_workload_identity_pool_provider.github_provider
+  ]
+}
+
+# Also grant the GitHub Actions principal the ability to create tokens for the SA.
+resource "google_service_account_iam_binding" "app_sa_token_creator_binding" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
   members = [
     # Allow workflows from your GitHub repository to impersonate this SA
     "principalSet://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
