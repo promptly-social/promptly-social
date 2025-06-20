@@ -1,11 +1,6 @@
 name: Deploy Frontend to GCS
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
     inputs:
       environment:
@@ -21,8 +16,7 @@ jobs:
   build-and-deploy-frontend:
     name: Build and Deploy Frontend
     runs-on: ubuntu-latest
-    # Dynamically set the environment based on the trigger
-    environment: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment }}
     permissions:
       contents: "read"
       id-token: "write"
@@ -30,8 +24,8 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
-      ENV_NAME: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
-      APP_SA_EMAIL: promptly-app-sa-${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+      ENV_NAME: ${{ github.event.inputs.environment }}
+      APP_SA_EMAIL: promptly-app-sa-${{ github.event.inputs.environment }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
       BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
       VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
@@ -43,10 +37,10 @@ jobs:
         run: |
           echo "Deploying to $ENV_NAME environment (bucket: $BUCKET_NAME)"
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud (Keyless)
         uses: "google-github-actions/auth@v2"
         with:
-          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ env.APP_SA_EMAIL }}
 
       - name: Set up Cloud SDK
