@@ -17,8 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base, get_async_db
 from app.main import app
-from app.models.profile import (SocialConnection, UserPreferences,
-                                WritingStyleAnalysis)
+from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
 from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate

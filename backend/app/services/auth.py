@@ -11,8 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import (create_access_token, create_refresh_token,
-                               verify_token)
+from app.core.security import create_access_token, create_refresh_token, verify_token
 from app.models.user import User, UserSession
 from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserResponse
 from app.utils.supabase import supabase_client

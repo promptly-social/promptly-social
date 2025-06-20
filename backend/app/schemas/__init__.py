@@ -1,21 +1,41 @@
 """Schemas module."""
 
 from .auth import TokenResponse, UserCreate, UserResponse, UserUpdate
-from .content import (ContentBase, ContentCreate, ContentListResponse,
-                      ContentResponse, ContentUpdate, PublicationBase,
-                      PublicationCreate, PublicationResponse,
-                      PublicationUpdate)
-from .profile import (EngagementInsights, PlatformAnalysisResponse,
-                      PostingPatterns, SocialConnectionBase,
-                      SocialConnectionCreate, SocialConnectionResponse,
-                      SocialConnectionUpdate, SubstackAnalysisResponse,
-                      SubstackConnectionData, SubstackData, SuggestedPostBase,
-                      SuggestedPostCreate, SuggestedPostResponse,
-                      UserPreferencesBase, UserPreferencesCreate,
-                      UserPreferencesResponse, UserPreferencesUpdate,
-                      WritingStyleAnalysisBase, WritingStyleAnalysisCreate,
-                      WritingStyleAnalysisResponse, WritingStyleAnalysisUpdate,
-                      WritingStyleData)
+from .content import (
+    ContentBase,
+    ContentCreate,
+    ContentListResponse,
+    ContentResponse,
+    ContentUpdate,
+    PublicationBase,
+    PublicationCreate,
+    PublicationResponse,
+    PublicationUpdate,
+)
+from .profile import (
+    EngagementInsights,
+    PlatformAnalysisResponse,
+    PostingPatterns,
+    SocialConnectionBase,
+    SocialConnectionCreate,
+    SocialConnectionResponse,
+    SocialConnectionUpdate,
+    SubstackAnalysisResponse,
+    SubstackConnectionData,
+    SubstackData,
+    SuggestedPostBase,
+    SuggestedPostCreate,
+    SuggestedPostResponse,
+    UserPreferencesBase,
+    UserPreferencesCreate,
+    UserPreferencesResponse,
+    UserPreferencesUpdate,
+    WritingStyleAnalysisBase,
+    WritingStyleAnalysisCreate,
+    WritingStyleAnalysisResponse,
+    WritingStyleAnalysisUpdate,
+    WritingStyleData,
+)
 
 __all__ = [
     # Auth schemas

@@ -12,8 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.content import Content, Publication
-from app.schemas.content import (ContentCreate, ContentUpdate,
-                                 PublicationCreate, PublicationUpdate)
+from app.schemas.content import (
+    ContentCreate,
+    ContentUpdate,
+    PublicationCreate,
+    PublicationUpdate,
+)
 
 
 class ContentService:
