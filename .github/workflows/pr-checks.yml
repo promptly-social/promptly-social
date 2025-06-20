@@ -15,7 +15,7 @@ jobs:
     # permissions are inherited from the top level
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: [3.13]
 
     # No PostgreSQL service needed - using Supabase
 
