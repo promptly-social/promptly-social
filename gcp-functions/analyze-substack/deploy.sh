@@ -11,7 +11,7 @@ REGION=${2:-us-central1}
 FUNCTION_NAME="analyze-substack"
 MEMORY="512MB"
 TIMEOUT="600s"
-RUNTIME="python311"
+RUNTIME="python313"
 
 echo "🚀 Starting deployment of Cloud Function: $FUNCTION_NAME"
 echo "   Project: $PROJECT_ID"

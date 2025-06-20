@@ -1,5 +1,5 @@
-# Use Python 3.11 slim image for smaller size
-FROM python:3.11-slim
+# Use Python 3.13.5-slim image for smaller size
+FROM python:3.13.5-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \

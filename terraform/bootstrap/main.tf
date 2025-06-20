@@ -80,11 +80,44 @@ resource "google_service_account" "terraform_sa" {
 }
 
 # 5. Grant the Terraform SA the necessary permissions to manage your project's resources.
-# For simplicity, we use 'roles/owner'. In a high-security environment, you should
-# grant a granular set of roles (e.g., roles/run.admin, roles/storage.admin, etc.).
+# Using granular roles instead of the overly broad 'roles/owner' for better security.
 resource "google_project_iam_member" "terraform_sa_roles" {
+  for_each = toset([
+    # Core project management
+    "roles/serviceusage.serviceUsageAdmin",     # Manage API services
+    
+    # Service Account management
+    "roles/iam.serviceAccountAdmin",            # Create/manage service accounts
+    "roles/iam.serviceAccountKeyAdmin",         # Manage service account keys
+    "roles/iam.securityAdmin",                  # Manage IAM policies and bindings
+    "roles/iam.workloadIdentityPoolAdmin",      # Manage Workload Identity pools
+    
+    # Artifact Registry
+    "roles/artifactregistry.admin",             # Manage Artifact Registry repositories
+    
+    # Secret Manager
+    "roles/secretmanager.admin",                # Create and manage secrets
+    
+    # Cloud Run
+    "roles/run.admin",                          # Manage Cloud Run services
+    
+    # Cloud Functions (for the separate GCP function)
+    "roles/cloudfunctions.admin",               # Manage Cloud Functions
+    "roles/cloudbuild.builds.editor",           # Build functions
+    
+    # Storage (for function source code)
+    "roles/storage.admin",                      # Manage Cloud Storage buckets
+    
+    # Compute (for domain mappings and networking)
+    "roles/compute.networkAdmin",               # Manage networking resources
+    
+    # Monitoring and Logging (for observability resources)
+    "roles/logging.admin",                      # Manage logging resources
+    "roles/monitoring.admin"                    # Manage monitoring resources
+  ])
+
   project = var.project_id
-  role    = "roles/owner"
+  role    = each.value
   member  = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 

@@ -71,7 +71,7 @@ Backend FastAPI ----HTTP----> GCP Cloud Function ----Updates----> Supabase Datab
 ```bash
 gcloud functions deploy analyze-substack \
   --gen2 \
-  --runtime=python311 \
+  --runtime=python313 \
   --region=us-central1 \
   --source=. \
   --entry-point=analyze_substack \
