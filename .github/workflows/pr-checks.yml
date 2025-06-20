@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   security-events: write
+  actions: read
   id-token: write # For Codecov
 
 jobs:
@@ -99,6 +100,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -113,7 +115,7 @@ jobs:
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: "trivy-results.sarif"
+          sarif_file: "trivy-results.processed.sarif"
 
       - name: Add SCW Training to Trivy results
         uses: SecureCodeWarrior/github-action-add-sarif-contextual-training@v1
