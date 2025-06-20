@@ -277,7 +277,16 @@ resource "google_storage_bucket" "frontend_bucket" {
   depends_on = [google_project_service.apis]
 }
 
+# 2. Grant public read access to the bucket objects for the CDN
+resource "google_storage_bucket_iam_member" "public_access" {
+  count = var.manage_frontend_infra ? 1 : 0
 
+  bucket = google_storage_bucket.frontend_bucket[0].name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+
+  depends_on = [google_storage_bucket.frontend_bucket]
+}
 
 # 3. Reserve a static IP for the load balancer
 resource "google_compute_global_address" "frontend_ip" {
