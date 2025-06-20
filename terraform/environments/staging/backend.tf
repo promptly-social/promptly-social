@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "promptly-terraform-state"
+    bucket = "promptly-terraform-states"
     prefix = "terraform/state/staging"
   }
 } 
