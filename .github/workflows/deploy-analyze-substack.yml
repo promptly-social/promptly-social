@@ -7,11 +7,21 @@ on:
     paths:
       - "gcp-functions/analyze-substack/**"
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
 
 jobs:
   deploy:
     name: "Deploy to GCP"
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
     permissions:
       contents: "read"
       id-token: "write"
@@ -20,11 +30,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud (Keyless)
         uses: "google-github-actions/auth@v2"
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ env.APP_SA_EMAIL }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -36,10 +46,10 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -no-color
+        run: terraform plan -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -var="app_name=promptly" -var="environment=production" -no-color
         working-directory: gcp-functions/analyze-substack/terraform
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -auto-approve -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+        run: terraform apply -auto-approve -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -var="app_name=promptly" -var="environment=production"
         working-directory: gcp-functions/analyze-substack/terraform
