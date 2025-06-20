@@ -135,6 +135,7 @@ resource "google_project_iam_member" "terraform_sa_roles" {
     
     # Artifact Registry
     "roles/artifactregistry.admin",             # Manage Artifact Registry repositories
+    "roles/artifactregistry.writer",            # Write Artifact Registry repositories
     
     # Secret Manager
     "roles/secretmanager.admin",                # Create and manage secrets
