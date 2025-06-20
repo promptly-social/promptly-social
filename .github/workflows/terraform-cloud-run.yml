@@ -34,6 +34,8 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    outputs:
+      service_url: ${{ steps.tf_output.outputs.service_url }}
 
     permissions:
       contents: read
@@ -80,6 +82,12 @@ jobs:
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode == '2'
         run: terraform apply -auto-approve tfplan
+
+      - name: Set Terraform Outputs
+        if: github.event.inputs.action == 'apply'
+        id: tf_output
+        run: |
+          echo "service_url=$(terraform output -raw cloud_run_service_url)" >> $GITHUB_OUTPUT
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'

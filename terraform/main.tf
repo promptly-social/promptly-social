@@ -168,6 +168,14 @@ resource "google_secret_manager_secret" "gcp_analysis_function_url" {
   }
 }
 
+resource "google_secret_manager_secret" "openrouter_api_key" {
+  secret_id = "OPENROUTER_API_KEY"
+
+  replication {
+    auto {}
+  }
+}
+
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
   for_each = {
@@ -178,6 +186,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     google_client_id      = google_secret_manager_secret.google_client_id
     google_client_secret  = google_secret_manager_secret.google_client_secret
     gcp_analysis_function_url = google_secret_manager_secret.gcp_analysis_function_url
+    openrouter_api_key    = google_secret_manager_secret.openrouter_api_key
   }
 
   secret_id = each.value.secret_id
@@ -208,5 +217,7 @@ module "cloud_run_service" {
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+  openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
   api_domain_name            = var.api_domain_name
+  allow_unauthenticated_invocations = var.allow_unauthenticated_invocations
 }

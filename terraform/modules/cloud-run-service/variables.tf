@@ -93,13 +93,19 @@ variable "google_client_secret_name" {
 }
 
 variable "gcp_analysis_function_url_name" {
-  description = "The name of the Secret Manager secret for the GCP Analysis Function URL."
+  description = "The name of the Secret Manager secret for the GCP analysis function URL"
+  type        = string
+}
+
+variable "openrouter_api_key_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter API key"
   type        = string
 }
 
 variable "api_domain_name" {
-  description = "The custom domain name for the API."
+  description = "The custom domain name for the API (e.g., api.myapp.com)"
   type        = string
+  default     = ""
 }
 
 variable "image_tag" {
@@ -110,6 +116,12 @@ variable "image_tag" {
 
 variable "enable_public_access" {
   description = "Flag to enable public access to the Cloud Run service"
+  type        = bool
+  default     = true
+}
+
+variable "allow_unauthenticated_invocations" {
+  description = "If true, allows unauthenticated invocations to the Cloud Run service."
   type        = bool
   default     = true
 }

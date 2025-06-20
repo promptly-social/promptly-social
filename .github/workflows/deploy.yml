@@ -109,16 +109,13 @@ jobs:
 
           echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run via Terraform
         id: deploy
-        run: |
-          SERVICE_URL=$(gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${{ steps.push_image.outputs.tag }} \
-            --region ${{ env.REGION }} \
-            --port 8000 \
-            --project ${{ env.PROJECT_ID }} \
-            --format 'value(status.url)')
-          echo "service_url=${SERVICE_URL}" >> $GITHUB_OUTPUT
+        uses: ./.github/workflows/terraform-cloud-run.yml
+        with:
+          environment: ${{ github.event.inputs.environment }}
+          action: "apply"
+          image_tag: ${{ steps.push_image.outputs.tag }}
 
       - name: Set Service URL Env Var
         run: |

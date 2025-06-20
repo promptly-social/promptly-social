@@ -83,4 +83,10 @@ variable "manage_cloud_run_service" {
   description = "If true, Terraform will manage the Cloud Run service. Set to false to manage it via a separate pipeline."
   type        = bool
   default     = false
-} 
+}
+
+variable "allow_unauthenticated_invocations" {
+  description = "If true, allows unauthenticated invocations to the Cloud Run service."
+  type        = bool
+  default     = true
+}

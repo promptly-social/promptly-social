@@ -34,12 +34,7 @@ resource "google_cloud_run_service" "backend" {
           value = var.environment
         }
 
-        # PORT is set automatically by Cloud Run
-        # env {
-        #   name  = "PORT"
-        #   value = "8000"
-        # }
-
+      
         env {
           name  = "CORS_ORIGINS"
           value = join(",", var.cors_origins)
@@ -107,10 +102,20 @@ resource "google_cloud_run_service" "backend" {
 
         env {
           name = "GCP_ANALYSIS_FUNCTION_URL"
-          value_from {
-            secret_key_ref {
-              name = var.gcp_analysis_function_url_name
-              key  = "latest"
+          value_from = {
+            secret_key_ref = {
+              secret  = var.gcp_analysis_function_url_name
+              version = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "OPENROUTER_API_KEY"
+          value_from = {
+            secret_key_ref = {
+              secret  = var.openrouter_api_key_name
+              version = "latest"
             }
           }
         }
@@ -131,6 +136,18 @@ resource "google_cloud_run_service_iam_member" "public_access" {
   location = google_cloud_run_service.backend.location
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# Allow unauthenticated invocations if configured
+resource "google_cloud_run_service_iam_member" "noauth" {
+  count    = var.allow_unauthenticated_invocations ? 1 : 0
+  location = google_cloud_run_service.backend.location
+  project  = google_cloud_run_service.backend.project
+  service  = google_cloud_run_service.backend.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+
+  depends_on = [google_cloud_run_service.backend]
 }
 
 # Map the custom domain to the Cloud Run service
