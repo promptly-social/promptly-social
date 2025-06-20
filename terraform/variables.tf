@@ -90,3 +90,15 @@ variable "allow_unauthenticated_invocations" {
   type        = bool
   default     = true
 }
+
+# Frontend Domain Name
+variable "frontend_domain_name" {
+  description = "The custom domain name for the frontend (e.g., 'yourdomain.com')"
+  type        = string
+}
+
+variable "manage_frontend_infra" {
+  description = "If true, Terraform will manage the frontend infrastructure (GCS bucket, CDN, etc.)."
+  type        = bool
+  default     = true
+}

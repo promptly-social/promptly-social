@@ -29,4 +29,7 @@ cors_origins = [
 github_repo = "promptly-social/promptly-social"
 
 # API Domain Name
-api_domain_name = "api.promptly.social" 
+api_domain_name = "api.promptly.social"
+
+# Frontend Domain Name
+frontend_domain_name = "promptly.social" 

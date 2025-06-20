@@ -111,6 +111,9 @@ resource "google_project_iam_member" "terraform_sa_roles" {
     # Compute (for domain mappings and networking)
     "roles/compute.networkAdmin",               # Manage networking resources
     
+    # DNS (for managing domain records)
+    "roles/dns.admin",                          # Manage Cloud DNS zones and records
+    
     # Monitoring and Logging (for observability resources)
     "roles/logging.admin",                      # Manage logging resources
     "roles/monitoring.admin"                    # Manage monitoring resources

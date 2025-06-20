@@ -61,7 +61,8 @@ resource "google_project_iam_member" "cloud_run_permissions" {
     "roles/monitoring.metricWriter",
     "roles/cloudtrace.agent",
     "roles/run.admin",
-    "roles/iam.serviceAccountUser"
+    "roles/iam.serviceAccountUser",
+    "roles/compute.loadBalancerAdmin"
   ])
 
   project = var.project_id
@@ -248,6 +249,175 @@ module "cloud_run_service" {
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
-  api_domain_name            = var.api_domain_name
+  api_domain_name            = local.api_domain
   allow_unauthenticated_invocations = var.allow_unauthenticated_invocations
+}
+
+# --- Frontend Infrastructure (GCS Bucket + CDN for Static Site) ---
+
+locals {
+  frontend_domain = var.frontend_domain_name
+  api_domain      = var.api_domain_name
+
+  # Group Cloud Run DNS records by type (A, AAAA) to create one record set per type.
+  api_dns_records = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? {
+    for record in module.cloud_run_service[0].dns_records_for_custom_api_domain :
+    record.type => {
+      name    = record.name
+      type    = record.type
+      rrdatas = [
+        for r in module.cloud_run_service[0].dns_records_for_custom_api_domain : r.rrdata if r.type == record.type
+      ]
+    }
+  } : {}
+}
+
+# 1. Cloud Storage bucket to host static files
+resource "google_storage_bucket" "frontend_bucket" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name          = local.frontend_domain # Bucket names must be globally unique
+  project       = var.project_id
+  location      = "US"                  # Multi-regional for high availability
+  storage_class = "STANDARD"
+
+  # Consider setting to false in production to prevent accidental deletion
+  # of the bucket and its contents.
+  force_destroy = true
+
+  website {
+    main_page_suffix = "index.html"
+    not_found_page   = "index.html" # For SPAs, route all 404s to index.html
+  }
+
+  uniform_bucket_level_access = true
+
+  depends_on = [google_project_service.apis]
+}
+
+# 2. Make all objects in the bucket publicly readable.
+# This is required for the public-facing website served via the Load Balancer/CDN.
+# With uniform_bucket_level_access enabled, this is the correct way to grant public access.
+resource "google_storage_bucket_iam_member" "public_reader" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  bucket = google_storage_bucket.frontend_bucket[0].name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
+
+# 3. Reserve a static IP for the load balancer
+resource "google_compute_global_address" "frontend_ip" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name    = "${var.app_name}-frontend-ip-${var.environment}"
+  project = var.project_id
+}
+
+# 4. Managed SSL Certificate for the custom domain
+resource "google_compute_managed_ssl_certificate" "frontend_ssl" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name = "${var.app_name}-frontend-ssl-${var.environment}"
+  managed {
+    domains = [local.frontend_domain]
+  }
+}
+
+# 5. Backend bucket for the CDN
+resource "google_compute_backend_bucket" "frontend_backend" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name        = "${var.app_name}-frontend-backend-${var.environment}"
+  project     = var.project_id
+  bucket_name = google_storage_bucket.frontend_bucket[0].name
+  enable_cdn  = true
+  cdn_policy {
+    # Cache static assets for 1 day.
+    default_ttl          = 86400
+    client_ttl           = 86400
+    max_ttl              = 31536000 # 1 year
+    cache_mode           = "CACHE_ALL_STATIC"
+    negative_caching     = true
+    signed_url_cache_max_age_sec = 0
+  }
+}
+
+# 6. URL Map to route all requests to the backend bucket
+resource "google_compute_url_map" "frontend_url_map" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name            = "${var.app_name}-frontend-url-map-${var.environment}"
+  project         = var.project_id
+  default_service = google_compute_backend_bucket.frontend_backend[0].id
+}
+
+# 7. HTTPS Target Proxy
+resource "google_compute_target_https_proxy" "frontend_https_proxy" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name             = "${var.app_name}-frontend-https-proxy-${var.environment}"
+  project          = var.project_id
+  url_map          = google_compute_url_map.frontend_url_map[0].id
+  ssl_certificates = [google_compute_managed_ssl_certificate.frontend_ssl[0].id]
+}
+
+# 8. Global Forwarding Rule (Load Balancer Frontend)
+resource "google_compute_global_forwarding_rule" "frontend_forwarding_rule" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name                  = "${var.app_name}-frontend-forwarding-rule-${var.environment}"
+  project               = var.project_id
+  target                = google_compute_target_https_proxy.frontend_https_proxy[0].id
+  ip_address            = google_compute_global_address.frontend_ip[0].address
+  port_range            = "443"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+# --- DNS for Frontend ---
+# This creates a managed zone for 'promptly.social' and adds A records.
+# NOTE: After running this, you must update the nameservers at your
+# domain registrar to the ones provided in the `dns_zone_nameservers` output.
+resource "google_dns_managed_zone" "frontend_zone" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  name     = "promptly-social-zone" # A name for the zone in GCP
+  dns_name = "promptly.social."     # The actual domain name
+  project  = var.project_id
+  description = "DNS zone for promptly.social"
+}
+
+resource "google_dns_record_set" "frontend_a_record" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  managed_zone = google_dns_managed_zone.frontend_zone[0].name
+  name         = "${local.frontend_domain}."
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_global_address.frontend_ip[0].address]
+  project      = var.project_id
+}
+
+# Allow the app service account to write to the frontend bucket
+resource "google_storage_bucket_iam_member" "frontend_bucket_writer" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  bucket = google_storage_bucket.frontend_bucket[0].name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.app_sa.email}"
+}
+
+# --- DNS for Backend API ---
+# Create DNS records for the Cloud Run custom domain.
+# It iterates over the record types (A, AAAA) returned by the Cloud Run module.
+resource "google_dns_record_set" "api_records" {
+  for_each = (var.manage_cloud_run_service && var.manage_frontend_infra) ? local.api_dns_records : {}
+
+  managed_zone = google_dns_managed_zone.frontend_zone[0].name
+  name         = "${local.api_domain}."
+  type         = each.value.type
+  ttl          = 300
+  rrdatas      = each.value.rrdatas
+  project      = var.project_id
 }

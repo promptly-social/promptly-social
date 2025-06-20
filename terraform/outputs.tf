@@ -49,4 +49,24 @@ output "secret_manager_secrets" {
 output "dns_records_for_custom_api_domain" {
   description = "The DNS records needed to map the custom API domain to the Cloud Run service."
   value       = var.manage_cloud_run_service ? module.cloud_run_service[0].dns_records_for_custom_api_domain : []
+}
+
+output "frontend_bucket_name" {
+  description = "Name of the GCS bucket for the frontend."
+  value       = var.manage_frontend_infra ? google_storage_bucket.frontend_bucket[0].name : "n/a"
+}
+
+output "frontend_static_ip" {
+  description = "Static IP for the frontend load balancer."
+  value       = var.manage_frontend_infra ? google_compute_global_address.frontend_ip[0].address : "n/a"
+}
+
+output "frontend_domain" {
+  description = "Domain for the frontend for the current environment."
+  value       = var.manage_frontend_infra ? var.frontend_domain_name : "n/a"
+}
+
+output "dns_zone_nameservers" {
+  description = "Nameservers for the Cloud DNS managed zone. You must update these in your domain registrar."
+  value       = var.manage_frontend_infra ? google_dns_managed_zone.frontend_zone[0].name_servers : []
 } 
