@@ -1,0 +1,99 @@
+name: Deploy Frontend to GCS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+  # The service account for the app can upload to the bucket
+  APP_SA_EMAIL: promptly-app-sa-${{ github.event.inputs.environment || 'staging' }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
+jobs:
+  build-and-deploy-frontend:
+    name: Build and Deploy Frontend
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine Environment
+        id: get_env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            # Default to staging for pushes to main
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set Bucket Name
+        id: set_bucket
+        run: |
+          ENV_NAME="${{ steps.get_env.outputs.environment }}"
+          echo "bucket=${{ env.BUCKET_NAME }}" >> $GITHUB_OUTPUT
+          echo "Deploying to $ENV_NAME environment (bucket: $(echo $GITHUB_OUTPUT | grep -oP '(?<=bucket=).*'))"
+
+      - name: Authenticate to Google Cloud
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.APP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: "google-github-actions/setup-gcloud@v2"
+
+      - name: Create .env file for frontend
+        working-directory: ./frontend
+        run: |
+          ENV_NAME="${{ steps.get_env.outputs.environment }}"
+          echo "VITE_NODE_ENV=$ENV_NAME" > .env
+          echo "VITE_API_URL=${{ env.VITE_API_URL }}" >> .env
+          echo "Created .env file for $ENV_NAME environment:"
+          cat .env
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
+      - name: Install and Build Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to GCS
+        run: |
+          BUCKET_NAME="${{ steps.set_bucket.outputs.bucket }}"
+          echo "Syncing build artifacts to gs://$BUCKET_NAME"
+          gcloud storage rsync ./frontend/dist gs://$BUCKET_NAME --recursive --delete-unmatched-files
+
+      - name: Invalidate CDN Cache
+        run: |
+          # This command ensures that users get the latest version of the site
+          # by invalidating the CDN cache for all updated files.
+          BUCKET_NAME="${{ steps.set_bucket.outputs.bucket }}"
+          echo "Invalidating CDN cache for $BUCKET_NAME"
+          gcloud compute url-maps invalidate-cdn-cache promptly-frontend-url-map-${{ steps.get_env.outputs.environment }} --path "/*" --host "$BUCKET_NAME" --project ${{ env.PROJECT_ID }}
