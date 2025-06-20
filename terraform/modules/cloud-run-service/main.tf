@@ -119,6 +119,11 @@ resource "google_cloud_run_service" "backend" {
             }
           }
         }
+
+        env {
+          name  = "GCP_ANALYSIS_FUNCTION_URL_VERSION"
+          value = var.gcp_analysis_function_url_version
+        }
       }
     }
   }

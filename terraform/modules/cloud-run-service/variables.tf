@@ -1,3 +1,8 @@
+variable "gcp_analysis_function_url_version" {
+  description = "The version of the GCP analysis function URL secret, to trigger updates."
+  type        = string
+}
+
 variable "project_id" {
   description = "The GCP project ID."
   type        = string

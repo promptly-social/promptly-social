@@ -79,11 +79,6 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Configure Terraform backend
-        run: |
-          sed -i.bak 's/bucket = ""/bucket = "${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}"/' backend.tf
-          rm backend.tf.bak
-
       - name: Terraform Init
         run: terraform init
 

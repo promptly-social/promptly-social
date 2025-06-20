@@ -188,24 +188,24 @@ data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" 
 }
 
 # Null resource to trigger Cloud Run service restart when the function URL changes
-resource "null_resource" "restart_cloud_run_on_function_url_change" {
-  count = var.manage_cloud_run_service ? 1 : 0
-  
-  triggers = {
-    function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
-  }
+# resource "null_resource" "restart_cloud_run_on_function_url_change" {
+#   count = var.manage_cloud_run_service ? 1 : 0
+#   
+#   triggers = {
+#     function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
+#   }
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      gcloud run services update ${var.app_name}-backend-${var.environment} \
-        --region=${var.region} \
-        --project=${var.project_id} \
-        --update-env-vars=RESTART_TRIGGER=$(date +%s)
-    EOT
-  }
+#   provisioner "local-exec" {
+#     command = <<-EOT
+#       gcloud run services update ${var.app_name}-backend-${var.environment} \
+#         --region=${var.region} \
+#         --project=${var.project_id} \
+#         --update-env-vars=RESTART_TRIGGER=$(date +%s)
+#     EOT
+#   }
 
-  depends_on = [module.cloud_run_service]
-}
+#   depends_on = [module.cloud_run_service]
+# }
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
@@ -248,6 +248,7 @@ module "cloud_run_service" {
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+  gcp_analysis_function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
   allow_unauthenticated_invocations = var.allow_unauthenticated_invocations
 }
