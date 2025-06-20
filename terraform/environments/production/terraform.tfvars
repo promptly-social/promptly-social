@@ -33,3 +33,5 @@ api_domain_name = "api.promptly.social"
 
 # Frontend Domain Name
 frontend_domain_name = "promptly.social" 
+
+manage_cloud_run_service = true

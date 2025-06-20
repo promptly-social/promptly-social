@@ -259,17 +259,16 @@ locals {
   frontend_domain = var.frontend_domain_name
   api_domain      = var.api_domain_name
 
-  # Group Cloud Run DNS records by type (A, AAAA) to create one record set per type.
-  api_dns_records = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? {
+  # Process the DNS records from the Cloud Run module
+  api_dns_records = {
     for record in module.cloud_run_service[0].dns_records_for_custom_api_domain :
-    record.type => {
+    # Create a unique key for each record to avoid collisions
+    "${record.name}-${record.type}" => {
       name    = record.name
       type    = record.type
-      rrdatas = [
-        for r in module.cloud_run_service[0].dns_records_for_custom_api_domain : r.rrdata if r.type == record.type
-      ]
-    }
-  } : {}
+      rrdatas = [record.rrdata] # Wrap rrdata in a list
+    } if var.manage_cloud_run_service && length(module.cloud_run_service) > 0 && module.cloud_run_service[0].dns_records_for_custom_api_domain != null
+  }
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -415,7 +414,7 @@ resource "google_dns_record_set" "api_records" {
   for_each = (var.manage_cloud_run_service && var.manage_frontend_infra) ? local.api_dns_records : {}
 
   managed_zone = google_dns_managed_zone.frontend_zone[0].name
-  name         = "${local.api_domain}."
+  name         = "${each.value.name}."
   type         = each.value.type
   ttl          = 300
   rrdatas      = each.value.rrdatas
