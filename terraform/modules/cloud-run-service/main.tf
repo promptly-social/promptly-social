@@ -9,6 +9,7 @@ resource "google_cloud_run_service" "backend" {
         "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
         "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
         "run.googleapis.com/execution-environment" = "gen2"
+        "run.googleapis.com/ingress"               = "internal-and-cloud-load-balancing"
       }
     }
 
@@ -132,25 +133,4 @@ resource "google_cloud_run_service" "backend" {
     percent         = 100
     latest_revision = true
   }
-}
-
-# Allow public access to Cloud Run service
-resource "google_cloud_run_service_iam_member" "public_access" {
-  count    = var.enable_public_access ? 1 : 0
-  service  = google_cloud_run_service.backend.name
-  location = google_cloud_run_service.backend.location
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-
-  depends_on = [google_cloud_run_service.backend]
-}
-
-# Allow unauthenticated invocations if configured
-resource "google_cloud_run_service_iam_member" "noauth" {
-  count    = var.allow_unauthenticated_invocations ? 1 : 0
-  location = google_cloud_run_service.backend.location
-  project  = google_cloud_run_service.backend.project
-  service  = google_cloud_run_service.backend.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
 }

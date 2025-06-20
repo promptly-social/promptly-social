@@ -8,14 +8,19 @@ output "region" {
   value       = var.region
 }
 
-output "cloud_run_service_url" {
-  description = "The URL of the Cloud Run service."
-  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].cloud_run_service_url : "n/a"
-}
-
 output "cloud_run_service_name" {
   description = "The name of the Cloud Run service."
-  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].cloud_run_service_name : "n/a"
+  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].service_name : "n/a"
+}
+
+output "api_load_balancer_ip" {
+  description = "The IP address of the backend API load balancer."
+  value       = var.manage_cloud_run_service && length(google_compute_global_address.api_ip) > 0 ? google_compute_global_address.api_ip[0].address : "n/a"
+}
+
+output "api_url" {
+  description = "The URL of the backend API."
+  value       = "https://api.${var.frontend_domain_name}"
 }
 
 output "artifact_registry_repository" {
