@@ -1,5 +1,5 @@
 # Staging Environment Configuration
-project_id = "your-gcp-project-id"
+project_id = "promptly-social-staging"
 region     = "us-central1"
 zone       = "us-central1-a"
 

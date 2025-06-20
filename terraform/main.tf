@@ -84,9 +84,9 @@ resource "google_artifact_registry_repository_iam_member" "writer" {
 
 # Workload Identity Federation for GitHub Actions
 resource "google_iam_workload_identity_pool" "github_pool" {
-  workload_identity_pool_id = "${var.app_name}-github-pool"
-  display_name              = "${var.app_name} GitHub Actions Pool"
-  description               = "Workload Identity Pool for GitHub Actions CI/CD"
+  workload_identity_pool_id = "${var.app_name}-github-pool-${var.environment}"
+  display_name              = "${var.app_name} WIF Pool (${var.environment})"
+  description               = "WIF pool for ${var.app_name} (${var.environment})"
 
   depends_on = [google_project_service.apis]
 }
@@ -188,6 +188,11 @@ resource "google_secret_manager_secret" "gcp_analysis_function_url" {
   }
 }
 
+resource "google_secret_manager_secret_version" "gcp_analysis_function_url_initial_version" {
+  secret      = google_secret_manager_secret.gcp_analysis_function_url.id
+  secret_data = "https://placeholder.url/update-me"
+}
+
 resource "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
 
@@ -197,9 +202,9 @@ resource "google_secret_manager_secret" "openrouter_api_key" {
 }
 
 # Data source to get the current version of the GCP analysis function URL secret
-data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
+/* data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
   secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
-}
+} */
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
@@ -242,7 +247,7 @@ module "cloud_run_service" {
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
-  gcp_analysis_function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
+  gcp_analysis_function_url_version = google_secret_manager_secret_version.gcp_analysis_function_url_initial_version.version
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
   allow_unauthenticated_invocations = false
 }
