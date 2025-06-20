@@ -1,0 +1,9 @@
+---
+description: 
+globs: **/terraform/**,.github/**
+alwaysApply: false
+---
+* Always follow the best secruity practice in creating cloud resources
+* Always support multi-environment deployment
+* Always follow the least priviledge rule
+* Only provide the IAM roles and permissions that are necesary

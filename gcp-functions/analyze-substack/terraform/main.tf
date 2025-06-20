@@ -101,7 +101,7 @@ resource "google_cloudfunctions2_function" "function" {
 
   service_config {
     max_instance_count             = 10
-    available_memory               = "512MiB"
+    available_memory               = "512Mi"
     timeout_seconds                = 600
     service_account_email          = google_service_account.function_sa.email
     all_traffic_on_latest_revision = true
