@@ -62,6 +62,11 @@ output "frontend_static_ip" {
 }
 
 output "frontend_domain" {
-  description = "Domain for the frontend for the current environment."
-  value       = var.manage_frontend_infra ? var.frontend_domain_name : "n/a"
+  description = "The domain name for the frontend"
+  value       = var.manage_frontend_infra ? local.frontend_domain : "Not managed by this configuration."
+}
+
+output "dns_zone_nameservers" {
+  description = "Nameservers for the Cloud DNS managed zone. Update these in your domain registrar."
+  value       = var.manage_frontend_infra ? google_dns_managed_zone.frontend_zone[0].name_servers : ["DNS zone not managed by this configuration."]
 } 
