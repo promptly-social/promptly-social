@@ -1,8 +1,10 @@
-from sqlalchemy import Column, String, DateTime, func, Boolean, Integer
 import uuid
 
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
+
 from app.core.database import Base
-from app.models.helpers import get_uuid_column, get_array_column, get_json_column
+from app.models.helpers import (get_array_column, get_json_column,
+                                get_uuid_column)
 
 
 class UserPreferences(Base):

@@ -2,21 +2,15 @@
 Content-related database models.
 """
 
-from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Text,
-    Integer,
-    ForeignKey,
-)
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 import uuid
 
-from app.core.database import Base
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
-from app.models.helpers import get_uuid_column, get_array_column, get_json_column
+from app.core.database import Base
+from app.models.helpers import (get_array_column, get_json_column,
+                                get_uuid_column)
 
 
 class Content(Base):

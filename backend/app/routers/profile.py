@@ -1,24 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas.profile import (
-    UserPreferencesResponse,
-    UserPreferencesUpdate,
-    SocialConnectionResponse,
-    SocialConnectionUpdate,
-    PlatformAnalysisResponse,
-    SubstackAnalysisResponse,
-    SubstackConnectionData,
-    SubstackData,
-    WritingStyleAnalysisUpdate,
-)
-from app.services.profile import ProfileService
-from app.schemas.auth import UserResponse
-from app.core.database import get_async_db
-from app.routers.auth import get_current_user
-from loguru import logger
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_async_db
+from app.routers.auth import get_current_user
+from app.schemas.auth import UserResponse
+from app.schemas.profile import (PlatformAnalysisResponse,
+                                 SocialConnectionResponse,
+                                 SocialConnectionUpdate,
+                                 SubstackAnalysisResponse,
+                                 SubstackConnectionData, SubstackData,
+                                 UserPreferencesResponse,
+                                 UserPreferencesUpdate,
+                                 WritingStyleAnalysisUpdate)
+from app.services.profile import ProfileService
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 

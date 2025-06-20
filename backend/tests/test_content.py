@@ -4,30 +4,25 @@ Comprehensive test coverage for all content-related functionality.
 """
 
 import os
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone
-from uuid import uuid4
-from unittest.mock import AsyncMock, patch
-
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 from fastapi import status
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from app.main import app
 from app.core.database import Base, get_async_db
-from app.routers.auth import get_current_user
+from app.main import app
 from app.models.content import Content, Publication
-from app.services.content import ContentService
-from app.schemas.content import (
-    ContentCreate,
-    ContentUpdate,
-    PublicationCreate,
-    PublicationUpdate,
-)
+from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
-
+from app.schemas.content import (ContentCreate, ContentUpdate,
+                                 PublicationCreate, PublicationUpdate)
+from app.services.content import ContentService
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_content.db"

@@ -4,19 +4,17 @@ Integrates Supabase auth with local database operations.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from loguru import logger
+from typing import Any, Dict, Optional
 
-from app.models.user import User, UserSession
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
-from app.core.security import (
-    create_access_token,
-    create_refresh_token,
-    verify_token,
-)
+from loguru import logger
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
+from app.core.security import (create_access_token, create_refresh_token,
+                               verify_token)
+from app.models.user import User, UserSession
+from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserResponse
 from app.utils.supabase import supabase_client
 
 

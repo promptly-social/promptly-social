@@ -5,9 +5,10 @@ Includes unit tests for auth service and integration tests for auth endpoints.
 
 import os
 import uuid
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -63,6 +64,7 @@ def client(mock_supabase_client):
     """Create test client with mocked Supabase."""
     with patch("app.utils.supabase.supabase_client", mock_supabase_client):
         from fastapi.testclient import TestClient
+
         from app.main import app
 
         return TestClient(app)
@@ -188,8 +190,8 @@ class TestAuthService:
     @pytest.mark.asyncio
     async def test_get_current_user_valid_token(self, test_auth_service):
         """Test getting current user with valid token."""
-        from app.models.user import User
         from app.core.security import create_access_token
+        from app.models.user import User
 
         # Create test user in test database
         user_id = str(uuid.uuid4())
@@ -221,8 +223,9 @@ class TestAuthEndpoints:
         """Test successful signup endpoint."""
         with patch("app.services.auth.AuthService.sign_up") as mock_signup:
             # Create proper mock objects for Pydantic validation
-            from app.schemas.auth import UserResponse, TokenResponse
             from datetime import datetime
+
+            from app.schemas.auth import TokenResponse, UserResponse
 
             mock_user = UserResponse(
                 id=str(uuid.uuid4()),

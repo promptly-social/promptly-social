@@ -3,9 +3,10 @@ Supabase client wrapper with enhanced error handling and logging.
 Provides a centralized interface for all Supabase operations.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from loguru import logger
-from supabase import create_client, Client
+from supabase import Client, create_client
 
 from app.core.config import settings
 
@@ -29,8 +30,8 @@ class SupabaseClient:
     def client(self) -> Client:
         """Lazy initialization of Supabase client."""
         if self._client is None:
-            from supabase.lib.client_options import ClientOptions
             from gotrue import SyncMemoryStorage
+            from supabase.lib.client_options import ClientOptions
 
             # Configure client with PKCE flow for OAuth
             options = ClientOptions(

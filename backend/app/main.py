@@ -5,15 +5,16 @@ Configures the app with authentication, CORS, logging, and error handling.
 
 import sys
 from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
-import uvicorn
 
 from app.core.config import settings
-from app.core.database import init_db, close_db
+from app.core.database import close_db, init_db
 from app.routers import auth, content, profile
 
 
@@ -225,9 +226,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = (
-        "max-age=31536000; includeSubDomains"
-    )
+    response.headers[
+        "Strict-Transport-Security"
+    ] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
     return response

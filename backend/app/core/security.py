@@ -5,12 +5,12 @@ Implements JWT token handling and password hashing following best practices.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
+
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import ValidationError
 
 from app.core.config import settings
-
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

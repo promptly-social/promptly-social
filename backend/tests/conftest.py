@@ -3,12 +3,13 @@ Test configuration and fixtures.
 Sets up test database and environment variables for testing.
 """
 
-from fastapi.testclient import TestClient
 import asyncio
-import pytest
 import os
 import sys
 from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Add the backend app directory to Python path
 backend_dir = Path(__file__).parent.parent

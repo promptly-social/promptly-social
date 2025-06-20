@@ -1,6 +1,24 @@
 name: Terraform Deploy Cloud Run
 
 on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Environment (staging/production)"
+        required: true
+        type: string
+      action:
+        description: "Terraform action"
+        required: true
+        type: string
+      image_tag:
+        description: "Docker image tag to deploy (required for apply). e.g. main-9a56f6c"
+        required: false
+        type: string
+    outputs:
+      service_url:
+        description: "The URL of the deployed Cloud Run service."
+        value: ${{ jobs.terraform.outputs.service_url }}
   workflow_dispatch:
     inputs:
       environment:

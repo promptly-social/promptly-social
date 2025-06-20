@@ -61,14 +61,15 @@ jobs:
         run: |
           pytest -v --tb=short
 
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     needs: test
     environment: ${{ github.event.inputs.environment }}
     permissions:
       contents: "read"
       id-token: "write"
-
+    outputs:
+      image_tag: ${{ steps.push_image.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -86,6 +87,7 @@ jobs:
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
       - name: Build Docker image
+        id: build_image
         run: |
           cd backend
           DOCKER_TAG="${{ github.event.inputs.docker_tag }}"
@@ -95,43 +97,41 @@ jobs:
 
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG} .
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest .
+          echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
 
       - name: Push Docker image
         id: push_image
         run: |
-          DOCKER_TAG="${{ github.event.inputs.docker_tag }}"
-          if [ -z "$DOCKER_TAG" ]; then
-            DOCKER_TAG="main-$(git rev-parse --short HEAD)"
-          fi
-
+          DOCKER_TAG="${{ steps.build_image.outputs.tag }}"
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG}
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest
-
           echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Cloud Run via Terraform
-        id: deploy
-        uses: ./.github/workflows/terraform-cloud-run.yml
-        with:
-          environment: ${{ github.event.inputs.environment }}
-          action: "apply"
-          image_tag: ${{ steps.push_image.outputs.tag }}
+  deploy:
+    needs: build-and-push
+    uses: ./.github/workflows/terraform-cloud-run.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      action: "apply"
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+    secrets: inherit
 
-      - name: Set Service URL Env Var
-        run: |
-          echo "SERVICE_URL=${{ steps.deploy.outputs.service_url }}" >> $GITHUB_ENV
-
+  post-deploy:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy]
+    environment: ${{ github.event.inputs.environment }}
+    steps:
       - name: Test deployment
         run: |
           sleep 30
-          curl -f ${{ env.SERVICE_URL }}/health || exit 1
+          curl -f ${{ needs.deploy.outputs.service_url }}/health || exit 1
           echo "✅ Deployment health check passed"
 
       - name: Update environment info
         run: |
           echo "🚀 Successfully deployed to ${{ github.event.inputs.environment }}"
-          echo "📍 Service URL: ${{ env.SERVICE_URL }}"
-          echo "🏷️  Docker Tag: ${{ github.event.inputs.docker_tag || 'main-' }}$(git rev-parse --short HEAD)"
+          echo "📍 Service URL: ${{ needs.deploy.outputs.service_url }}"
+          echo "🏷️  Docker Tag: ${{ needs.build-and-push.outputs.image_tag }}"
           echo "💾 Database: Using Supabase (no CloudSQL needed)"
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
             echo "🔄 Minimum instances set to 1 to avoid cold starts"

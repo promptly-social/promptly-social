@@ -1,5 +1,5 @@
 from sqlalchemy import JSON, String
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
 from app.core.config import settings
 
