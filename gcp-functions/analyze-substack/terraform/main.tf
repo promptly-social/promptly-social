@@ -50,12 +50,12 @@ locals {
 resource "google_storage_bucket" "source_bucket" {
   name          = local.bucket_name
   location      = var.region
-  force_destroy = true # Set to false in production
+  force_destroy = false # Set to false in production
   uniform_bucket_level_access = true
 
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
-      # Ignore changes to these attributes if bucket already exists
       location,
       force_destroy,
       uniform_bucket_level_access
@@ -76,6 +76,7 @@ resource "google_service_account" "function_sa" {
   display_name = "Service Account for ${var.function_name} function"
 
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
       # Ignore changes to display_name if service account already exists
       display_name
