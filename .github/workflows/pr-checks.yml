@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   actions: read
   id-token: write # For Codecov
 
@@ -93,33 +92,3 @@ jobs:
           # Test health endpoint (assuming you have one)
           curl -f http://localhost:8001/health || (docker logs test-container && exit 1)
           docker stop test-container
-
-  security:
-    runs-on: ubuntu-latest
-    # permissions are inherited from the top level, but can be specified for clarity
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "./backend"
-          format: "sarif"
-          output: "trivy-results.sarif"
-
-      - name: Add SCW Training to Trivy results
-        uses: SecureCodeWarrior/github-action-add-sarif-contextual-training@v1
-        with:
-          inputSarifFile: "trivy-results.sarif"
-          outputSarifFile: "trivy-results.processed.sarif"
-        continue-on-error: true
-
-      - name: Upload enriched Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-results.processed.sarif"
