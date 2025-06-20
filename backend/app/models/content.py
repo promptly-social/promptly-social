@@ -9,8 +9,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.models.helpers import (get_array_column, get_json_column,
-                                get_uuid_column)
+from app.models.helpers import get_array_column, get_json_column, get_uuid_column
 
 
 class Content(Base):

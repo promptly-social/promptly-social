@@ -1,0 +1,45 @@
+name: Deploy Analyze Substack Cloud Function
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "gcp-functions/analyze-substack/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: "Deploy to GCP"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.APP_SA_EMAIL }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: gcp-functions/analyze-substack/terraform
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -no-color
+        working-directory: gcp-functions/analyze-substack/terraform
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -auto-approve -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
+        working-directory: gcp-functions/analyze-substack/terraform

@@ -8,14 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_async_db
 from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
-from app.schemas.profile import (PlatformAnalysisResponse,
-                                 SocialConnectionResponse,
-                                 SocialConnectionUpdate,
-                                 SubstackAnalysisResponse,
-                                 SubstackConnectionData, SubstackData,
-                                 UserPreferencesResponse,
-                                 UserPreferencesUpdate,
-                                 WritingStyleAnalysisUpdate)
+from app.schemas.profile import (
+    PlatformAnalysisResponse,
+    SocialConnectionResponse,
+    SocialConnectionUpdate,
+    SubstackAnalysisResponse,
+    SubstackConnectionData,
+    SubstackData,
+    UserPreferencesResponse,
+    UserPreferencesUpdate,
+    WritingStyleAnalysisUpdate,
+)
 from app.services.profile import ProfileService
 
 router = APIRouter(prefix="/profile", tags=["profile"])

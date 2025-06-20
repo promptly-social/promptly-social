@@ -20,8 +20,12 @@ from app.main import app
 from app.models.content import Content, Publication
 from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
-from app.schemas.content import (ContentCreate, ContentUpdate,
-                                 PublicationCreate, PublicationUpdate)
+from app.schemas.content import (
+    ContentCreate,
+    ContentUpdate,
+    PublicationCreate,
+    PublicationUpdate,
+)
 from app.services.content import ContentService
 
 # Test database URL

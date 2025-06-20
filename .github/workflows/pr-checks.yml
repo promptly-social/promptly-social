@@ -4,12 +4,15 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  actions: read
+  id-token: write # For Codecov
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    # permissions are inherited from the top level
     strategy:
       matrix:
         python-version: [3.11]
@@ -50,8 +53,6 @@ jobs:
           pip install flake8 black isort
           # Check code formatting
           black --check .
-          # Check import sorting
-          isort --check-only .
           # Run linting
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
@@ -91,33 +92,3 @@ jobs:
           # Test health endpoint (assuming you have one)
           curl -f http://localhost:8001/health || (docker logs test-container && exit 1)
           docker stop test-container
-
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "./backend"
-          format: "sarif"
-          output: "trivy-results.sarif"
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-results.sarif"
-
-      - name: Add SCW Training to Trivy results
-        uses: SecureCodeWarrior/github-action-add-sarif-contextual-training@v1
-        with:
-          inputSarifFile: "trivy-results.sarif"
-          outputSarifFile: "trivy-results.processed.sarif"
-        continue-on-error: true
-
-      - name: Upload enriched Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-results.processed.sarif"

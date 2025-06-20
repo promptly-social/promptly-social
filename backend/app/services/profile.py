@@ -12,8 +12,7 @@ from loguru import logger
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.profile import (SocialConnection, UserPreferences,
-                                WritingStyleAnalysis)
+from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate
 
 
