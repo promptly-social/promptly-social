@@ -99,6 +99,12 @@ jobs:
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest .
           echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
 
+      - name: Debug Docker push URL
+        run: |
+          DOCKER_TAG="${{ steps.build_image.outputs.tag }}"
+          echo "Pushing to: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG}"
+          echo "Pushing to: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest"
+
       - name: Push Docker image
         id: push_image
         run: |
