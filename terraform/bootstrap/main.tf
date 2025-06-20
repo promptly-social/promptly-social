@@ -84,7 +84,6 @@ resource "google_service_account" "terraform_sa" {
 resource "google_project_iam_member" "terraform_sa_roles" {
   for_each = toset([
     # Core project management
-    "roles/servicemanagement.serviceConsumer",  # Enable/disable APIs
     "roles/serviceusage.serviceUsageAdmin",     # Manage API services
     
     # Service Account management
