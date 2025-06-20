@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.2.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.1"
+    }
   }
 }
 
@@ -137,6 +141,22 @@ data "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
 }
 
+# Data source for the GCP analysis function URL secret
+data "google_secret_manager_secret" "gcp_analysis_function_url" {
+  secret_id = "GCP_ANALYSIS_FUNCTION_URL"
+}
+
+# Save the Cloud Function URL to Secret Manager
+resource "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
+  secret      = data.google_secret_manager_secret.gcp_analysis_function_url.id
+  secret_data = google_cloudfunctions2_function.function.service_config[0].uri
+
+  depends_on = [
+    google_cloudfunctions2_function.function,
+    google_secret_manager_secret_iam_member.secret_access_gcp_function_url
+  ]
+}
+
 # Grant the function's service account access to the secrets
 resource "google_secret_manager_secret_iam_member" "secret_access_supabase_url" {
   project   = data.google_secret_manager_secret.supabase_url.project
@@ -156,5 +176,13 @@ resource "google_secret_manager_secret_iam_member" "secret_access_openrouter_key
   project   = data.google_secret_manager_secret.openrouter_api_key.project
   secret_id = data.google_secret_manager_secret.openrouter_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.function_sa.email}"
+}
+
+# Grant the function's service account permission to write to the GCP analysis function URL secret
+resource "google_secret_manager_secret_iam_member" "secret_access_gcp_function_url" {
+  project   = data.google_secret_manager_secret.gcp_analysis_function_url.project
+  secret_id = data.google_secret_manager_secret.gcp_analysis_function_url.secret_id
+  role      = "roles/secretmanager.secretVersionManager"
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 } 

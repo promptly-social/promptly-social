@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.1"
+    }
   }
 }
 
@@ -23,7 +27,8 @@ resource "google_project_service" "apis" {
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
-    "iam.googleapis.com"
+    "iam.googleapis.com",
+    "compute.googleapis.com"
   ])
 
   service            = each.value
@@ -174,6 +179,31 @@ resource "google_secret_manager_secret" "openrouter_api_key" {
   replication {
     auto {}
   }
+}
+
+# Data source to get the current version of the GCP analysis function URL secret
+data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
+  secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+}
+
+# Null resource to trigger Cloud Run service restart when the function URL changes
+resource "null_resource" "restart_cloud_run_on_function_url_change" {
+  count = var.manage_cloud_run_service ? 1 : 0
+  
+  triggers = {
+    function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      gcloud run services update ${var.app_name}-backend-${var.environment} \
+        --region=${var.region} \
+        --project=${var.project_id} \
+        --update-env-vars=RESTART_TRIGGER=$(date +%s)
+    EOT
+  }
+
+  depends_on = [module.cloud_run_service]
 }
 
 # Grant Secret Manager access to the service account
