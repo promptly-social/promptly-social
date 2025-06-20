@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = ""  # Will be set via -backend-config or environment variables
+    bucket = "promptly-terraform-state"
     prefix = "terraform/state/staging"
   }
 } 

@@ -136,6 +136,8 @@ resource "google_cloud_run_service_iam_member" "public_access" {
   location = google_cloud_run_service.backend.location
   role     = "roles/run.invoker"
   member   = "allUsers"
+
+  depends_on = [google_cloud_run_service.backend]
 }
 
 # Allow unauthenticated invocations if configured
@@ -148,18 +150,4 @@ resource "google_cloud_run_service_iam_member" "noauth" {
   member   = "allUsers"
 
   depends_on = [google_cloud_run_service.backend]
-}
-
-# Map the custom domain to the Cloud Run service
-resource "google_cloud_run_domain_mapping" "api_domain_mapping" {
-  location = google_cloud_run_service.backend.location
-  name     = var.api_domain_name
-
-  metadata {
-    namespace = var.project_id
-  }
-
-  spec {
-    route_name = google_cloud_run_service.backend.name
-  }
 }

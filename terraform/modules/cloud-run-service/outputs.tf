@@ -8,7 +8,7 @@ output "cloud_run_service_name" {
   value       = google_cloud_run_service.backend.name
 }
 
-output "dns_records_for_custom_api_domain" {
-  description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-  value       = google_cloud_run_domain_mapping.api_domain_mapping.status[0].resource_records
+output "region" {
+  description = "The region where the Cloud Run service is deployed."
+  value       = google_cloud_run_service.backend.location
 }

@@ -249,7 +249,6 @@ module "cloud_run_service" {
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
-  api_domain_name            = local.api_domain
   allow_unauthenticated_invocations = var.allow_unauthenticated_invocations
 }
 
@@ -258,17 +257,6 @@ module "cloud_run_service" {
 locals {
   frontend_domain = var.frontend_domain_name
   api_domain      = var.api_domain_name
-
-  # Process the DNS records from the Cloud Run module.
-  # This creates lists of record data (rrdata) for each record type.
-  _api_dns_records_list = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].dns_records_for_custom_api_domain : []
-
-  _a_rrdatas     = [for r in local._api_dns_records_list : r.rrdata if r.type == "A"]
-  _aaaa_rrdatas  = [for r in local._api_dns_records_list : r.rrdata if r.type == "AAAA"]
-  _cname_rrdatas = [for r in local._api_dns_records_list : r.rrdata if r.type == "CNAME"]
-
-  # The CNAME record might have a different name for verification purposes.
-  _cname_name = try([for r in local._api_dns_records_list : r.name if r.type == "CNAME"][0], null)
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -407,43 +395,20 @@ resource "google_storage_bucket_iam_member" "frontend_bucket_writer" {
   member = "serviceAccount:${google_service_account.app_sa.email}"
 }
 
-# --- DNS for Backend API ---
-# Create DNS records for the Cloud Run custom domain.
-# We create separate resources for each record type to avoid issues with
-# for_each on computed values from the Cloud Run module output.
+# Map the custom domain to the Cloud Run service
+resource "google_cloud_run_domain_mapping" "api_domain_mapping" {
+  count = var.manage_cloud_run_service ? 1 : 0
 
-resource "google_dns_record_set" "api_a_records" {
-  # Create this record set only if there are A records to add.
-  count = var.manage_cloud_run_service && var.manage_frontend_infra && length(local._a_rrdatas) > 0 ? 1 : 0
+  location = module.cloud_run_service[0].region
+  name     = local.api_domain
 
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
-  name         = "${local.api_domain}."
-  type         = "A"
-  ttl          = 300
-  rrdatas      = local._a_rrdatas
-  project      = var.project_id
-}
+  metadata {
+    namespace = var.project_id
+  }
 
-resource "google_dns_record_set" "api_aaaa_records" {
-  # Create this record set only if there are AAAA records to add.
-  count = var.manage_cloud_run_service && var.manage_frontend_infra && length(local._aaaa_rrdatas) > 0 ? 1 : 0
+  spec {
+    route_name = module.cloud_run_service[0].cloud_run_service_name
+  }
 
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
-  name         = "${local.api_domain}."
-  type         = "AAAA"
-  ttl          = 300
-  rrdatas      = local._aaaa_rrdatas
-  project      = var.project_id
-}
-
-resource "google_dns_record_set" "api_cname_records" {
-  # Create this record set only if there is a CNAME record to add.
-  count = var.manage_cloud_run_service && var.manage_frontend_infra && local._cname_name != null && length(local._cname_rrdatas) > 0 ? 1 : 0
-
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
-  name         = "${local._cname_name}."
-  type         = "CNAME"
-  ttl          = 300
-  rrdatas      = local._cname_rrdatas
-  project      = var.project_id
+  depends_on = [module.cloud_run_service]
 }

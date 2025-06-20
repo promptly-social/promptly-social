@@ -9,8 +9,8 @@ output "region" {
 }
 
 output "cloud_run_service_url" {
-  description = "The URL of the deployed Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_url : "n/a"
+  description = "The URL of the Cloud Run service."
+  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].cloud_run_service_url : "n/a"
 }
 
 output "cloud_run_service_name" {
@@ -48,7 +48,7 @@ output "secret_manager_secrets" {
 
 output "dns_records_for_custom_api_domain" {
   description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].dns_records_for_custom_api_domain : []
+  value       = var.manage_cloud_run_service && length(google_cloud_run_domain_mapping.api_domain_mapping) > 0 ? google_cloud_run_domain_mapping.api_domain_mapping[0].status[0].resource_records : []
 }
 
 output "frontend_bucket_name" {

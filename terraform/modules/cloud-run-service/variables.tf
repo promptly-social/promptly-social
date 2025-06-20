@@ -102,12 +102,6 @@ variable "openrouter_api_key_name" {
   type        = string
 }
 
-variable "api_domain_name" {
-  description = "The custom domain name for the API (e.g., api.myapp.com)"
-  type        = string
-  default     = ""
-}
-
 variable "image_tag" {
   description = "The tag for the container image to deploy."
   type        = string
