@@ -14,8 +14,8 @@ output "cloud_run_service_url" {
 }
 
 output "cloud_run_service_name" {
-  description = "The name of the deployed Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_name : "n/a"
+  description = "The name of the Cloud Run service."
+  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].cloud_run_service_name : "n/a"
 }
 
 output "artifact_registry_repository" {
@@ -46,11 +46,6 @@ output "secret_manager_secrets" {
   ]
 }
 
-output "dns_records_for_custom_api_domain" {
-  description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-  value       = var.manage_cloud_run_service && length(google_cloud_run_domain_mapping.api_domain_mapping) > 0 ? google_cloud_run_domain_mapping.api_domain_mapping[0].status[0].resource_records : []
-}
-
 output "frontend_bucket_name" {
   description = "Name of the GCS bucket for the frontend."
   value       = var.manage_frontend_infra ? google_storage_bucket.frontend_bucket[0].name : "n/a"
@@ -64,9 +59,4 @@ output "frontend_static_ip" {
 output "frontend_domain" {
   description = "Domain for the frontend for the current environment."
   value       = var.manage_frontend_infra ? var.frontend_domain_name : "n/a"
-}
-
-output "dns_zone_nameservers" {
-  description = "Nameservers for the Cloud DNS managed zone. You must update these in your domain registrar."
-  value       = var.manage_frontend_infra ? google_dns_managed_zone.frontend_zone[0].name_servers : []
 } 

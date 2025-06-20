@@ -256,7 +256,6 @@ module "cloud_run_service" {
 
 locals {
   frontend_domain = var.frontend_domain_name
-  api_domain      = var.api_domain_name
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -393,22 +392,4 @@ resource "google_storage_bucket_iam_member" "frontend_bucket_writer" {
   bucket = google_storage_bucket.frontend_bucket[0].name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.app_sa.email}"
-}
-
-# Map the custom domain to the Cloud Run service
-resource "google_cloud_run_domain_mapping" "api_domain_mapping" {
-  count = var.manage_cloud_run_service ? 1 : 0
-
-  location = module.cloud_run_service[0].region
-  name     = local.api_domain
-
-  metadata {
-    namespace = var.project_id
-  }
-
-  spec {
-    route_name = module.cloud_run_service[0].cloud_run_service_name
-  }
-
-  depends_on = [module.cloud_run_service]
 }

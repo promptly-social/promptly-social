@@ -148,6 +148,4 @@ resource "google_cloud_run_service_iam_member" "noauth" {
   service  = google_cloud_run_service.backend.name
   role     = "roles/run.invoker"
   member   = "allUsers"
-
-  depends_on = [google_cloud_run_service.backend]
 }
