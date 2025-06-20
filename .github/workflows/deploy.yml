@@ -126,8 +126,19 @@ jobs:
     steps:
       - name: Test deployment
         run: |
+          SERVICE_URL="${{ needs.deploy.outputs.service_url }}"
+          if [ -z "$SERVICE_URL" ] || [ "$SERVICE_URL" = "n/a" ]; then
+            echo "⚠️ No service URL available, skipping health check"
+            echo "This might happen if:"
+            echo "  - manage_cloud_run_service is false in terraform"
+            echo "  - Cloud Run service is not deployed yet"
+            echo "  - There were no changes to apply"
+            exit 0
+          fi
+
+          echo "🔍 Testing deployment at: $SERVICE_URL"
           sleep 30
-          curl -f ${{ needs.deploy.outputs.service_url }}/health || exit 1
+          curl -f "$SERVICE_URL/health" || exit 1
           echo "✅ Deployment health check passed"
 
       - name: Update environment info

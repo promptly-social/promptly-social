@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     outputs:
-      service_url: ${{ steps.tf_output.outputs.service_url }}
+      service_url: ${{ steps.tf_output.outputs.service_url || steps.tf_output_no_changes.outputs.service_url }}
 
     permissions:
       contents: read
@@ -102,10 +102,23 @@ jobs:
         run: terraform apply -auto-approve tfplan
 
       - name: Set Terraform Outputs
-        if: github.event.inputs.action == 'apply'
+        if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode == '2'
         id: tf_output
         run: |
           echo "service_url=$(terraform output -raw cloud_run_service_url)" >> $GITHUB_OUTPUT
+
+      - name: Get Terraform Outputs (No Changes)
+        if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode != '2'
+        id: tf_output_no_changes
+        run: |
+          # When there are no changes, still get the current service URL from state
+          SERVICE_URL=$(terraform output -raw cloud_run_service_url 2>/dev/null || echo "")
+          if [ "$SERVICE_URL" != "n/a" ] && [ -n "$SERVICE_URL" ]; then
+            echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          else
+            echo "service_url=" >> $GITHUB_OUTPUT
+            echo "⚠️ No Cloud Run service found in current state"
+          fi
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
