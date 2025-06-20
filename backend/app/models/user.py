@@ -134,8 +134,8 @@ class UserSession(Base):
     )
 
     # Session information
-    session_token: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
-    refresh_token: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
+    session_token: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    refresh_token: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     device_info: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(
         String(45), nullable=True
