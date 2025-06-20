@@ -77,7 +77,7 @@ jobs:
         uses: "google-github-actions/auth@v2"
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ env.GCP_TERRAFORM_SA_EMAIL }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
@@ -98,12 +98,6 @@ jobs:
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG} .
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest .
           echo "tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
-
-      - name: Debug Docker push URL
-        run: |
-          DOCKER_TAG="${{ steps.build_image.outputs.tag }}"
-          echo "Pushing to: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:${DOCKER_TAG}"
-          echo "Pushing to: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/promptly-backend/backend:latest"
 
       - name: Push Docker image
         id: push_image
