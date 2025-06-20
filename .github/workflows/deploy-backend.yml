@@ -123,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-and-push, deploy]
     environment: ${{ github.event.inputs.environment }}
+    permissions: write-all
     steps:
       - name: Test deployment
         run: |

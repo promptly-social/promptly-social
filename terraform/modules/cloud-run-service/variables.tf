@@ -1,3 +1,8 @@
+variable "gcp_analysis_function_url_version" {
+  description = "The version of the GCP analysis function URL secret, to trigger updates."
+  type        = string
+}
+
 variable "project_id" {
   description = "The GCP project ID."
   type        = string
@@ -100,12 +105,6 @@ variable "gcp_analysis_function_url_name" {
 variable "openrouter_api_key_name" {
   description = "The name of the Secret Manager secret for the OpenRouter API key"
   type        = string
-}
-
-variable "api_domain_name" {
-  description = "The custom domain name for the API (e.g., api.myapp.com)"
-  type        = string
-  default     = ""
 }
 
 variable "image_tag" {

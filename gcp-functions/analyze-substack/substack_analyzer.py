@@ -202,7 +202,7 @@ class SubstackAnalyzer:
 
         if content_json.get("error"):
             logger.error(
-                f"Error extracting topics from batch: {content_json.get('error')}"
+                f"Error extracting topics from batch: {content_json.get('error')}, raw content: {raw_content}"
             )
 
         return content_json.get("topics", [])

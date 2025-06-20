@@ -8,14 +8,19 @@ output "region" {
   value       = var.region
 }
 
-output "cloud_run_service_url" {
-  description = "The URL of the deployed Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_url : "n/a"
+output "cloud_run_service_name" {
+  description = "The name of the Cloud Run service."
+  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].service_name : "n/a"
 }
 
-output "cloud_run_service_name" {
-  description = "The name of the deployed Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].cloud_run_service_name : "n/a"
+output "api_load_balancer_ip" {
+  description = "The IP address of the backend API load balancer."
+  value       = var.manage_cloud_run_service && length(google_compute_global_address.api_ip) > 0 ? google_compute_global_address.api_ip[0].address : "n/a"
+}
+
+output "api_url" {
+  description = "The URL of the backend API."
+  value       = "https://api.${var.frontend_domain_name}"
 }
 
 output "artifact_registry_repository" {
@@ -46,11 +51,6 @@ output "secret_manager_secrets" {
   ]
 }
 
-output "dns_records_for_custom_api_domain" {
-  description = "The DNS records needed to map the custom API domain to the Cloud Run service."
-  value       = var.manage_cloud_run_service ? module.cloud_run_service[0].dns_records_for_custom_api_domain : []
-}
-
 output "frontend_bucket_name" {
   description = "Name of the GCS bucket for the frontend."
   value       = var.manage_frontend_infra ? google_storage_bucket.frontend_bucket[0].name : "n/a"
@@ -62,11 +62,11 @@ output "frontend_static_ip" {
 }
 
 output "frontend_domain" {
-  description = "Domain for the frontend for the current environment."
-  value       = var.manage_frontend_infra ? var.frontend_domain_name : "n/a"
+  description = "The domain name for the frontend"
+  value       = var.manage_frontend_infra ? local.frontend_domain : "Not managed by this configuration."
 }
 
 output "dns_zone_nameservers" {
-  description = "Nameservers for the Cloud DNS managed zone. You must update these in your domain registrar."
-  value       = var.manage_frontend_infra ? google_dns_managed_zone.frontend_zone[0].name_servers : []
+  description = "Nameservers for the Cloud DNS managed zone. Update these in your domain registrar."
+  value       = var.manage_frontend_infra ? google_dns_managed_zone.frontend_zone[0].name_servers : ["DNS zone not managed by this configuration."]
 } 

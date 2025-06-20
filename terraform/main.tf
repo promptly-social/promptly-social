@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.1"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = ">= 0.9.1"
+    }
   }
 }
 
@@ -102,6 +106,16 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
   }
 }
 
+# Grant the application service account permission to act as itself.
+# This is required for Cloud Run to deploy a new revision with this SA.
+resource "google_service_account_iam_binding" "app_sa_user_binding" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  members = [
+    "serviceAccount:${google_service_account.app_sa.email}"
+  ]
+}
+
 # Allow GitHub Actions to impersonate the Application Service Account
 resource "google_service_account_iam_binding" "app_sa_wif_binding" {
   service_account_id = google_service_account.app_sa.name
@@ -187,26 +201,6 @@ data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" 
   secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
 }
 
-# Null resource to trigger Cloud Run service restart when the function URL changes
-resource "null_resource" "restart_cloud_run_on_function_url_change" {
-  count = var.manage_cloud_run_service ? 1 : 0
-  
-  triggers = {
-    function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      gcloud run services update ${var.app_name}-backend-${var.environment} \
-        --region=${var.region} \
-        --project=${var.project_id} \
-        --update-env-vars=RESTART_TRIGGER=$(date +%s)
-    EOT
-  }
-
-  depends_on = [module.cloud_run_service]
-}
-
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
   for_each = {
@@ -248,27 +242,16 @@ module "cloud_run_service" {
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+  gcp_analysis_function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
-  api_domain_name            = local.api_domain
-  allow_unauthenticated_invocations = var.allow_unauthenticated_invocations
+  allow_unauthenticated_invocations = false
 }
 
 # --- Frontend Infrastructure (GCS Bucket + CDN for Static Site) ---
 
 locals {
   frontend_domain = var.frontend_domain_name
-  api_domain      = var.api_domain_name
-
-  # Process the DNS records from the Cloud Run module
-  api_dns_records = {
-    for record in module.cloud_run_service[0].dns_records_for_custom_api_domain :
-    # Create a unique key for each record to avoid collisions
-    "${record.name}-${record.type}" => {
-      name    = record.name
-      type    = record.type
-      rrdatas = [record.rrdata] # Wrap rrdata in a list
-    } if var.manage_cloud_run_service && length(module.cloud_run_service) > 0 && module.cloud_run_service[0].dns_records_for_custom_api_domain != null
-  }
+  backend_domain  = "api.${var.frontend_domain_name}"
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -294,16 +277,6 @@ resource "google_storage_bucket" "frontend_bucket" {
   depends_on = [google_project_service.apis]
 }
 
-# 2. Make all objects in the bucket publicly readable.
-# This is required for the public-facing website served via the Load Balancer/CDN.
-# With uniform_bucket_level_access enabled, this is the correct way to grant public access.
-resource "google_storage_bucket_iam_member" "public_reader" {
-  count = var.manage_frontend_infra ? 1 : 0
-
-  bucket = google_storage_bucket.frontend_bucket[0].name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
-}
 
 
 # 3. Reserve a static IP for the load balancer
@@ -398,25 +371,87 @@ resource "google_dns_record_set" "frontend_a_record" {
   project      = var.project_id
 }
 
-# Allow the app service account to write to the frontend bucket
-resource "google_storage_bucket_iam_member" "frontend_bucket_writer" {
-  count = var.manage_frontend_infra ? 1 : 0
+# --- Backend API Infrastructure (Load Balancer for Cloud Run) ---
 
-  bucket = google_storage_bucket.frontend_bucket[0].name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.app_sa.email}"
+# 1. Serverless NEG for the Cloud Run service
+resource "google_compute_region_network_endpoint_group" "backend_neg" {
+  count = var.manage_cloud_run_service ? 1 : 0
+
+  name                  = "${var.app_name}-backend-neg-${var.environment}"
+  network_endpoint_type = "SERVERLESS"
+  region                = module.cloud_run_service[0].service_location
+  cloud_run {
+    service = module.cloud_run_service[0].service_name
+  }
 }
 
-# --- DNS for Backend API ---
-# Create DNS records for the Cloud Run custom domain.
-# It iterates over the record types (A, AAAA) returned by the Cloud Run module.
-resource "google_dns_record_set" "api_records" {
-  for_each = (var.manage_cloud_run_service && var.manage_frontend_infra) ? local.api_dns_records : {}
+# 2. Backend Service
+resource "google_compute_backend_service" "api_backend" {
+  count = var.manage_cloud_run_service ? 1 : 0
+
+  name                  = "${var.app_name}-api-backend-service-${var.environment}"
+  protocol              = "HTTP"
+  port_name             = "http"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  timeout_sec           = 30
+  enable_cdn            = false
+
+  backend {
+    group = google_compute_region_network_endpoint_group.backend_neg[0].id
+  }
+}
+
+# 3. Reserve a static IP for the API load balancer
+resource "google_compute_global_address" "api_ip" {
+  count = var.manage_cloud_run_service ? 1 : 0
+  name  = "${var.app_name}-api-ip-${var.environment}"
+}
+
+# 4. Managed SSL Certificate for the API domain
+resource "google_compute_managed_ssl_certificate" "api_ssl" {
+  count = var.manage_cloud_run_service ? 1 : 0
+  name  = "${var.app_name}-api-ssl-${var.environment}"
+  managed {
+    domains = [local.backend_domain]
+  }
+}
+
+# 5. URL Map to route all requests to the API backend service
+resource "google_compute_url_map" "api_url_map" {
+  count = var.manage_cloud_run_service ? 1 : 0
+
+  name            = "${var.app_name}-api-url-map-${var.environment}"
+  default_service = google_compute_backend_service.api_backend[0].id
+}
+
+# 6. HTTPS Target Proxy
+resource "google_compute_target_https_proxy" "api_https_proxy" {
+  count = var.manage_cloud_run_service ? 1 : 0
+
+  name             = "${var.app_name}-api-https-proxy-${var.environment}"
+  url_map          = google_compute_url_map.api_url_map[0].id
+  ssl_certificates = [google_compute_managed_ssl_certificate.api_ssl[0].id]
+}
+
+# 7. Global Forwarding Rule (Load Balancer Frontend for API)
+resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
+  count = var.manage_cloud_run_service ? 1 : 0
+
+  name                  = "${var.app_name}-api-forwarding-rule-${var.environment}"
+  target                = google_compute_target_https_proxy.api_https_proxy[0].id
+  ip_address            = google_compute_global_address.api_ip[0].address
+  port_range            = "443"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+# 8. DNS A record for the API
+resource "google_dns_record_set" "api_a_record" {
+  count = var.manage_cloud_run_service ? 1 : 0
 
   managed_zone = google_dns_managed_zone.frontend_zone[0].name
-  name         = "${each.value.name}."
-  type         = each.value.type
+  name         = "${local.backend_domain}."
+  type         = "A"
   ttl          = 300
-  rrdatas      = each.value.rrdatas
+  rrdatas      = [google_compute_global_address.api_ip[0].address]
   project      = var.project_id
 }
