@@ -41,18 +41,32 @@ data "archive_file" "source" {
   ]
 }
 
+# Local variables for resource names
+locals {
+  bucket_name = "${var.app_name}-cf-source-${var.environment}"
+}
+
 # Storage bucket to hold the zipped code
 resource "google_storage_bucket" "source_bucket" {
-  name          = "${var.app_name}-cf-source-${var.environment}"
+  name          = local.bucket_name
   location      = var.region
   force_destroy = true # Set to false in production
   uniform_bucket_level_access = true
+
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to these attributes if bucket already exists
+      location,
+      force_destroy,
+      uniform_bucket_level_access
+    ]
+  }
 }
 
 # Upload the zipped code to the bucket
 resource "google_storage_bucket_object" "source_archive" {
-  name   = "source.zip#${data.archive_file.source.output_md5}"
-  bucket = google_storage_bucket.source_bucket.name
+  name   = "analyze-substack-source.zip#${data.archive_file.source.output_md5}"
+  bucket = local.bucket_name
   source = data.archive_file.source.output_path
 }
 
@@ -60,6 +74,13 @@ resource "google_storage_bucket_object" "source_archive" {
 resource "google_service_account" "function_sa" {
   account_id   = "${var.function_name}-sa-${var.environment}"
   display_name = "Service Account for ${var.function_name} function"
+
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to display_name if service account already exists
+      display_name
+    ]
+  }
 }
 
 # Cloud Function resource
