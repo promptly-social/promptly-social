@@ -141,6 +141,19 @@ resource "google_service_account_iam_binding" "terraform_sa_wif_binding" {
   ]
 }
 
+# This binding allows the WIF principal to generate access tokens for the SA,
+# which is required for operations like `gcloud auth configure-docker`.
+resource "google_service_account_iam_binding" "terraform_sa_token_creator" {
+  service_account_id = google_service_account.terraform_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  members = [
+    "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}",
+  ]
+  depends_on = [
+    google_service_account_iam_binding.terraform_sa_wif_binding,
+  ]
+}
+
 resource "google_project_iam_member" "dns_readers" {
   count    = var.environment == "production" ? length(var.dns_reader_sds) : 0
   project  = var.project_id

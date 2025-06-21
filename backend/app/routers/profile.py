@@ -301,8 +301,9 @@ async def linkedin_authorize(
 ):
     """Get LinkedIn authorization URL."""
     try:
-        # The user ID is already a UUID hex string, so just use it directly.
-        state = f"linkedin_oauth_state_{current_user.id}"
+        # Ensure user_id is a string before concatenation
+        user_id_str = str(current_user.id)
+        state = f"linkedin_oauth_state_{user_id_str}"
         profile_service = ProfileService(db)
         auth_url = profile_service.create_linkedin_authorization_url(state)
         return LinkedInAuthResponse(authorization_url=auth_url)
@@ -324,7 +325,8 @@ async def linkedin_callback(
     """Handle LinkedIn callback, exchange code for token, and store connection."""
     try:
         # Validate state to prevent CSRF attacks
-        expected_state = f"linkedin_oauth_state_{current_user.id}"
+        user_id_str = str(current_user.id)
+        expected_state = f"linkedin_oauth_state_{user_id_str}"
         if state != expected_state:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
