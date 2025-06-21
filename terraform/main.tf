@@ -320,7 +320,7 @@ locals {
 resource "google_storage_bucket" "frontend_bucket" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  name          = local.frontend_domain # Bucket names must be globally unique
+  name          = "${local.frontend_domain}" # Bucket names must be globally unique
   project       = var.project_id
   location      = "US"                  # Multi-regional for high availability
   storage_class = "STANDARD"
@@ -340,12 +340,18 @@ resource "google_storage_bucket" "frontend_bucket" {
 }
 
 # 2. Grant public read access to the bucket objects for the CDN
-resource "google_storage_bucket_iam_member" "public_access" {
+data "google_iam_policy" "public_bucket_policy" {
+  binding {
+    role    = "roles/storage.objectViewer"
+    members = ["allUsers"]
+  }
+}
+
+resource "google_storage_bucket_iam_policy" "public_access" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  bucket = google_storage_bucket.frontend_bucket[0].name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
+  bucket      = google_storage_bucket.frontend_bucket[0].name
+  policy_data = data.google_iam_policy.public_bucket_policy.policy_data
 
   depends_on = [google_storage_bucket.frontend_bucket]
 }
@@ -382,7 +388,7 @@ resource "google_compute_backend_bucket" "frontend_backend" {
     client_ttl           = 86400
     max_ttl              = 31536000 # 1 year
     cache_mode           = "CACHE_ALL_STATIC"
-    negative_caching     = true
+    negative_caching     = false
     signed_url_cache_max_age_sec = 0
   }
 }
@@ -433,7 +439,7 @@ resource "google_dns_managed_zone" "frontend_zone" {
 }
 
 resource "google_project_iam_member" "dns_editors" {
-  for_each = toset(var.dns_editor_service_accounts)
+  for_each = toset(local.is_production ? var.dns_editor_service_accounts : [])
   project  = var.project_id
   role     = "roles/dns.admin"
   member   = "serviceAccount:${each.key}"
