@@ -167,10 +167,12 @@ class ProfileService:
         if not settings.linkedin_client_id:
             raise ValueError("LINKEDIN_CLIENT_ID is not configured")
 
+        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
+
         params = {
             "response_type": "code",
             "client_id": settings.linkedin_client_id,
-            "redirect_uri": settings.linkedin_redirect_uri,
+            "redirect_uri": redirect_uri,
             "state": state,
             "scope": "openid profile email w_member_social",  # Using OIDC scopes + sharing
         }
@@ -187,17 +189,21 @@ class ProfileService:
         if not settings.linkedin_client_id or not settings.linkedin_client_secret:
             raise ValueError("LinkedIn client ID or secret is not configured")
 
+        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
         token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+
         payload = {
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": settings.linkedin_redirect_uri,
+            "redirect_uri": redirect_uri,
             "client_id": settings.linkedin_client_id,
             "client_secret": settings.linkedin_client_secret,
         }
 
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(token_url, data=payload)
+            response = await client.post(token_url, data=payload, headers=headers)
             response.raise_for_status()
             token_data = response.json()
 
