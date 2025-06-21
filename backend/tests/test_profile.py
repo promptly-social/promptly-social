@@ -64,7 +64,7 @@ async def test_db():
 def test_user():
     """Create a test user."""
     return UserResponse(
-        id=str(uuid4()),
+        id=uuid4(),
         email="test@example.com",
         is_active=True,
         is_verified=True,
@@ -163,7 +163,7 @@ class TestProfileEndpoints:
     def mock_current_user(self):
         """Mock current user."""
         user = UserResponse(
-            id=str(uuid4()),
+            id=uuid4(),
             email="test@example.com",
             is_active=True,
             is_verified=True,
@@ -214,7 +214,7 @@ class TestProfileEndpoints:
             "app.services.profile.ProfileService.upsert_user_preferences"
         ) as mock_service:
             mock_preferences = UserPreferences(
-                id=str(uuid4()),
+                id=uuid4(),
                 user_id=mock_current_user.id,
                 topics_of_interest=["AI", "Tech"],
                 websites=["example.com"],
