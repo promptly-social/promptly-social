@@ -23,7 +23,7 @@ resource "google_project_service" "iam_credentials_api" {
 resource "google_iam_workload_identity_pool" "github_pool" {
   project                   = var.project_id
   workload_identity_pool_id = "${var.app_name}-github-pool-${var.environment}"
-  display_name              = "WIF Pool for ${var.app_name} (${var.environment})"
+  display_name              = "${var.app_name} WIF Pool (${var.environment})"
   description               = "Allows GitHub Actions to securely authenticate with GCP for ${var.environment}"
   depends_on                = [google_project_service.iam_api]
 }
@@ -139,4 +139,22 @@ resource "google_service_account_iam_binding" "terraform_sa_wif_binding" {
     google_project_service.iam_credentials_api,
     google_iam_workload_identity_pool_provider.github_provider,
   ]
+}
+
+resource "google_project_iam_member" "terraform_sa_dns_reader" {
+  project = var.project_id
+  role    = "roles/dns.reader"
+  member  = "serviceAccount:${google_service_account.terraform_sa.email}"
+}
+
+# 7. Grant staging service account read-only access to production DNS.
+# This is necessary because the staging environment needs to read the production DNS zone
+# to create DNS records for its services. This resource should only be created
+# in the production environment.
+resource "google_project_iam_member" "staging_sa_dns_reader_on_prod" {
+  count   = var.environment == "production" ? 1 : 0
+  project = var.project_id # This will be the production project ID
+  role    = "roles/dns.reader"
+  # This assumes a 'staging_project_id' variable is available in the production workspace.
+  member  = "serviceAccount:${var.app_name}-tf-sa-staging@${var.staging_project_id}.iam.gserviceaccount.com"
 }

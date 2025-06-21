@@ -13,3 +13,9 @@ variable "app_name" {
   type        = string
   default     = "promptly"
 } 
+
+variable "staging_project_id" {
+  description = "The ID of the staging Google Cloud project. Required for production to grant cross-project DNS access."
+  type        = string
+  default     = "promptly-social-staging"
+}

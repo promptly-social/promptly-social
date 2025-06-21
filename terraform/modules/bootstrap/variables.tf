@@ -3,6 +3,12 @@ variable "project_id" {
   type        = string
 }
 
+variable "staging_project_id" {
+  description = "The ID of the staging Google Cloud project. Required for production to grant cross-project DNS access."
+  type        = string
+  default     = null
+}
+
 variable "github_repo" {
   description = "Your GitHub repository in owner/repo format (e.g., 'my-org/my-repo')."
   type        = string

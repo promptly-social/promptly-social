@@ -7,7 +7,7 @@ terraform {
   }
   # This configuration is meant for a one-time, local execution.
   # The backend is intentionally local.
-  backend "gcs" {}
+  backend "local" {}
 }
 
 provider "google" {
@@ -22,4 +22,5 @@ module "bootstrap" {
   app_name                    = var.app_name
   environment                 = "production"
   terraform_state_bucket_name = "promptly-terraform-state"
+  staging_project_id          = var.staging_project_id
 } 
