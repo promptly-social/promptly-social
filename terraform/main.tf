@@ -61,6 +61,24 @@ resource "google_artifact_registry_repository" "backend_repo" {
   depends_on = [google_project_service.apis]
 }
 
+# Create the application service account
+resource "google_service_account" "app_sa" {
+  project      = var.project_id
+  account_id   = "${var.app_name}-app-sa-${var.environment}"
+  display_name = "Application Service Account (${var.app_name} ${var.environment})"
+  description  = "Service account for the ${var.app_name} application in ${var.environment}."
+
+  depends_on = [google_project_service.apis]
+}
+
+# Allow the Terraform SA to impersonate the Application SA.
+# This is necessary for deploying resources like Cloud Run services that run as the App SA.
+resource "google_service_account_iam_member" "tf_sa_impersonates_app_sa" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${var.terraform_service_account_email}"
+}
+
 # Grant necessary permissions to the service account
 resource "google_project_iam_member" "cloud_run_permissions" {
   for_each = toset([
@@ -75,7 +93,7 @@ resource "google_project_iam_member" "cloud_run_permissions" {
 
   project = var.project_id
   role    = each.value
-  member  = "serviceAccount:${var.app_sa_email}"
+  member  = "serviceAccount:${google_service_account.app_sa.email}"
 }
 
 # Allow the service account to push to the Artifact Registry repository
@@ -83,7 +101,7 @@ resource "google_artifact_registry_repository_iam_member" "writer" {
   location   = google_artifact_registry_repository.backend_repo.location
   repository = google_artifact_registry_repository.backend_repo.repository_id
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${var.app_sa_email}"
+  member     = "serviceAccount:${google_service_account.app_sa.email}"
 }
 
 # Workload Identity Federation for GitHub Actions
@@ -113,16 +131,16 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
 # Grant the application service account permission to act as itself.
 # This is required for Cloud Run to deploy a new revision with this SA.
 resource "google_service_account_iam_binding" "app_sa_user_binding" {
-  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.app_sa_email}"
+  service_account_id = google_service_account.app_sa.name
   role               = "roles/iam.serviceAccountUser"
   members = [
-    "serviceAccount:${var.app_sa_email}"
+    "serviceAccount:${google_service_account.app_sa.email}"
   ]
 }
 
 # Allow GitHub Actions to impersonate the Application Service Account
 resource "google_service_account_iam_binding" "app_sa_wif_binding" {
-  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.app_sa_email}"
+  service_account_id = google_service_account.app_sa.name
   role               = "roles/iam.workloadIdentityUser"
   members = [
     # Allow workflows from your GitHub repository to impersonate this SA
@@ -136,7 +154,7 @@ resource "google_service_account_iam_binding" "app_sa_wif_binding" {
 
 # Also grant the GitHub Actions principal the ability to create tokens for the SA.
 resource "google_service_account_iam_binding" "app_sa_token_creator_binding" {
-  service_account_id = "projects/${var.project_id}/serviceAccounts/${var.app_sa_email}"
+  service_account_id = google_service_account.app_sa.name
   role               = "roles/iam.serviceAccountTokenCreator"
   members = [
     # Allow workflows from your GitHub repository to impersonate this SA
@@ -316,7 +334,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
 
   secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.app_sa_email}"
+  member    = "serviceAccount:${google_service_account.app_sa.email}"
 }
 
 module "cloud_run_service" {
@@ -331,7 +349,7 @@ module "cloud_run_service" {
   cloud_run_max_instances    = var.cloud_run_max_instances
   cloud_run_cpu              = var.cloud_run_cpu
   cloud_run_memory           = var.cloud_run_memory
-  service_account_email      = var.app_sa_email
+  service_account_email      = google_service_account.app_sa.email
   docker_registry_location   = var.docker_registry_location
   backend_repo_repository_id = google_artifact_registry_repository.backend_repo.repository_id
   cors_origins               = var.cors_origins

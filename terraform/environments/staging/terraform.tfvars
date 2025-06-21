@@ -40,3 +40,4 @@ api_domain_name = "api.staging.promptly.social"
 # Frontend Domain Name
 frontend_domain_name = "staging.promptly.social" 
 
+terraform_service_account_email = "promptly-tf-sa-staging@promptly-social-staging.iam.gserviceaccount.com"

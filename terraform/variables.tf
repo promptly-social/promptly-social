@@ -145,7 +145,7 @@ variable "image_tag" {
   default     = "latest"
 }
 
-variable "app_sa_email" {
-  description = "The email address of the application service account."
+variable "terraform_service_account_email" {
+  description = "The email of the service account used by Terraform to apply changes."
   type        = string
 }

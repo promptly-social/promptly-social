@@ -34,8 +34,8 @@ output "artifact_registry_url" {
 }
 
 output "app_service_account_email" {
-  description = "Email of the Application service account used by Cloud Run."
-  value       = var.app_sa_email
+  description = "The email address of the service account created for the application."
+  value       = google_service_account.app_sa.email
 }
 
 output "secret_manager_secrets" {
@@ -74,4 +74,9 @@ output "dns_zone_nameservers" {
 output "dns_zone_name" {
   description = "The name of the DNS managed zone."
   value       = var.manage_frontend_infra && local.is_production ? google_dns_managed_zone.frontend_zone[0].name : "n/a"
-} 
+}
+
+output "cloud_run_service_url" {
+  description = "The URL of the Cloud Run service"
+  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].service_url : "n/a"
+}
