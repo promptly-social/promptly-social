@@ -6,6 +6,7 @@ zone       = "us-central1-a"
 # Application Configuration
 app_name    = "promptly"
 environment = "production"
+app_sa_email = "promptly-app-sa-production@promptly-social.iam.gserviceaccount.com"
 
 # Docker Registry
 docker_registry_location = "us-central1"

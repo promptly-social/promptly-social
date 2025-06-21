@@ -22,9 +22,8 @@ variable "environment" {
 }
 
 variable "app_name" {
-  description = "Application name"
+  description = "The name of the application."
   type        = string
-  default     = "promptly"
 }
 
 variable "docker_registry_location" {
@@ -80,7 +79,7 @@ variable "api_domain_name" {
 }
 
 variable "manage_cloud_run_service" {
-  description = "Boolean flag to indicate if cloud run service should be managed by this Terraform config."
+  description = "A boolean flag to control the creation of the Cloud Run service. Defaults to false."
   type        = bool
   default     = true
 }
@@ -137,4 +136,9 @@ variable "dns_admin_service_accounts" {
   description = "A list of service accounts to grant DNS admin role in the production project"
   type        = list(string)
   default     = []
+}
+
+variable "app_sa_email" {
+  description = "The email address of the application service account."
+  type        = string
 }

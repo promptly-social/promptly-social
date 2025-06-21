@@ -19,4 +19,9 @@ output "terraform_service_account_email" {
 output "terraform_state_bucket_name" {
   description = "The name of the GCS bucket for Terraform state."
   value       = google_storage_bucket.terraform_state.name
+}
+
+output "app_sa_email" {
+  description = "The email of the application service account."
+  value       = google_service_account.app_sa.email
 } 

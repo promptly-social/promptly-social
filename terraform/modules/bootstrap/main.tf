@@ -75,11 +75,27 @@ resource "google_service_account" "terraform_sa" {
   depends_on   = [google_project_service.iam_api]
 }
 
+# Create a dedicated Service Account for the application to run as.
+resource "google_service_account" "app_sa" {
+  project      = var.project_id
+  account_id   = "${var.app_name}-app-sa-${var.environment}"
+  display_name = "Application SA (${var.environment})"
+  depends_on   = [google_project_service.iam_api]
+}
+
 # Grant the Terraform SA permissions to manage the state bucket
 resource "google_storage_bucket_iam_member" "terraform_sa_state_bucket_admin" {
   bucket = google_storage_bucket.terraform_state.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.terraform_sa.email}"
+}
+
+# Allow the Terraform SA to impersonate the App SA. This is necessary for deploying
+# resources like Cloud Run services that run as the App SA.
+resource "google_service_account_iam_member" "terraform_sa_impersonates_app_sa" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 
 # 5. Grant the Terraform SA the necessary permissions to manage your project's resources.
