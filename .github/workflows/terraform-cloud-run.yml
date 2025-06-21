@@ -93,17 +93,17 @@ jobs:
           echo "plan_exitcode=$?" >> $GITHUB_OUTPUT
 
       - name: Terraform Apply
-        if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode == '2'
+        if: github.event.inputs.action == 'apply'
         run: terraform apply -auto-approve tfplan
 
       - name: Set Terraform Outputs
-        if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode == '2'
+        if: github.event.inputs.action == 'apply'
         id: tf_output
         run: |
           echo "service_url=$(terraform output -raw cloud_run_service_url)" >> $GITHUB_OUTPUT
 
       - name: Get Terraform Outputs (No Changes)
-        if: github.event.inputs.action == 'apply' && steps.plan.outputs.plan_exitcode != '2'
+        if: github.event.inputs.action == 'apply'
         id: tf_output_no_changes
         run: |
           # When there are no changes, still get the current service URL from state

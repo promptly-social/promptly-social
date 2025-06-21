@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
-      - "gcp-functions/analyze-substack/**"
+      - "terraform/src/gcp-functions/analyze-substack/**"
+      - "terraform/modules/analyze_substack_function/**"
+      - "terraform/environments/analyze_substack/**"
+      - ".github/workflows/deploy-analyze-substack.yml"
   workflow_dispatch:
     inputs:
       environment:
@@ -21,10 +24,13 @@ jobs:
   deploy:
     name: "Deploy to GCP"
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
     permissions:
       contents: "read"
       id-token: "write"
+
+    env:
+      TARGET_ENV: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
 
     steps:
       - name: Checkout repository
@@ -42,14 +48,14 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-        working-directory: gcp-functions/analyze-substack/terraform
+        working-directory: terraform/environments/analyze_substack/${{ env.TARGET_ENV }}
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
-        working-directory: gcp-functions/analyze-substack/terraform
+        working-directory: terraform/environments/analyze_substack/${{ env.TARGET_ENV }}
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve
-        working-directory: gcp-functions/analyze-substack/terraform
+        working-directory: terraform/environments/analyze_substack/${{ env.TARGET_ENV }}

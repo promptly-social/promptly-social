@@ -1,6 +1,66 @@
 -- Consolidated migration - combines all previous migrations
 
 -- =============================================================================
+-- USERS TABLE
+-- =============================================================================
+create table public.users (
+  id uuid not null,
+  supabase_user_id character varying(255) null,
+  email character varying(255) not null,
+  full_name character varying(255) null,
+  avatar_url character varying(500) null,
+  preferred_language character varying(10) not null,
+  timezone character varying(50) not null,
+  is_active boolean not null,
+  is_verified boolean not null,
+  last_login_at timestamp with time zone null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone null,
+  deleted_at timestamp with time zone null,
+  constraint pk_users primary key (id)
+) TABLESPACE pg_default;
+
+create unique INDEX IF not exists ix_users_email on public.users using btree (email) TABLESPACE pg_default;
+
+create unique INDEX IF not exists ix_users_supabase_user_id on public.users using btree (supabase_user_id) TABLESPACE pg_default;
+
+-- Add Row Level Security (RLS)
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Users policies
+
+
+-- =============================================================================
+-- SESSIONS TABLE
+-- =============================================================================
+create table public.user_sessions (
+  id uuid not null,
+  user_id uuid not null,
+  session_token text not null,
+  refresh_token text not null,
+  device_info text null,
+  ip_address character varying(45) null,
+  user_agent text null,
+  is_active boolean not null,
+  expires_at timestamp with time zone not null,
+  created_at timestamp with time zone not null default now(),
+  last_used_at timestamp with time zone null,
+  revoked_at timestamp with time zone null,
+  constraint pk_user_sessions primary key (id),
+  constraint uq_user_sessions_refresh_token unique (refresh_token),
+  constraint uq_user_sessions_session_token unique (session_token),
+  constraint fk_user_sessions_user_id_users foreign KEY (user_id) references users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists ix_user_sessions_user_id on public.user_sessions using btree (user_id) TABLESPACE pg_default;
+
+-- Add Row Level Security (RLS)
+ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
+
+-- User sessions policies
+
+
+-- =============================================================================
 -- CONTENT IDEAS TABLE
 -- =============================================================================
 

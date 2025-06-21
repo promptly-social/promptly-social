@@ -3,13 +3,20 @@ resource "google_cloud_run_service" "backend" {
   name     = "${var.app_name}-backend-${var.environment}"
   location = var.region
 
+  autogenerate_revision_name = false
+
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "internal-and-cloud-load-balancing"
+    }
+  }
+
   template {
     metadata {
       annotations = {
         "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
         "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
         "run.googleapis.com/execution-environment" = "gen2"
-        "run.googleapis.com/ingress"               = "internal-and-cloud-load-balancing"
       }
     }
 

@@ -37,9 +37,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = Field(default=7)
 
     # CORS - Use string instead of List to avoid JSON parsing
-    cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:5173,http://localhost:8080"
-    )
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8080")
 
     # Logging
     log_level: str = Field(default="INFO")
@@ -48,6 +46,11 @@ class Settings(BaseSettings):
     # OAuth
     google_client_id: Optional[str] = Field(default=None)
     google_client_secret: Optional[str] = Field(default=None)
+    linkedin_client_id: Optional[str] = Field(default=None)
+    linkedin_client_secret: Optional[str] = Field(default=None)
+    linkedin_redirect_uri: str = Field(
+        default="http://localhost:8080/auth/linkedin/callback"
+    )
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60)

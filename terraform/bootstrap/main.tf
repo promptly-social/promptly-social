@@ -32,10 +32,22 @@ variable "app_name" {
   default     = "promptly"
 }
 
+variable "terraform_state_bucket_name" {
+  description = "The name for the GCS bucket that will store Terraform state."
+  type        = string
+  default     = "promptly-terraform-states"
+}
+
 # 1. Enable required APIs for this setup.
 resource "google_project_service" "iam_api" {
   project                    = var.project_id
   service                    = "iam.googleapis.com"
+  disable_dependent_services = true
+}
+
+resource "google_project_service" "storage_api" {
+  project                    = var.project_id
+  service                    = "storage.googleapis.com"
   disable_dependent_services = true
 }
 
@@ -71,12 +83,41 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
   }
 }
 
+# Create GCS bucket to store Terraform state
+resource "google_storage_bucket" "terraform_state" {
+  project       = var.project_id
+  name          = var.terraform_state_bucket_name
+  location      = "US" # Or another location of your choice
+  storage_class = "STANDARD"
+
+  # It's best practice to enable versioning on state buckets
+  versioning {
+    enabled = true
+  }
+
+  # Prevent accidental deletion of the state bucket
+  force_destroy = false
+
+  # Use uniform bucket-level access for simpler and more secure IAM
+  uniform_bucket_level_access = true
+
+  # Ensure the bucket is created after the necessary API is enabled
+  depends_on = [google_project_service.storage_api]
+}
+
 # 4. Create a dedicated Service Account for Terraform to use in CI/CD.
 resource "google_service_account" "terraform_sa" {
   project      = var.project_id
   account_id   = "${var.app_name}-terraform-sa"
   display_name = "Terraform CI/CD Service Account"
   depends_on   = [google_project_service.iam_api]
+}
+
+# Grant the Terraform SA permissions to manage the state bucket
+resource "google_storage_bucket_iam_member" "terraform_sa_state_bucket_admin" {
+  bucket = google_storage_bucket.terraform_state.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 
 # 5. Grant the Terraform SA the necessary permissions to manage your project's resources.
@@ -94,6 +135,7 @@ resource "google_project_iam_member" "terraform_sa_roles" {
     
     # Artifact Registry
     "roles/artifactregistry.admin",             # Manage Artifact Registry repositories
+    "roles/artifactregistry.writer",            # Write Artifact Registry repositories
     
     # Secret Manager
     "roles/secretmanager.admin",                # Create and manage secrets
@@ -153,4 +195,9 @@ output "workload_identity_provider" {
 output "terraform_service_account_email" {
   description = "The email of the service account created for Terraform CI/CD."
   value       = google_service_account.terraform_sa.email
+}
+
+output "terraform_state_bucket_name" {
+  description = "The name of the GCS bucket for Terraform state."
+  value       = google_storage_bucket.terraform_state.name
 } 

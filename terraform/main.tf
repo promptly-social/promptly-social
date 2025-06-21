@@ -22,6 +22,15 @@ provider "google" {
   zone    = var.zone
 }
 
+data "terraform_remote_state" "production" {
+  count   = var.environment == "staging" ? 1 : 0
+  backend = "gcs"
+  config = {
+    bucket = "promptly-terraform-state"
+    prefix = "terraform/state/production"
+  }
+}
+
 data "google_project" "current" {}
 
 # Enable required APIs
@@ -64,9 +73,9 @@ resource "google_project_iam_member" "cloud_run_permissions" {
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/cloudtrace.agent",
-    "roles/run.admin",
-    "roles/iam.serviceAccountUser",
-    "roles/compute.loadBalancerAdmin"
+    "roles/run.developer",
+    "roles/compute.loadBalancerAdmin",
+    "roles/artifactregistry.writer"
   ])
 
   project = var.project_id
@@ -84,9 +93,9 @@ resource "google_artifact_registry_repository_iam_member" "writer" {
 
 # Workload Identity Federation for GitHub Actions
 resource "google_iam_workload_identity_pool" "github_pool" {
-  workload_identity_pool_id = "${var.app_name}-github-pool"
-  display_name              = "${var.app_name} GitHub Actions Pool"
-  description               = "Workload Identity Pool for GitHub Actions CI/CD"
+  workload_identity_pool_id = "${var.app_name}-github-pool-${var.environment}"
+  display_name              = "${var.app_name} WIF Pool (${var.environment})"
+  description               = "WIF pool for ${var.app_name} (${var.environment})"
 
   depends_on = [google_project_service.apis]
 }
@@ -130,6 +139,20 @@ resource "google_service_account_iam_binding" "app_sa_wif_binding" {
   ]
 }
 
+# Also grant the GitHub Actions principal the ability to create tokens for the SA.
+resource "google_service_account_iam_binding" "app_sa_token_creator_binding" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  members = [
+    # Allow workflows from your GitHub repository to impersonate this SA
+    "principalSet://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
+  ]
+
+  depends_on = [
+    google_iam_workload_identity_pool_provider.github_provider
+  ]
+}
+
 # Secret Manager secrets
 
 resource "google_secret_manager_secret" "jwt_secret" {
@@ -140,12 +163,22 @@ resource "google_secret_manager_secret" "jwt_secret" {
   }
 }
 
+resource "google_secret_manager_secret_version" "jwt_secret_initial_version" {
+  secret      = google_secret_manager_secret.jwt_secret.id
+  secret_data = "placeholder"
+}
+
 resource "google_secret_manager_secret" "supabase_url" {
   secret_id = "SUPABASE_URL"
 
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "supabase_url_initial_version" {
+  secret      = google_secret_manager_secret.supabase_url.id
+  secret_data = "placeholder"
 }
 
 resource "google_secret_manager_secret" "supabase_key" {
@@ -156,12 +189,22 @@ resource "google_secret_manager_secret" "supabase_key" {
   }
 }
 
+resource "google_secret_manager_secret_version" "supabase_key_initial_version" {
+  secret      = google_secret_manager_secret.supabase_key.id
+  secret_data = "placeholder"
+}
+
 resource "google_secret_manager_secret" "supabase_service_key" {
   secret_id = "SUPABASE_SERVICE_KEY"
 
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "supabase_service_key_initial_version" {
+  secret      = google_secret_manager_secret.supabase_service_key.id
+  secret_data = "placeholder"
 }
 
 resource "google_secret_manager_secret" "google_client_id" {
@@ -172,12 +215,22 @@ resource "google_secret_manager_secret" "google_client_id" {
   }
 }
 
+resource "google_secret_manager_secret_version" "google_client_id_initial_version" {
+  secret      = google_secret_manager_secret.google_client_id.id
+  secret_data = "placeholder"
+}
+
 resource "google_secret_manager_secret" "google_client_secret" {
   secret_id = "GOOGLE_CLIENT_SECRET"
 
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "google_client_secret_initial_version" {
+  secret      = google_secret_manager_secret.google_client_secret.id
+  secret_data = "placeholder"
 }
 
 resource "google_secret_manager_secret" "gcp_analysis_function_url" {
@@ -188,6 +241,11 @@ resource "google_secret_manager_secret" "gcp_analysis_function_url" {
   }
 }
 
+resource "google_secret_manager_secret_version" "gcp_analysis_function_url_initial_version" {
+  secret      = google_secret_manager_secret.gcp_analysis_function_url.id
+  secret_data = "https://placeholder.url/update-me"
+}
+
 resource "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
 
@@ -196,10 +254,15 @@ resource "google_secret_manager_secret" "openrouter_api_key" {
   }
 }
 
-# Data source to get the current version of the GCP analysis function URL secret
-data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
-  secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+resource "google_secret_manager_secret_version" "openrouter_api_key_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_api_key.id
+  secret_data = "placeholder"
 }
+
+# Data source to get the current version of the GCP analysis function URL secret
+/* data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
+  secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
+} */
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
@@ -242,7 +305,7 @@ module "cloud_run_service" {
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
-  gcp_analysis_function_url_version = data.google_secret_manager_secret_version.gcp_analysis_function_url_version.version
+  gcp_analysis_function_url_version = google_secret_manager_secret_version.gcp_analysis_function_url_initial_version.version
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
   allow_unauthenticated_invocations = false
 }
@@ -252,6 +315,7 @@ module "cloud_run_service" {
 locals {
   frontend_domain = var.frontend_domain_name
   backend_domain  = "api.${var.frontend_domain_name}"
+  is_production = var.environment == "production"
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -277,7 +341,16 @@ resource "google_storage_bucket" "frontend_bucket" {
   depends_on = [google_project_service.apis]
 }
 
+# 2. Grant public read access to the bucket objects for the CDN
+resource "google_storage_bucket_iam_member" "public_access" {
+  count = var.manage_frontend_infra ? 1 : 0
 
+  bucket = google_storage_bucket.frontend_bucket[0].name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+
+  depends_on = [google_storage_bucket.frontend_bucket]
+}
 
 # 3. Reserve a static IP for the load balancer
 resource "google_compute_global_address" "frontend_ip" {
@@ -348,27 +421,35 @@ resource "google_compute_global_forwarding_rule" "frontend_forwarding_rule" {
 }
 
 # --- DNS for Frontend ---
+
 # This creates a managed zone for 'promptly.social' and adds A records.
 # NOTE: After running this, you must update the nameservers at your
 # domain registrar to the ones provided in the `dns_zone_nameservers` output.
 resource "google_dns_managed_zone" "frontend_zone" {
-  count = var.manage_frontend_infra ? 1 : 0
+  count = var.manage_frontend_infra && local.is_production ? 1 : 0
 
-  name     = "promptly-social-zone" # A name for the zone in GCP
-  dns_name = "promptly.social."     # The actual domain name
-  project  = var.project_id
+  name        = "promptly-social-zone" # A name for the zone in GCP
+  dns_name    = "promptly.social."     # The actual domain name
+  project     = var.project_id
   description = "DNS zone for promptly.social"
+}
+
+resource "google_project_iam_member" "dns_editors" {
+  for_each = toset(var.dns_editor_service_accounts)
+  project  = var.project_id
+  role     = "roles/dns.admin"
+  member   = "serviceAccount:${each.key}"
 }
 
 resource "google_dns_record_set" "frontend_a_record" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
   name         = "${local.frontend_domain}."
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_global_address.frontend_ip[0].address]
-  project      = var.project_id
+  project      = local.is_production ? var.project_id : var.production_project_id
 }
 
 # --- Backend API Infrastructure (Load Balancer for Cloud Run) ---
@@ -448,10 +529,10 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
 resource "google_dns_record_set" "api_a_record" {
   count = var.manage_cloud_run_service ? 1 : 0
 
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
   name         = "${local.backend_domain}."
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_global_address.api_ip[0].address]
-  project      = var.project_id
+  project      = local.is_production ? var.project_id : var.production_project_id
 }

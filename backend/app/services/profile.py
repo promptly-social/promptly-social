@@ -3,15 +3,17 @@ Content service for handling content-related business logic.
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
+import urllib.parse
 
 import httpx
 from loguru import logger
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate
 
@@ -158,6 +160,162 @@ class ProfileService:
                 f"Error upserting social connection {platform} for {user_id}: {e}"
             )
             raise
+
+    # LinkedIn Operations
+    def create_linkedin_authorization_url(self, state: str) -> str:
+        """Create the LinkedIn authorization URL."""
+        if not settings.linkedin_client_id:
+            raise ValueError("LINKEDIN_CLIENT_ID is not configured")
+
+        params = {
+            "response_type": "code",
+            "client_id": settings.linkedin_client_id,
+            "redirect_uri": settings.linkedin_redirect_uri,
+            "state": state,
+            "scope": "openid profile email w_member_social",  # Using OIDC scopes + sharing
+        }
+        auth_url = (
+            "https://www.linkedin.com/oauth/v2/authorization?"
+            + urllib.parse.urlencode(params)
+        )
+        return auth_url
+
+    async def exchange_linkedin_code_for_token(
+        self, code: str, user_id: UUID
+    ) -> SocialConnection:
+        """Exchange authorization code for an access token and fetch user info."""
+        if not settings.linkedin_client_id or not settings.linkedin_client_secret:
+            raise ValueError("LinkedIn client ID or secret is not configured")
+
+        token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+        payload = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": settings.linkedin_redirect_uri,
+            "client_id": settings.linkedin_client_id,
+            "client_secret": settings.linkedin_client_secret,
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(token_url, data=payload)
+            response.raise_for_status()
+            token_data = response.json()
+
+        access_token = token_data["access_token"]
+        refresh_token = token_data.get("refresh_token")
+        expires_in = token_data["expires_in"]
+        scope = token_data["scope"]
+
+        user_info = await self._get_linkedin_user_info(access_token)
+
+        connection_data = SocialConnectionUpdate(
+            platform_username=user_info.get("name"),
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+            scope=scope,
+            is_active=True,
+            connection_data={
+                "linkedin_user_id": user_info.get("sub"),
+                "email": user_info.get("email"),
+                "picture": user_info.get("picture"),
+            },
+        )
+
+        return await self.upsert_social_connection(user_id, "linkedin", connection_data)
+
+    async def _get_linkedin_user_info(self, access_token: str) -> dict:
+        """Fetch user information from LinkedIn's userinfo endpoint."""
+        user_info_url = "https://api.linkedin.com/v2/userinfo"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(user_info_url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+    async def refresh_linkedin_token(self, user_id: UUID) -> Optional[SocialConnection]:
+        """Refresh an expired LinkedIn access token."""
+        connection = await self.get_social_connection(user_id, "linkedin")
+        if not connection or not connection.refresh_token:
+            return None
+
+        # Check if token is expiring soon (e.g., within the next 5 minutes)
+        if connection.expires_at and connection.expires_at > datetime.now(
+            timezone.utc
+        ) + timedelta(minutes=5):
+            return connection  # Token is still valid
+
+        if not settings.linkedin_client_id or not settings.linkedin_client_secret:
+            raise ValueError("LinkedIn client ID or secret is not configured")
+
+        token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": connection.refresh_token,
+            "client_id": settings.linkedin_client_id,
+            "client_secret": settings.linkedin_client_secret,
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(token_url, data=payload)
+            response.raise_for_status()
+            token_data = response.json()
+
+        update_data = SocialConnectionUpdate(
+            access_token=token_data["access_token"],
+            refresh_token=token_data.get(
+                "refresh_token", connection.refresh_token
+            ),  # LinkedIn might not always return a new refresh token
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(seconds=token_data["expires_in"]),
+            scope=token_data.get("scope", connection.scope),
+        )
+
+        return await self.upsert_social_connection(user_id, "linkedin", update_data)
+
+    async def share_on_linkedin(self, user_id: UUID, text: str) -> dict:
+        """Share a text post on LinkedIn for a user."""
+        connection = await self.refresh_linkedin_token(user_id)
+        if not connection or not connection.access_token:
+            raise ValueError("User does not have a valid LinkedIn connection.")
+
+        # The author URN is stored in connection_data during auth
+        author_urn = connection.connection_data.get("linkedin_user_id")
+        if not author_urn:
+            # Fallback to fetching it again if not present
+            user_info = await self._get_linkedin_user_info(connection.access_token)
+            author_urn = user_info.get("sub")
+            if not author_urn:
+                raise ValueError("Could not determine LinkedIn user URN.")
+            # Optionally update the connection_data here
+            connection.connection_data["linkedin_user_id"] = author_urn
+            await self.db.commit()
+
+        share_url = "https://api.linkedin.com/v2/ugcPosts"
+        headers = {
+            "Authorization": f"Bearer {connection.access_token}",
+            "X-Restli-Protocol-Version": "2.0.0",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "author": f"urn:li:person:{author_urn}",
+            "lifecycleState": "PUBLISHED",
+            "specificContent": {
+                "com.linkedin.ugc.ShareContent": {
+                    "shareCommentary": {"text": text},
+                    "shareMediaCategory": "NONE",
+                }
+            },
+            "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(share_url, headers=headers, json=payload)
+            response.raise_for_status()
+
+            share_id = response.headers.get("x-restli-id")
+            logger.info(f"Successfully shared post to LinkedIn with ID: {share_id}")
+            return {"share_id": share_id}
 
     async def analyze_substack(self, user_id: UUID) -> Optional[SocialConnection]:
         """

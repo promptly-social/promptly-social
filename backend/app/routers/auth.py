@@ -314,90 +314,114 @@ async def health_check():
     }
 
 
-@router.get(
-    "/callback/google",
-    summary="Google OAuth Callback",
-    description="Handles the server-side callback from Supabase after Google authentication. This endpoint exchanges the authorization code for a session, sets a secure cookie, and redirects to the frontend.",
-    response_class=RedirectResponse,
-)
+@router.get("/callback/google")
 async def google_oauth_callback(
     request: Request,
+    code: str,
+    state: Optional[str] = None,
+    redirect_to: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Handles the redirect from Supabase after a user authenticates with Google.
-    - Exchanges the authorization code for a user session.
-    - Sets secure, HTTPOnly cookies for the access and refresh tokens.
-    - Redirects the user back to the frontend application.
+    Handle Google OAuth callback.
+
+    This endpoint is called by Google after user authorization.
+    It exchanges the authorization code for user session.
     """
-    code = request.query_params.get("code")
-    if not code:
-        logger.warning("Google OAuth callback called without an authorization code.")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Authorization code is missing from the callback.",
+    try:
+        logger.info(f"=== Google OAuth Callback Received ===")
+        logger.info(f"Code: {code[:20]}..." if code else "No code")
+        logger.info(f"State: {state}")
+        logger.info(f"Redirect to: {redirect_to}")
+
+        # Check if this is called by the frontend (has specific headers)
+        is_frontend_request = (
+            request.headers.get("content-type") == "application/json"
+            or "fetch" in request.headers.get("user-agent", "").lower()
+            or request.headers.get("sec-fetch-mode") == "cors"
         )
 
-    try:
+        logger.info(f"Is frontend request: {is_frontend_request}")
+        logger.info(f"User agent: {request.headers.get('user-agent', 'N/A')}")
+        logger.info(f"Sec-fetch-mode: {request.headers.get('sec-fetch-mode', 'N/A')}")
+
         auth_service = AuthService(db)
-        result = await auth_service.exchange_code_for_session(str(code))
+        result = await auth_service.handle_oauth_callback(code, redirect_to)
 
-        if result.get("error"):
-            logger.error(f"Failed to exchange code for session: {result['error']}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=result.get("error_description", "Invalid authorization code."),
-            )
+        logger.info(f"Auth service result: {result.get('error', 'Success')}")
 
-        tokens = result.get("tokens")
-        if not tokens:
-            logger.error("Token data is missing from the session exchange response.")
+        if result["error"]:
+            logger.error(f"OAuth callback error: {result['error']}")
+
+            if is_frontend_request:
+                # Return JSON error for frontend requests
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
+                )
+            else:
+                # Redirect to frontend with error for direct browser requests
+                error_url = (
+                    f"{redirect_to or 'http://localhost:8080'}?error={result['error']}"
+                )
+                logger.info(f"Redirecting to error URL: {error_url}")
+                return RedirectResponse(url=error_url)
+
+        if is_frontend_request:
+            # Return JSON response for frontend requests
+            logger.info(f"=== Returning JSON Response to Frontend ===")
+            response_data = {
+                "access_token": result["tokens"].access_token,
+                "refresh_token": result["tokens"].refresh_token,
+                "expires_in": result["tokens"].expires_in,
+                "user": {
+                    "id": result["user"].id,
+                    "email": result["user"].email,
+                    "created_at": result["user"].created_at.isoformat()
+                    if result["user"].created_at
+                    else None,
+                },
+            }
+            logger.info(f"JSON response data prepared")
+            return response_data
+        else:
+            # Redirect to frontend with success and tokens for direct browser requests
+            success_url = f"{redirect_to or 'http://localhost:8080'}/auth/callback"
+            success_url += f"?access_token={result['tokens'].access_token}"
+            success_url += f"&refresh_token={result['tokens'].refresh_token}"
+            success_url += f"&expires_in={result['tokens'].expires_in}"
+            success_url += f"&user_id={result['user'].id}"
+
+            logger.info(f"=== Redirecting to Frontend ===")
+            logger.info(f"Success URL: {success_url}")
+            return RedirectResponse(url=success_url)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"=== Google OAuth Callback Exception ===")
+        logger.error(f"Exception: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        is_frontend_request = (
+            request.headers.get("content-type") == "application/json"
+            or "fetch" in request.headers.get("user-agent", "").lower()
+            or request.headers.get("sec-fetch-mode") == "cors"
+        )
+
+        if is_frontend_request:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not retrieve session tokens.",
+                detail="OAuth callback failed",
             )
-
-        # Redirect to the frontend, which will now have the session cookies.
-        # The frontend URL should be configurable and depend on the environment.
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else "/"
-        response = RedirectResponse(url=frontend_url)
-
-        # Set secure, HTTPOnly cookies for the tokens
-        response.set_cookie(
-            key="sb-access-token",
-            value=tokens.access_token,
-            max_age=tokens.expires_in,
-            httponly=True,
-            samesite="lax",
-            secure=settings.ENVIRONMENT != "development",  # Use secure cookies in prod
-            path="/",
-        )
-        response.set_cookie(
-            key="sb-refresh-token",
-            value=tokens.refresh_token,
-            max_age=60 * 60 * 24 * 7,  # 7 days
-            httponly=True,
-            samesite="lax",
-            secure=settings.ENVIRONMENT != "development",  # Use secure cookies in prod
-            path="/",
-        )
-
-        logger.info(
-            f"Successfully created session for user {result['user'].id} via Google OAuth."
-        )
-        return response
-
-    except HTTPException as http_exc:
-        # Re-raise known HTTP exceptions
-        raise http_exc
-    except Exception as e:
-        logger.opt(exception=True).error(
-            f"An unexpected error occurred during Google OAuth callback: {e}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An internal error occurred during the authentication process.",
-        )
+        else:
+            error_url = (
+                f"{redirect_to or 'http://localhost:8080'}?error=oauth_callback_failed"
+            )
+            logger.info(f"Redirecting to error URL: {error_url}")
+            return RedirectResponse(url=error_url)
 
 
 @router.post("/signin/google/token", response_model=AuthResponse)

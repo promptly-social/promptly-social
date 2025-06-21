@@ -77,7 +77,7 @@ jobs:
         uses: "google-github-actions/auth@v2"
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ env.APP_SA_EMAIL }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
@@ -148,6 +148,7 @@ jobs:
           echo "📍 Service URL: ${{ needs.deploy.outputs.service_url }}"
           echo "🏷️  Docker Tag: ${{ needs.build-and-push.outputs.image_tag }}"
           echo "💾 Database: Using Supabase (no CloudSQL needed)"
+          echo "🔑 WIF principal has token creator role for Docker auth."
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
             echo "🔄 Minimum instances set to 1 to avoid cold starts"
           else

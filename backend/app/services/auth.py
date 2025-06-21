@@ -3,17 +3,20 @@ Authentication service containing business logic for user management.
 Integrates Supabase auth with local database operations.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
-
-from loguru import logger
-from sqlalchemy import select, update
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+from loguru import logger
 
-from app.core.config import settings
-from app.core.security import create_access_token, create_refresh_token, verify_token
 from app.models.user import User, UserSession
-from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserResponse
+from app.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    verify_token,
+)
+from app.core.config import settings
 from app.utils.supabase import supabase_client
 
 
@@ -204,89 +207,6 @@ class AuthService:
             logger.error(f"Google OAuth sign in failed: {e}")
             return {"error": "OAuth sign in failed", "url": None}
 
-    async def exchange_code_for_session(self, code: str) -> Dict[str, Any]:
-        """
-        Exchanges an authorization code from a Supabase OAuth callback for a user session.
-
-        This is the core of the server-side OAuth flow. It also handles creating a
-        local user record if one doesn't already exist for the Supabase user.
-
-        Args:
-            code: The authorization code provided by Supabase.
-
-        Returns:
-            A dictionary containing the user, tokens, and any potential error.
-        """
-        try:
-            # Exchange the code for a Supabase session
-            supabase_response = await supabase_client.exchange_code_for_session(code)
-
-            if "error" in supabase_response:
-                logger.error(
-                    f"Supabase code exchange failed: {supabase_response['error']}"
-                )
-                return {
-                    "error": supabase_response.get(
-                        "error_description", "Invalid auth code"
-                    )
-                }
-
-            supabase_user = supabase_response.get("user")
-            supabase_session = supabase_response.get("session")
-
-            if not supabase_user or not supabase_session:
-                return {"error": "Failed to get user or session from Supabase."}
-
-            # We have a valid Supabase user, find or create their local record
-            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
-
-            if not local_user:
-                # User exists in Supabase but not locally, so create a local record
-                user_metadata = supabase_user.user_metadata or {}
-                local_user = User(
-                    supabase_user_id=str(supabase_user.id),
-                    email=supabase_user.email,
-                    full_name=user_metadata.get("full_name", "New User"),
-                    is_verified=supabase_user.email_confirmed_at is not None,
-                )
-                self.db.add(local_user)
-                await self.db.commit()
-                await self.db.refresh(local_user)
-                logger.info(
-                    f"Created new local user {local_user.email} from Google OAuth."
-                )
-
-            # Update last login time
-            await self._update_last_login(local_user.id)
-
-            # Create a session record in our local database
-            await self._create_session(
-                user_id=local_user.id,
-                access_token=supabase_session.access_token,
-                refresh_token=supabase_session.refresh_token,
-            )
-
-            # Prepare the token response
-            tokens = TokenResponse(
-                access_token=supabase_session.access_token,
-                refresh_token=supabase_session.refresh_token,
-                expires_in=supabase_session.expires_in or 3600,
-            )
-
-            return {
-                "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
-                "tokens": tokens,
-            }
-        except Exception as e:
-            await self.db.rollback()
-            logger.opt(exception=True).error(
-                f"Unexpected error during code exchange: {e}"
-            )
-            return {"error": "An internal server error occurred."}
-
     async def sign_out(self, access_token: str) -> Dict[str, Any]:
         """
         Sign out a user and revoke their session.
@@ -356,23 +276,17 @@ class AuthService:
 
         except Exception as e:
             logger.error(f"Token refresh failed: {e}")
-            return {
-                "error": "Token refresh failed",
-                "tokens": None,
-            }
+            return {"error": "Token refresh failed", "tokens": None}
 
     async def get_current_user(self, access_token: str) -> Optional[UserResponse]:
         """
-        Get the current user from an access token.
-
-        Verifies the token, retrieves the user from the database,
-        and returns user information.
+        Get current user from access token.
 
         Args:
-            access_token: The user's JWT access token.
+            access_token: User's access token
 
         Returns:
-            UserResponse object if the token is valid, otherwise None.
+            User information if token is valid
         """
         try:
             user_id = verify_token(access_token)
@@ -380,14 +294,174 @@ class AuthService:
                 return None
 
             user = await self._get_user_by_id(user_id)
-            if not user:
+            if not user or not user.is_active:
                 return None
 
             return UserResponse.model_validate({**user.__dict__, "id": str(user.id)})
 
         except Exception as e:
-            logger.error(f"Failed to get current user: {e}")
+            logger.error(f"Get current user failed: {e}")
             return None
+
+    async def handle_oauth_callback(
+        self, code: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Handle OAuth callback and create user session.
+
+        Args:
+            code: OAuth authorization code
+            redirect_to: Optional redirect URL
+
+        Returns:
+            Dict containing user and token information
+        """
+        try:
+            # Exchange code for session with Supabase
+            supabase_response = await supabase_client.handle_oauth_callback(
+                code, redirect_to
+            )
+
+            # Handle case where supabase_response might be a string
+            if isinstance(supabase_response, str):
+                return {
+                    "error": supabase_response,
+                    "user": None,
+                    "tokens": None,
+                }
+
+            if not isinstance(supabase_response, dict):
+                return {
+                    "error": "Invalid response from Supabase",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            if supabase_response.get("error"):
+                return {
+                    "error": supabase_response["error"],
+                    "user": None,
+                    "tokens": None,
+                }
+
+            supabase_user = supabase_response.get("user")
+            if not supabase_user:
+                return {
+                    "error": "OAuth authentication failed",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            # Get or create local user record
+            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
+            if not local_user:
+                # Create local user if doesn't exist
+                local_user = User(
+                    supabase_user_id=str(supabase_user.id),
+                    email=supabase_user.email,
+                    full_name=supabase_user.user_metadata.get("full_name"),
+                    is_verified=supabase_user.email_confirmed_at is not None,
+                )
+                self.db.add(local_user)
+                await self.db.commit()
+                await self.db.refresh(local_user)
+
+            # Update last login
+            await self._update_last_login(local_user.id)
+
+            # Create tokens and session
+            tokens = await self._create_tokens(local_user)
+            await self._create_session(
+                local_user.id, tokens.access_token, tokens.refresh_token
+            )
+
+            return {
+                "error": None,
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
+                "tokens": tokens,
+                "message": "OAuth sign in successful",
+            }
+
+        except Exception:
+            return {
+                "error": "OAuth authentication failed",
+                "user": None,
+                "tokens": None,
+            }
+
+    async def sign_in_with_google_token(
+        self, id_token: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Sign in with Google ID token.
+
+        Args:
+            id_token: Google ID token
+            redirect_to: Optional redirect URL
+
+        Returns:
+            Dict containing user and token information
+        """
+        try:
+            # Authenticate with Supabase using ID token
+            supabase_response = supabase_client.sign_in_with_google_token(id_token)
+
+            if supabase_response["error"]:
+                return {
+                    "error": supabase_response["error"],
+                    "user": None,
+                    "tokens": None,
+                }
+
+            supabase_user = supabase_response["user"]
+            if not supabase_user:
+                return {
+                    "error": "Google authentication failed",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            # Get or create local user record
+            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
+            if not local_user:
+                # Create local user if doesn't exist
+                local_user = User(
+                    supabase_user_id=str(supabase_user.id),
+                    email=supabase_user.email,
+                    full_name=supabase_user.user_metadata.get("full_name"),
+                    is_verified=supabase_user.email_confirmed_at is not None,
+                )
+                self.db.add(local_user)
+                await self.db.commit()
+                await self.db.refresh(local_user)
+
+            # Update last login
+            await self._update_last_login(local_user.id)
+
+            # Create tokens and session
+            tokens = await self._create_tokens(local_user)
+            await self._create_session(
+                local_user.id, tokens.access_token, tokens.refresh_token
+            )
+
+            return {
+                "error": None,
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
+                "tokens": tokens,
+                "message": "Google sign in successful",
+            }
+
+        except Exception as e:
+            logger.error(f"Google OAuth sign in failed: {e}")
+            return {
+                "error": "Google authentication failed",
+                "user": None,
+                "tokens": None,
+            }
 
     # Private helper methods
 
@@ -426,7 +500,7 @@ class AuthService:
         self, user_id: str, access_token: str, refresh_token: str
     ) -> UserSession:
         """Create a new user session."""
-        expires_at = datetime.now(timezone.utc) + timedelta(
+        expires_at = datetime.utcnow() + timedelta(
             minutes=settings.access_token_expire_minutes
         )
 
@@ -446,7 +520,7 @@ class AuthService:
         stmt = (
             update(User)
             .where(User.id == user_id)
-            .values(last_login_at=datetime.now(timezone.utc))
+            .values(last_login_at=datetime.utcnow())
         )
         await self.db.execute(stmt)
         await self.db.commit()
@@ -456,7 +530,7 @@ class AuthService:
         stmt = (
             update(UserSession)
             .where(UserSession.session_token == access_token)
-            .values(revoked_at=datetime.now(timezone.utc))
+            .values(revoked_at=datetime.utcnow())
         )
         await self.db.execute(stmt)
         await self.db.commit()
@@ -465,7 +539,7 @@ class AuthService:
         self, user_id: str, access_token: str, refresh_token: str
     ) -> None:
         """Update session tokens."""
-        expires_at = datetime.now(timezone.utc) + timedelta(
+        expires_at = datetime.utcnow() + timedelta(
             minutes=settings.access_token_expire_minutes
         )
 
@@ -476,7 +550,7 @@ class AuthService:
                 session_token=access_token,
                 refresh_token=refresh_token,
                 expires_at=expires_at,
-                last_used_at=datetime.now(timezone.utc),
+                last_used_at=datetime.utcnow(),
             )
         )
         await self.db.execute(stmt)

@@ -40,30 +40,21 @@ export const SocialConnections: React.FC = () => {
   };
 
   const connectPlatform = async (platform: "linkedin") => {
-    setIsLoading(true);
-    try {
-      // For now, we'll create a basic connection without requiring username
-      // In a real implementation, this would redirect to OAuth flow
-      await profileApi.updateSocialConnection(platform, {
-        platform_username: `user_${platform}`, // Placeholder
-        is_active: true,
-      });
-
-      toast({
-        title: "Connected",
-        description: `Successfully connected to ${platform}`,
-      });
-
-      fetchConnections();
-    } catch (error) {
-      console.error("Error connecting platform:", error);
-      toast({
-        title: "Connection Error",
-        description: `Failed to connect to ${platform}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    if (platform === "linkedin") {
+      setIsLoading(true);
+      try {
+        const { authorization_url } = await profileApi.linkedinAuthorize();
+        window.location.href = authorization_url;
+      } catch (error) {
+        console.error("Error starting LinkedIn connection:", error);
+        toast({
+          title: "Connection Error",
+          description:
+            "Could not initiate LinkedIn connection. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      }
     }
   };
 

@@ -31,4 +31,9 @@ variable "environment" {
   description = "The deployment environment (e.g., staging, production)."
   type        = string
   default     = "staging"
+}
+
+variable "function_source_dir" {
+  description = "The source directory of the cloud function."
+  type        = string
 } 

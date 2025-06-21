@@ -5,6 +5,7 @@ Includes validation logic for user data, tokens, and authentication flows.
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from pydantic.types import constr

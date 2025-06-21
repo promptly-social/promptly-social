@@ -54,6 +54,10 @@ class SocialConnectionUpdate(BaseModel):
     """Schema for updating social connections."""
 
     platform_username: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    scope: Optional[str] = None
     connection_data: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
     analysis_started_at: Optional[datetime] = None
@@ -67,6 +71,10 @@ class SocialConnectionResponse(SocialConnectionBase):
 
     id: UUID
     user_id: UUID
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    scope: Optional[str] = None
     connection_data: Optional[Dict[str, Any]] = None
     analysis_started_at: Optional[datetime] = None
     analysis_completed_at: Optional[datetime] = None
@@ -195,3 +203,15 @@ class PlatformAnalysisResponse(BaseModel):
     analysis_data: Optional[str] = None
     last_analyzed: Optional[str] = None
     is_connected: bool
+
+
+class LinkedInAuthResponse(BaseModel):
+    """Schema for the LinkedIn auth URL response."""
+
+    authorization_url: str
+
+
+class LinkedInShareRequest(BaseModel):
+    """Schema for a LinkedIn share request."""
+
+    text: str

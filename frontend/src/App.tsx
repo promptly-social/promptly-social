@@ -16,6 +16,7 @@ import MyContent from "./pages/MyContent/MyContent";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/auth/OAuthCallback";
+import LinkedinCallback from "./pages/auth/LinkedinCallback";
 import EarlyAccess from "./pages/EarlyAccess";
 
 const queryClient = new QueryClient();
@@ -152,6 +153,10 @@ const App = () => (
               }
             />
             <Route path="/auth/callback" element={<OAuthCallback />} />
+            <Route
+              path="/auth/linkedin/callback"
+              element={<LinkedinCallback />}
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
