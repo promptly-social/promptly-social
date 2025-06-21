@@ -5,7 +5,6 @@ Includes validation logic for user data, tokens, and authentication flows.
 
 from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 from pydantic.types import constr
@@ -131,21 +130,20 @@ class PasswordResetConfirm(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    """Schema for Google OAuth authentication request."""
+    """Request model for initiating Google OAuth."""
 
-    redirect_to: Optional[str] = None
+    redirect_to: str | None = None
 
 
-class GoogleOAuthCallback(BaseModel):
-    """Schema for Google OAuth callback handling."""
+class GoogleCallbackRequest(BaseModel):
+    """Request model for handling the Google OAuth callback from the frontend."""
 
     code: str
-    state: Optional[str] = None
-    redirect_to: Optional[str] = None
+    code_verifier: str
 
 
 class GoogleSignInWithToken(BaseModel):
-    """Schema for Google sign in with ID token."""
+    """Request model for signing in with a Google ID token."""
 
     id_token: str
     redirect_to: Optional[str] = None

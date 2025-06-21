@@ -185,7 +185,7 @@ class AuthService:
             redirect_to: Optional redirect URL after authentication
 
         Returns:
-            Dict containing OAuth URL
+            Dict containing OAuth URL and code verifier
         """
         try:
             response = await supabase_client.sign_in_with_oauth(
@@ -193,19 +193,20 @@ class AuthService:
             )
 
             if response["error"]:
-                return {"error": response["error"], "url": None}
+                return {"error": response["error"], "url": None, "code_verifier": None}
 
             logger.info("Google OAuth sign in initiated")
 
             return {
                 "error": None,
                 "url": response["url"],
+                "code_verifier": response["code_verifier"],
                 "message": "OAuth sign in initiated",
             }
 
         except Exception as e:
             logger.error(f"Google OAuth sign in failed: {e}")
-            return {"error": "OAuth sign in failed", "url": None}
+            return {"error": "OAuth sign in failed", "url": None, "code_verifier": None}
 
     async def sign_out(self, access_token: str) -> Dict[str, Any]:
         """
@@ -280,7 +281,7 @@ class AuthService:
 
     async def get_current_user(self, access_token: str) -> Optional[UserResponse]:
         """
-        Get current user from access token.
+        Get current authenticated user from access token.
 
         Args:
             access_token: User's access token
@@ -304,14 +305,14 @@ class AuthService:
             return None
 
     async def handle_oauth_callback(
-        self, code: str, redirect_to: Optional[str] = None
+        self, code: str, code_verifier: str
     ) -> Dict[str, Any]:
         """
-        Handle OAuth callback and create user session.
+        Handle Google OAuth callback.
 
         Args:
-            code: OAuth authorization code
-            redirect_to: Optional redirect URL
+            code: Authorization code from Google
+            code_verifier: PKCE code verifier
 
         Returns:
             Dict containing user and token information
@@ -319,13 +320,12 @@ class AuthService:
         try:
             # Exchange code for session with Supabase
             supabase_response = await supabase_client.handle_oauth_callback(
-                code, redirect_to
+                code, code_verifier
             )
 
-            # Handle case where supabase_response might be a string
-            if isinstance(supabase_response, str):
+            if supabase_response["error"]:
                 return {
-                    "error": supabase_response,
+                    "error": supabase_response["error"],
                     "user": None,
                     "tokens": None,
                 }
@@ -333,13 +333,6 @@ class AuthService:
             if not isinstance(supabase_response, dict):
                 return {
                     "error": "Invalid response from Supabase",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            if supabase_response.get("error"):
-                return {
-                    "error": supabase_response["error"],
                     "user": None,
                     "tokens": None,
                 }

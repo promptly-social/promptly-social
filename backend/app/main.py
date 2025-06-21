@@ -60,6 +60,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Promptly API...")
     configure_logging()
+    logger.info(f"CORS origins configured: {settings.get_cors_origins()}")
 
     try:
         # Initialize database
@@ -177,6 +178,11 @@ async def log_requests(request: Request, call_next):
         if request.client
         else "unknown"
     )
+
+    # Log incoming request origin for CORS debugging
+    origin = request.headers.get("origin")
+    if origin:
+        logger.info(f"Request origin: {origin}")
 
     # Special logging for OPTIONS requests that are failing
     if request.method == "OPTIONS" and "signin/google" in str(request.url):

@@ -10,6 +10,10 @@ from supabase import Client, create_client
 
 from app.core.config import settings
 
+import base64
+import hashlib
+import os
+
 
 class SupabaseClient:
     """
@@ -248,129 +252,90 @@ class SupabaseClient:
             redirect_to: Optional redirect URL after authentication
 
         Returns:
-            Dictionary containing OAuth URL or error
+            Dictionary containing OAuth URL and code verifier
         """
         try:
-            logger.info(f"Initiating {provider} OAuth sign in")
-            logger.info(f"Final redirect to: {redirect_to}")
-
-            # Configure Supabase to redirect to our backend callback, not directly to frontend
-            backend_callback_url = (
-                f"{settings.backend_url}/api/v1/auth/callback/{provider}"
+            # Generate PKCE code verifier and challenge
+            code_verifier = (
+                base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode("utf-8")
             )
-            if redirect_to:
-                backend_callback_url += f"?redirect_to={redirect_to}"
+            code_challenge = (
+                base64.urlsafe_b64encode(
+                    hashlib.sha256(code_verifier.encode("utf-8")).digest()
+                )
+                .rstrip(b"=")
+                .decode("utf-8")
+            )
 
-            logger.info(f"Backend callback URL: {backend_callback_url}")
-
-            oauth_options = {
-                "provider": provider,
-                "options": {"redirectTo": backend_callback_url},
-            }
-            logger.info(f"OAuth options being sent to Supabase: {oauth_options}")
-
-            response = self.client.auth.sign_in_with_oauth(oauth_options)
+            response = self.client.auth.sign_in_with_oauth(
+                {
+                    "provider": provider,
+                    "options": {
+                        "redirect_to": redirect_to,
+                        "code_challenge": code_challenge,
+                        "code_challenge_method": "S256",
+                    },
+                }
+            )
 
             if response.url:
-                logger.info(f"{provider} OAuth URL generated successfully")
-                logger.info(f"Generated OAuth URL: {response.url}")
+                logger.info(f"OAuth sign in initiated for provider: {provider}")
                 return {
                     "url": response.url,
+                    "code_verifier": code_verifier,
                     "error": None,
                 }
             else:
-                logger.warning(f"{provider} OAuth URL generation failed")
-                return {"url": None, "error": f"{provider} OAuth failed"}
+                logger.warning(f"OAuth sign in failed for provider: {provider}")
+                return {
+                    "url": None,
+                    "code_verifier": None,
+                    "error": "OAuth provider setup error",
+                }
 
         except Exception as e:
-            logger.error(f"{provider} OAuth error: {str(e)}")
-            return {"url": None, "error": str(e)}
+            logger.error(f"OAuth sign in error for {provider}: {str(e)}")
+            return {"url": None, "code_verifier": None, "error": str(e)}
 
     async def handle_oauth_callback(
-        self, code: str, redirect_to: Optional[str] = None
+        self, code: str, code_verifier: str
     ) -> Dict[str, Any]:
         """
         Handle OAuth callback and exchange code for session.
 
         Args:
-            code: OAuth authorization code
-            redirect_to: Optional redirect URL
+            code: Authorization code from OAuth provider
+            code_verifier: PKCE code verifier from the initial sign-in
 
         Returns:
             Dictionary containing user data, session, or error
         """
         try:
-            # First, try the standard library method. This works for local development
-            # with the Supabase CLI and some cloud environments.
-            logger.info("Attempting standard Supabase code exchange (for local dev)...")
-            response = self.client.auth.exchange_code_for_session({"auth_code": code})
+            logger.info("Handling OAuth callback")
+            response = self.client.auth.exchange_code_for_session(
+                {"auth_code": code, "code_verifier": code_verifier}
+            )
 
             if response.user and response.session:
                 logger.info(
-                    f"Standard OAuth callback successful: {response.user.email}"
+                    f"OAuth callback successful for user: {response.user.email}"
                 )
                 return {
                     "user": response.user,
                     "session": response.session,
                     "error": None,
                 }
-            # If it "succeeds" but returns no user, it's a failure. Fall through.
-            raise ValueError("Standard exchange returned no user or session.")
+            else:
+                logger.warning("OAuth callback failed")
+                return {"user": None, "session": None, "error": "OAuth exchange failed"}
 
         except Exception as e:
-            logger.warning(
-                f"Standard Supabase code exchange failed: {e}. "
-                "Falling back to direct API call (for deployed environments)."
-            )
-
-            # Fallback: Use a direct, raw API call to the token endpoint.
-            # This is more reliable in some cloud environments.
-            import httpx
-
-            try:
-                async with httpx.AsyncClient() as http_client:
-                    # The key fix: The parameter must be "code", not "auth_code".
-                    payload = {"grant_type": "authorization_code", "code": code}
-
-                    response = await http_client.post(
-                        f"{self.url}/auth/v1/token",
-                        headers={
-                            "apikey": self.key,
-                            "Content-Type": "application/json",
-                        },
-                        json=payload,
-                    )
-
-                    if response.status_code == 200:
-                        data = response.json()
-                        logger.info("Direct API call for code exchange successful.")
-                        user_data = self._create_user_from_response(data)
-                        session_data = self._create_session_from_response(data)
-                        return {
-                            "user": user_data,
-                            "session": session_data,
-                            "error": None,
-                        }
-                    else:
-                        error_text = response.text
-                        logger.error(
-                            f"Direct API call failed: {response.status_code} - {error_text}"
-                        )
-                        return {
-                            "user": None,
-                            "session": None,
-                            "error": f"OAuth exchange failed: {error_text}",
-                        }
-
-            except Exception as direct_api_error:
-                logger.error(
-                    f"Direct API call fallback also failed: {direct_api_error}"
-                )
-                return {
-                    "user": None,
-                    "session": None,
-                    "error": f"OAuth exchange completely failed: {direct_api_error}",
-                }
+            logger.error(f"OAuth callback error: {str(e)}")
+            return {
+                "user": None,
+                "session": None,
+                "error": f"OAuth exchange failed: {e}",
+            }
 
     def sign_in_with_google_token(self, id_token: str) -> Dict[str, Any]:
         """
