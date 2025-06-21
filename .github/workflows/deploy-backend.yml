@@ -115,7 +115,6 @@ jobs:
     uses: ./.github/workflows/terraform-cloud-run.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      action: "apply"
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
     secrets: inherit
 

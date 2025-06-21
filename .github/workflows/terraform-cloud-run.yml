@@ -7,10 +7,6 @@ on:
         description: "Environment (staging/production)"
         required: true
         type: string
-      action:
-        description: "Terraform action"
-        required: true
-        type: string
       image_tag:
         description: "Docker image tag to deploy (required for apply). e.g. main-9a56f6c"
         required: false
@@ -93,17 +89,14 @@ jobs:
           echo "plan_exitcode=$?" >> $GITHUB_OUTPUT
 
       - name: Terraform Apply
-        if: github.event.inputs.action == 'apply'
         run: terraform apply -auto-approve tfplan
 
       - name: Set Terraform Outputs
-        if: github.event.inputs.action == 'apply'
         id: tf_output
         run: |
           echo "service_url=$(terraform output -raw cloud_run_service_url)" >> $GITHUB_OUTPUT
 
       - name: Get Terraform Outputs (No Changes)
-        if: github.event.inputs.action == 'apply'
         id: tf_output_no_changes
         run: |
           # When there are no changes, still get the current service URL from state
@@ -114,9 +107,3 @@ jobs:
             echo "service_url=" >> $GITHUB_OUTPUT
             echo "⚠️ No Cloud Run service found in current state"
           fi
-
-      - name: Terraform Destroy
-        if: github.event.inputs.action == 'destroy'
-        run: |
-          terraform plan -destroy -out=destroy_plan -var="manage_cloud_run_service=true"
-          terraform apply -auto-approve destroy_plan
