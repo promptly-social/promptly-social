@@ -300,32 +300,77 @@ class SupabaseClient:
             Dictionary containing user data, session, or error
         """
         try:
-            logger.info(f"Handling OAuth callback with code: {code[:20]}...")
-
+            # First, try the standard library method. This works for local development
+            # with the Supabase CLI and some cloud environments.
+            logger.info("Attempting standard Supabase code exchange (for local dev)...")
             response = self.client.auth.exchange_code_for_session({"auth_code": code})
 
             if response.user and response.session:
-                logger.info(f"OAuth callback successful: {response.user.email}")
+                logger.info(
+                    f"Standard OAuth callback successful: {response.user.email}"
+                )
                 return {
                     "user": response.user,
                     "session": response.session,
                     "error": None,
                 }
-            else:
-                logger.warning("OAuth callback failed - no user or session in response")
+            # If it "succeeds" but returns no user, it's a failure. Fall through.
+            raise ValueError("Standard exchange returned no user or session.")
+
+        except Exception as e:
+            logger.warning(
+                f"Standard Supabase code exchange failed: {e}. "
+                "Falling back to direct API call (for deployed environments)."
+            )
+
+            # Fallback: Use a direct, raw API call to the token endpoint.
+            # This is more reliable in some cloud environments.
+            import httpx
+
+            try:
+                async with httpx.AsyncClient() as http_client:
+                    # The key fix: The parameter must be "code", not "auth_code".
+                    payload = {"grant_type": "authorization_code", "code": code}
+
+                    response = await http_client.post(
+                        f"{self.url}/auth/v1/token",
+                        headers={
+                            "apikey": self.key,
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                    )
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        logger.info("Direct API call for code exchange successful.")
+                        user_data = self._create_user_from_response(data)
+                        session_data = self._create_session_from_response(data)
+                        return {
+                            "user": user_data,
+                            "session": session_data,
+                            "error": None,
+                        }
+                    else:
+                        error_text = response.text
+                        logger.error(
+                            f"Direct API call failed: {response.status_code} - {error_text}"
+                        )
+                        return {
+                            "user": None,
+                            "session": None,
+                            "error": f"OAuth exchange failed: {error_text}",
+                        }
+
+            except Exception as direct_api_error:
+                logger.error(
+                    f"Direct API call fallback also failed: {direct_api_error}"
+                )
                 return {
                     "user": None,
                     "session": None,
-                    "error": "OAuth authentication failed",
+                    "error": f"OAuth exchange completely failed: {direct_api_error}",
                 }
-
-        except Exception as e:
-            logger.error(f"OAuth callback exception: {str(e)}")
-            return {
-                "user": None,
-                "session": None,
-                "error": f"OAuth exchange failed: {str(e)}",
-            }
 
     def sign_in_with_google_token(self, id_token: str) -> Dict[str, Any]:
         """

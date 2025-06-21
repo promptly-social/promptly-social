@@ -27,22 +27,14 @@ provider "google" {
   project = local.is_production ? var.project_id : var.production_project_id
 }
 
-moved {
-  from = google_dns_managed_zone.frontend_zone[0]
-  to   = module.dns[0].google_dns_managed_zone.frontend_zone
-}
-
-moved {
-  from = google_dns_record_set.frontend_a_record[0]
-  to   = module.dns[0].google_dns_record_set.frontend_a_record
-}
-
-moved {
-  from = google_dns_record_set.api_a_record[0]
-  to   = module.dns[0].google_dns_record_set.api_a_record
-}
-
 data "google_project" "current" {}
+
+# Data source to get the production DNS managed zone when running for staging
+data "google_dns_managed_zone" "production_zone" {
+  count   = !local.is_production ? 1 : 0
+  name    = "promptly-social-zone"
+  project = var.production_project_id # This var should be set in staging's .tfvars
+}
 
 # Enable required APIs
 resource "google_project_service" "apis" {
@@ -486,6 +478,51 @@ resource "google_compute_global_forwarding_rule" "frontend_forwarding_rule" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
+# --- DNS for Frontend ---
+
+# This creates a managed zone for 'promptly.social' and adds A records.
+# NOTE: After running this, you must update the nameservers at your
+# domain registrar to the ones provided in the `dns_zone_nameservers` output.
+resource "google_dns_managed_zone" "frontend_zone" {
+  count = var.manage_frontend_infra && local.is_production ? 1 : 0
+
+  name        = "promptly-social-zone" # A name for the zone in GCP
+  dns_name    = "promptly.social."     # The actual domain name
+  project     = var.project_id
+  description = "DNS zone for promptly.social"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "google_project_iam_member" "dns_readers" {
+  for_each = toset(local.is_production ? var.dns_reader_service_accounts : [])
+  project  = var.project_id
+  role     = "roles/dns.reader"
+  member   = "serviceAccount:${each.key}"
+}
+
+resource "google_project_iam_member" "dns_admins" {
+  for_each = toset(local.is_production ? var.dns_admin_service_accounts : [])
+  project  = var.project_id
+  role     = "roles/dns.admin"
+  member   = "serviceAccount:${each.key}"
+}
+
+resource "google_dns_record_set" "frontend_a_record" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
+  name         = "${local.frontend_domain}."
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_global_address.frontend_ip[0].address]
+  project      = local.is_production ? var.project_id : var.production_project_id
+}
+
+# --- Backend API Infrastructure (Load Balancer for Cloud Run) ---
+
 # 1. Serverless NEG for the Cloud Run service
 resource "google_compute_region_network_endpoint_group" "backend_neg" {
   count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
@@ -557,48 +594,16 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# --- DNS Management via Module ---
-module "dns" {
-  source = "../../modules/dns"
-  count  = var.manage_frontend_infra ? 1 : 0
-  providers = {
-    google = google.dns
-  }
+# 8. DNS A record for the API
+resource "google_dns_record_set" "api_a_record" {
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
-  # This module is aware of the environment and will create the zone only in production.
-  create_zone = local.is_production
-
-  # For both staging and production, records are managed in the production project's DNS zone.
-  managed_zone_name = "promptly-social-zone"
-
-  # Define domain names for the records
-  frontend_domain_name = local.frontend_domain
-  backend_domain_name  = local.backend_domain
-
-  # Pass the IP addresses to the module
-  frontend_ip_address = google_compute_global_address.frontend_ip[0].address
-  api_ip_address      = var.manage_backend_load_balancer ? google_compute_global_address.api_ip[0].address : ""
-
-  depends_on = [
-    google_compute_global_address.frontend_ip,
-    google_compute_global_address.api_ip
-  ]
-}
-
-# Grant DNS Reader access to other environments (e.g., staging needs to read prod's zone)
-resource "google_project_iam_member" "dns_readers" {
-  for_each = toset(local.is_production ? var.dns_reader_service_accounts : [])
-  project  = var.project_id
-  role     = "roles/dns.reader"
-  member   = "serviceAccount:${each.key}"
-}
-
-# Grant DNS Admin access for managing records within the zone
-resource "google_project_iam_member" "dns_admins" {
-  for_each = toset(local.is_production ? var.dns_admin_service_accounts : [])
-  project  = var.project_id
-  role     = "roles/dns.admin"
-  member   = "serviceAccount:${each.key}"
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
+  name         = "${local.backend_domain}."
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_global_address.api_ip[0].address]
+  project      = local.is_production ? var.project_id : var.production_project_id
 }
 
 # Grant read-only access to the Terraform state bucket for specified service accounts
