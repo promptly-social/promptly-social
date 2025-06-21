@@ -11,7 +11,7 @@ class UserPreferences(Base):
 
     __tablename__ = "user_preferences"
 
-    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     user_id = Column(get_uuid_column(), nullable=False, unique=True)
     topics_of_interest = Column(get_array_column(String), default=[])
     websites = Column(get_array_column(String), default=[])
@@ -32,7 +32,7 @@ class WritingStyleAnalysis(Base):
 
     __tablename__ = "writing_style_analysis"
 
-    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     user_id = Column(get_uuid_column(), nullable=False)
     platform = Column(String, nullable=False)
     analysis_data = Column(String, nullable=False)
@@ -56,7 +56,7 @@ class SocialConnection(Base):
 
     __tablename__ = "social_connections"
 
-    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     user_id = Column(get_uuid_column(), nullable=False)
     platform = Column(String, nullable=False)
     platform_username = Column(String)
