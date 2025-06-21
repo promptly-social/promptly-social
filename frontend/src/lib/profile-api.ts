@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { makeAuthenticatedRequest } from './api-interceptor';
 
 // Types for API requests/responses
 export interface UserPreferences {
@@ -76,11 +76,11 @@ export const profileApi = {
 
   // User Preferences
   async getUserPreferences(): Promise<UserPreferences> {
-    return apiClient.request<UserPreferences>('/profile/preferences');
+    return makeAuthenticatedRequest<UserPreferences>('/profile/preferences');
   },
 
   async updateUserPreferences(data: UserPreferencesUpdate): Promise<UserPreferences> {
-    return apiClient.request<UserPreferences>('/profile/preferences', {
+    return makeAuthenticatedRequest<UserPreferences>('/profile/preferences', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -88,15 +88,15 @@ export const profileApi = {
 
   // Social Connections
   async getSocialConnections(): Promise<SocialConnection[]> {
-    return apiClient.request<SocialConnection[]>('/profile/social-connections');
+    return makeAuthenticatedRequest<SocialConnection[]>('/profile/social-connections');
   },
 
   async getSocialConnection(platform: string): Promise<SocialConnection> {
-    return apiClient.request<SocialConnection>(`/profile/social-connections/${platform}`);
+    return makeAuthenticatedRequest<SocialConnection>(`/profile/social-connections/${platform}`);
   },
 
   async updateSocialConnection(platform: string, data: SocialConnectionUpdate): Promise<SocialConnection> {
-    return apiClient.request<SocialConnection>(`/profile/social-connections/${platform}`, {
+    return makeAuthenticatedRequest<SocialConnection>(`/profile/social-connections/${platform}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -104,17 +104,17 @@ export const profileApi = {
 
   // Writing Style Analysis
   async getWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`);
+    return makeAuthenticatedRequest<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`);
   },
 
   async runWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+    return makeAuthenticatedRequest<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
       method: 'POST',
     });
   },
 
   async updateWritingStyleAnalysis(platform: string, data: WritingStyleAnalysisUpdate): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+    return makeAuthenticatedRequest<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -122,26 +122,26 @@ export const profileApi = {
 
   // Substack Analysis
   async getSubstackAnalysis(): Promise<SubstackAnalysisResponse> {
-    return apiClient.request<SubstackAnalysisResponse>('/profile/substack-analysis');
+    return makeAuthenticatedRequest<SubstackAnalysisResponse>('/profile/substack-analysis');
   },
 
   async runSubstackAnalysis(): Promise<SubstackAnalysisResponse> {
-    return apiClient.request<SubstackAnalysisResponse>('/profile/analyze-substack', {
+    return makeAuthenticatedRequest<SubstackAnalysisResponse>('/profile/analyze-substack', {
       method: 'POST',
     });
   },
 
   // LinkedIn Integration
   async linkedinAuthorize(): Promise<LinkedInAuthResponse> {
-    return apiClient.request<LinkedInAuthResponse>('/profile/linkedin/authorize');
+    return makeAuthenticatedRequest<LinkedInAuthResponse>('/profile/linkedin/authorize');
   },
 
   async linkedinCallback(code: string, state: string): Promise<SocialConnection> {
-    return apiClient.request<SocialConnection>(`/profile/linkedin/callback?code=${code}&state=${state}`);
+    return makeAuthenticatedRequest<SocialConnection>(`/profile/linkedin/callback?code=${code}&state=${state}`);
   },
 
   async shareOnLinkedIn(text: string): Promise<{ share_id: string }> {
-    return apiClient.request<{ share_id: string }>('/profile/linkedin/share', {
+    return makeAuthenticatedRequest<{ share_id: string }>('/profile/linkedin/share', {
       method: 'POST',
       body: JSON.stringify({ text }),
     });
