@@ -63,7 +63,7 @@ async def test_db():
 def test_user():
     """Create a test user."""
     return UserResponse(
-        id=str(uuid4()),
+        id=uuid4(),
         email="test@example.com",
         is_active=True,
         is_verified=True,
@@ -268,7 +268,7 @@ class TestContentValidation:
     def mock_current_user(self):
         """Mock current user."""
         user = UserResponse(
-            id=str(uuid4()),
+            id=uuid4(),
             email="test@example.com",
             is_active=True,
             is_verified=True,

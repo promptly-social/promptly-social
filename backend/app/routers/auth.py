@@ -16,7 +16,6 @@ from app.core.database import get_async_db
 from app.schemas.auth import (
     AuthResponse,
     GoogleAuthRequest,
-    GoogleCallbackRequest,
     GoogleSignInWithToken,
     PasswordResetRequest,
     RefreshTokenRequest,
@@ -180,7 +179,6 @@ async def sign_in_with_google(
 
         return {
             "url": result["url"],
-            "code_verifier": result["code_verifier"],
             "message": result.get("message", "OAuth sign in initiated"),
         }
 
@@ -317,73 +315,113 @@ async def health_check():
 
 
 @router.get("/callback/google")
-async def google_oauth_callback_get(
+async def google_oauth_callback(
     request: Request,
+    code: str,
+    state: Optional[str] = None,
+    redirect_to: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Handle GET requests to the callback URL.
-    These are typically from the user's browser redirection.
-    This endpoint's primary job is to show a simple message or redirect.
-    The actual code exchange happens via a POST from the frontend.
-    """
-    # This endpoint can be simplified as the real logic is in the POST
-    logger.info("GET request to Google callback URL. Awaiting POST from frontend.")
-    return {
-        "message": "Authentication flow in progress. Please wait, you will be redirected shortly."
-    }
+    Handle Google OAuth callback.
 
-
-@router.post("/callback/google", response_model=AuthResponse)
-async def google_oauth_callback_post(
-    callback_data: GoogleCallbackRequest,
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Handle Google OAuth callback from the frontend.
-
-    This endpoint is called by the frontend, which passes the
-    authorization code and the PKCE code_verifier.
+    This endpoint is called by Google after user authorization.
+    It exchanges the authorization code for user session.
     """
     try:
-        logger.info(f"=== Google OAuth Callback POST Received ===")
-        logger.info(
-            f"Code: {callback_data.code[:20]}..." if callback_data.code else "No code"
+        logger.info(f"=== Google OAuth Callback Received ===")
+        logger.info(f"Code: {code[:20]}..." if code else "No code")
+        logger.info(f"State: {state}")
+        logger.info(f"Redirect to: {redirect_to}")
+
+        # Check if this is called by the frontend (has specific headers)
+        is_frontend_request = (
+            request.headers.get("content-type") == "application/json"
+            or "fetch" in request.headers.get("user-agent", "").lower()
+            or request.headers.get("sec-fetch-mode") == "cors"
         )
 
+        logger.info(f"Is frontend request: {is_frontend_request}")
+        logger.info(f"User agent: {request.headers.get('user-agent', 'N/A')}")
+        logger.info(f"Sec-fetch-mode: {request.headers.get('sec-fetch-mode', 'N/A')}")
+
         auth_service = AuthService(db)
-        result = await auth_service.handle_oauth_callback(
-            code=callback_data.code,
-            code_verifier=callback_data.code_verifier,
-        )
+        result = await auth_service.handle_oauth_callback(code, redirect_to)
 
         logger.info(f"Auth service result: {result.get('error', 'Success')}")
 
         if result["error"]:
             logger.error(f"OAuth callback error: {result['error']}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
-            )
 
-        # The user and tokens are valid, return them in an AuthResponse
-        response = AuthResponse(
-            user=result["user"],
-            tokens=result["tokens"],
-            message="Google sign in successful",
-        )
-        return response
+            if is_frontend_request:
+                # Return JSON error for frontend requests
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
+                )
+            else:
+                # Redirect to frontend with error for direct browser requests
+                error_url = (
+                    f"{redirect_to or 'http://localhost:8080'}?error={result['error']}"
+                )
+                logger.info(f"Redirecting to error URL: {error_url}")
+                return RedirectResponse(url=error_url)
+
+        if is_frontend_request:
+            # Return JSON response for frontend requests
+            logger.info(f"=== Returning JSON Response to Frontend ===")
+            response_data = {
+                "access_token": result["tokens"].access_token,
+                "refresh_token": result["tokens"].refresh_token,
+                "expires_in": result["tokens"].expires_in,
+                "user": {
+                    "id": result["user"].id,
+                    "email": result["user"].email,
+                    "created_at": result["user"].created_at.isoformat()
+                    if result["user"].created_at
+                    else None,
+                },
+            }
+            logger.info(f"JSON response data prepared")
+            return response_data
+        else:
+            # Redirect to frontend with success and tokens for direct browser requests
+            success_url = f"{redirect_to or 'http://localhost:8080'}/auth/callback"
+            success_url += f"?access_token={result['tokens'].access_token}"
+            success_url += f"&refresh_token={result['tokens'].refresh_token}"
+            success_url += f"&expires_in={result['tokens'].expires_in}"
+            success_url += f"&user_id={result['user'].id}"
+
+            logger.info(f"=== Redirecting to Frontend ===")
+            logger.info(f"Success URL: {success_url}")
+            return RedirectResponse(url=success_url)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"=== Google OAuth Callback POST Exception: {e} ===")
+        logger.error(f"=== Google OAuth Callback Exception ===")
+        logger.error(f"Exception: {e}")
+        logger.error(f"Exception type: {type(e)}")
         import traceback
 
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth callback failed",
+
+        is_frontend_request = (
+            request.headers.get("content-type") == "application/json"
+            or "fetch" in request.headers.get("user-agent", "").lower()
+            or request.headers.get("sec-fetch-mode") == "cors"
         )
+
+        if is_frontend_request:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="OAuth callback failed",
+            )
+        else:
+            error_url = (
+                f"{redirect_to or 'http://localhost:8080'}?error=oauth_callback_failed"
+            )
+            logger.info(f"Redirecting to error URL: {error_url}")
+            return RedirectResponse(url=error_url)
 
 
 @router.post("/signin/google/token", response_model=AuthResponse)

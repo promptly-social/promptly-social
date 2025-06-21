@@ -17,7 +17,7 @@ class Content(Base):
 
     __tablename__ = "contents"
 
-    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     user_id = Column(get_uuid_column(), nullable=False)
     title = Column(Text, nullable=False)
     original_input = Column(Text)
@@ -45,7 +45,7 @@ class Publication(Base):
 
     __tablename__ = "publications"
 
-    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     content_id = Column(get_uuid_column(), ForeignKey("contents.id"), nullable=False)
     platform = Column(String, nullable=False)
     post_id = Column(String)  # Platform-specific post ID
@@ -74,7 +74,7 @@ class SuggestedPost(Base):
 
     __tablename__ = "suggested_posts"
 
-    id = Column(get_uuid_column(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     user_id = Column(get_uuid_column(), nullable=False)
     content_id = Column(
         get_uuid_column(), ForeignKey("contents.id")
