@@ -11,7 +11,7 @@ environment = "staging"
 docker_registry_location = "us-central1"
 
 # Cloud Run Configuration - Staging optimized for cost
-cloud_run_min_instances = 0  # Allow scale to zero for cost savings in staging
+cloud_run_min_instances = 1  # Allow scale to zero for cost savings in staging
 cloud_run_max_instances = 10
 cloud_run_memory        = "1Gi"
 cloud_run_cpu          = "1"

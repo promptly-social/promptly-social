@@ -24,7 +24,7 @@ provider "google" {
 # Data source for zipping the function code
 data "archive_file" "source" {
   type        = "zip"
-  source_dir  = ".."
+  source_dir  = var.function_source_dir
   output_path = "/tmp/${var.function_name}.zip"
   excludes = [
     "terraform/**",
