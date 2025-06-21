@@ -197,9 +197,10 @@ class ProfileService:
             "client_id": settings.linkedin_client_id,
             "client_secret": settings.linkedin_client_secret,
         }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         async with httpx.AsyncClient() as client:
-            response = await client.post(token_url, data=payload)
+            response = await client.post(token_url, headers=headers, data=payload)
             response.raise_for_status()
             token_data = response.json()
 

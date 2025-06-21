@@ -301,6 +301,9 @@ async def linkedin_authorize(
 ):
     """Get LinkedIn authorization URL."""
     try:
+        logger.info(
+            "Executing linkedin_authorize with defensive string casting. Version: 2."
+        )
         # Ensure user_id is a string before concatenation
         user_id_str = str(current_user.id)
         state = f"linkedin_oauth_state_{user_id_str}"
