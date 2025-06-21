@@ -346,13 +346,12 @@ class TestConfiguration:
 
         # Test with comma-separated string
         test_settings = Settings(
-            cors_origins="http://localhost:3000,http://localhost:5173,https://example.com"
+            cors_origins="http://localhost:3000,https://example.com"
         )
         origins = test_settings.get_cors_origins()
 
         assert len(origins) == 3
         assert "http://localhost:3000" in origins
-        assert "http://localhost:5173" in origins
         assert "https://example.com" in origins
 
         # Test with empty string

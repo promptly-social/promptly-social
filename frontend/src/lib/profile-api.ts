@@ -67,6 +67,10 @@ export interface SubstackAnalysisResponse {
   is_analyzing?: boolean;
 }
 
+export interface LinkedInAuthResponse {
+  authorization_url: string;
+}
+
 // Profile API
 export const profileApi = {
 
@@ -124,6 +128,22 @@ export const profileApi = {
   async runSubstackAnalysis(): Promise<SubstackAnalysisResponse> {
     return apiClient.request<SubstackAnalysisResponse>('/profile/analyze-substack', {
       method: 'POST',
+    });
+  },
+
+  // LinkedIn Integration
+  async linkedinAuthorize(): Promise<LinkedInAuthResponse> {
+    return apiClient.request<LinkedInAuthResponse>('/profile/linkedin/authorize');
+  },
+
+  async linkedinCallback(code: string, state: string): Promise<SocialConnection> {
+    return apiClient.request<SocialConnection>(`/profile/linkedin/callback?code=${code}&state=${state}`);
+  },
+
+  async shareOnLinkedIn(text: string): Promise<{ share_id: string }> {
+    return apiClient.request<{ share_id: string }>('/profile/linkedin/share', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
     });
   },
 }; 
