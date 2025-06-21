@@ -169,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signInWithGoogle = async () => {
     try {
-      const redirectUrl = `${window.location.origin}/new-content`;
+      const redirectUrl = `${window.location.origin}/auth/callback`;
       const response = await apiClient.signInWithGoogle(redirectUrl);
 
       // Redirect to Google OAuth URL

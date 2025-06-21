@@ -59,7 +59,7 @@ const OAuthCallback = () => {
         // If we have a code, exchange it for tokens via backend
         else if (code) {
           try {
-            const redirectUri = `${window.location.origin}/new-content`;
+            const redirectUri = `${window.location.origin}/auth/callback`;
             const response = await fetch(
               `${
                 import.meta.env.VITE_API_URL || "http://localhost:8000"
