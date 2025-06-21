@@ -35,7 +35,7 @@ output "artifact_registry_url" {
 
 output "app_service_account_email" {
   description = "Email of the Application service account used by Cloud Run."
-  value       = google_service_account.app_sa.email
+  value       = var.app_sa_email
 }
 
 output "secret_manager_secrets" {

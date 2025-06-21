@@ -22,8 +22,9 @@ variable "environment" {
 }
 
 variable "app_name" {
-  description = "The name of the application."
+  description = "Application name"
   type        = string
+  default     = "promptly"
 }
 
 variable "docker_registry_location" {
@@ -45,9 +46,9 @@ variable "cloud_run_max_instances" {
 }
 
 variable "cloud_run_memory" {
-  description = "Memory allocation for Cloud Run"
+  description = "Memory for the Cloud Run service"
   type        = string
-  default     = "2Gi"
+  default     = "512Mi"
 }
 
 variable "cloud_run_cpu" {
@@ -79,7 +80,7 @@ variable "api_domain_name" {
 }
 
 variable "manage_cloud_run_service" {
-  description = "A boolean flag to control the creation of the Cloud Run service. Defaults to false."
+  description = "Boolean flag to indicate if cloud run service should be managed by this Terraform config."
   type        = bool
   default     = true
 }
@@ -136,6 +137,12 @@ variable "dns_admin_service_accounts" {
   description = "A list of service accounts to grant DNS admin role in the production project"
   type        = list(string)
   default     = []
+}
+
+variable "image_tag" {
+  description = "The Docker image tag to deploy."
+  type        = string
+  default     = "latest"
 }
 
 variable "app_sa_email" {

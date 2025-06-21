@@ -7,6 +7,7 @@ production_project_id = "promptly-social"
 # Application Configuration
 app_name    = "promptly"
 environment = "staging"
+app_sa_email = "promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com" 
 
 # Docker Registry
 docker_registry_location = "us-central1"
@@ -38,3 +39,4 @@ api_domain_name = "api.staging.promptly.social"
 
 # Frontend Domain Name
 frontend_domain_name = "staging.promptly.social" 
+
