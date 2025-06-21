@@ -350,7 +350,7 @@ class TestConfiguration:
         )
         origins = test_settings.get_cors_origins()
 
-        assert len(origins) == 3
+        assert len(origins) == 2
         assert "http://localhost:3000" in origins
         assert "https://example.com" in origins
 

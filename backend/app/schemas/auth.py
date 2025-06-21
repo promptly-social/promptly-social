@@ -69,7 +69,7 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     """Schema for user data in API responses."""
 
-    id: UUID
+    id: str
     is_active: bool
     is_verified: bool
     created_at: datetime

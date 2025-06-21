@@ -71,25 +71,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initializeAuth = async () => {
       const token = getStoredToken();
-      console.log("Initializing auth state, token exists:", !!token);
 
       if (!token) {
-        console.log("No token found, setting loading to false");
         setLoading(false);
         return;
       }
 
       // Check if token is expired
       if (isTokenExpired()) {
-        console.log("Token expired, attempting refresh");
         const refreshed = await refreshAuthToken();
         if (!refreshed) {
-          console.log("Token refresh failed, clearing tokens");
           clearTokens();
           setLoading(false);
           return;
         }
-        console.log("Token refreshed successfully");
       }
 
       // Fetch current user
