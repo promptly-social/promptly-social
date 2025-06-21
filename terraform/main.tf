@@ -22,14 +22,22 @@ provider "google" {
   zone    = var.zone
 }
 
-data "google_project" "current" {}
-
-# Data source to get the production DNS managed zone when running for staging
-data "google_dns_managed_zone" "production_zone" {
-  count   = !local.is_production ? 1 : 0
-  name    = "promptly-social-zone"
-  project = var.production_project_id # This var should be set in staging's .tfvars
+moved {
+  from = google_dns_managed_zone.frontend_zone[0]
+  to   = module.dns[0].google_dns_managed_zone.frontend_zone
 }
+
+moved {
+  from = google_dns_record_set.frontend_a_record[0]
+  to   = module.dns[0].google_dns_record_set.frontend_a_record
+}
+
+moved {
+  from = google_dns_record_set.api_a_record[0]
+  to   = module.dns[0].google_dns_record_set.api_a_record
+}
+
+data "google_project" "current" {}
 
 # Enable required APIs
 resource "google_project_service" "apis" {
@@ -257,6 +265,45 @@ resource "google_secret_manager_secret_version" "openrouter_api_key_initial_vers
   secret_data = "placeholder"
 }
 
+resource "google_secret_manager_secret" "linkedin_client_id" {
+  secret_id = "LINKEDIN_CLIENT_ID"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "linkedin_client_id_initial_version" {
+  secret      = google_secret_manager_secret.linkedin_client_id.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "linkedin_client_secret" {
+  secret_id = "LINKEDIN_CLIENT_SECRET"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "linkedin_client_secret_initial_version" {
+  secret      = google_secret_manager_secret.linkedin_client_secret.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "database_url" {
+  secret_id = "DATABASE_URL"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "database_url_initial_version" {
+  secret      = google_secret_manager_secret.database_url.id
+  secret_data = "placeholder-db-url"
+}
+
 # Data source to get the current version of the GCP analysis function URL secret
 /* data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
   secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
@@ -273,6 +320,9 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     google_client_secret  = google_secret_manager_secret.google_client_secret
     gcp_analysis_function_url = google_secret_manager_secret.gcp_analysis_function_url
     openrouter_api_key    = google_secret_manager_secret.openrouter_api_key
+    linkedin_client_id    = google_secret_manager_secret.linkedin_client_id
+    linkedin_client_secret = google_secret_manager_secret.linkedin_client_secret
+    database_url          = google_secret_manager_secret.database_url
   }
 
   secret_id = each.value.secret_id
@@ -296,6 +346,8 @@ module "cloud_run_service" {
   docker_registry_location   = var.docker_registry_location
   backend_repo_repository_id = google_artifact_registry_repository.backend_repo.repository_id
   cors_origins               = var.cors_origins
+  frontend_url               = local.frontend_url
+  backend_url                = local.backend_url
   jwt_secret_name            = google_secret_manager_secret.jwt_secret.secret_id
   supabase_url_name          = google_secret_manager_secret.supabase_url.secret_id
   supabase_key_name          = google_secret_manager_secret.supabase_key.secret_id
@@ -305,6 +357,9 @@ module "cloud_run_service" {
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
   gcp_analysis_function_url_version = google_secret_manager_secret_version.gcp_analysis_function_url_initial_version.version
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
+  linkedin_client_id_name    = google_secret_manager_secret.linkedin_client_id.secret_id
+  linkedin_client_secret_name = google_secret_manager_secret.linkedin_client_secret.secret_id
+  database_url_name          = google_secret_manager_secret.database_url.secret_id
   allow_unauthenticated_invocations = false
 }
 
@@ -314,6 +369,8 @@ locals {
   is_production   = var.environment == "production"
   frontend_domain = var.frontend_domain_name
   backend_domain  = "api.${var.frontend_domain_name}"
+  frontend_url    = "https://${var.frontend_domain_name}"
+  backend_url     = "https://api.${var.frontend_domain_name}"
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -424,40 +481,6 @@ resource "google_compute_global_forwarding_rule" "frontend_forwarding_rule" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# --- DNS for Frontend ---
-
-# This creates a managed zone for 'promptly.social' and adds A records.
-# NOTE: After running this, you must update the nameservers at your
-# domain registrar to the ones provided in the `dns_zone_nameservers` output.
-resource "google_dns_managed_zone" "frontend_zone" {
-  count = var.manage_frontend_infra && local.is_production ? 1 : 0
-
-  name        = "promptly-social-zone" # A name for the zone in GCP
-  dns_name    = "promptly.social."     # The actual domain name
-  project     = var.project_id
-  description = "DNS zone for promptly.social"
-}
-
-resource "google_project_iam_member" "dns_editors" {
-  for_each = toset(local.is_production ? var.dns_editor_service_accounts : [])
-  project  = var.project_id
-  role     = "roles/dns.admin"
-  member   = "serviceAccount:${each.key}"
-}
-
-resource "google_dns_record_set" "frontend_a_record" {
-  count = var.manage_frontend_infra ? 1 : 0
-
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
-  name         = "${local.frontend_domain}."
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_compute_global_address.frontend_ip[0].address]
-  project      = local.is_production ? var.project_id : var.production_project_id
-}
-
-# --- Backend API Infrastructure (Load Balancer for Cloud Run) ---
-
 # 1. Serverless NEG for the Cloud Run service
 resource "google_compute_region_network_endpoint_group" "backend_neg" {
   count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
@@ -529,16 +552,25 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# 8. DNS A record for the API
-resource "google_dns_record_set" "api_a_record" {
-  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
+# --- DNS Management ---
+module "dns" {
+  count = local.is_production && var.manage_frontend_infra ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
-  name         = "${local.backend_domain}."
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_compute_global_address.api_ip[0].address]
-  project      = local.is_production ? var.project_id : var.production_project_id
+  source = "../../modules/dns"
+
+  project_id                  = var.project_id
+  dns_editor_service_accounts = var.dns_editor_service_accounts
+  frontend_domain_name        = local.frontend_domain
+  frontend_ip_address         = google_compute_global_address.frontend_ip[0].address
+  backend_domain_name         = local.backend_domain
+  api_ip_address              = google_compute_global_address.api_ip[0].address
+  dns_zone_name               = "promptly-social-zone"
+  dns_domain_name             = "promptly.social."
+
+  depends_on = [
+    google_compute_global_address.frontend_ip,
+    google_compute_global_address.api_ip
+  ]
 }
 
 # Grant read-only access to the Terraform state bucket for specified service accounts

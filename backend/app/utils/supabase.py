@@ -256,7 +256,9 @@ class SupabaseClient:
             logger.info(f"Final redirect to: {redirect_to}")
 
             # Configure Supabase to redirect to our backend callback, not directly to frontend
-            backend_callback_url = "http://localhost:8000/api/v1/auth/callback/google"
+            backend_callback_url = (
+                f"{settings.backend_url}/api/v1/auth/callback/{provider}"
+            )
             if redirect_to:
                 backend_callback_url += f"?redirect_to={redirect_to}"
 

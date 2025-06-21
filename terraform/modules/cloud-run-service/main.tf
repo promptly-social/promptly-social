@@ -132,6 +132,45 @@ resource "google_cloud_run_service" "backend" {
           name  = "GCP_ANALYSIS_FUNCTION_URL_VERSION"
           value = var.gcp_analysis_function_url_version
         }
+        env {
+          name  = "FRONTEND_URL"
+          value = var.frontend_url
+        }
+
+        env {
+          name  = "BACKEND_URL"
+          value = var.backend_url
+        }
+
+        env {
+          name = "LINKEDIN_CLIENT_ID"
+          value_from {
+            secret_key_ref {
+              name = var.linkedin_client_id_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "LINKEDIN_CLIENT_SECRET"
+          value_from {
+            secret_key_ref {
+              name = var.linkedin_client_secret_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "DATABASE_URL"
+          value_from {
+            secret_key_ref {
+              name = var.database_url_name
+              key  = "latest"
+            }
+          }
+        }
       }
     }
   }

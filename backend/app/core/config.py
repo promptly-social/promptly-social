@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     app_version: str = Field(default="1.0.0")
     debug: bool = Field(default=False)
     environment: str = Field(default="production")
+    backend_url: str = Field(default="http://localhost:8000")
+    frontend_url: str = Field(default="http://localhost:8080")
 
     # Database
     database_url: str = Field(default="sqlite:///./app.db")
@@ -48,9 +50,6 @@ class Settings(BaseSettings):
     google_client_secret: Optional[str] = Field(default=None)
     linkedin_client_id: Optional[str] = Field(default=None)
     linkedin_client_secret: Optional[str] = Field(default=None)
-    linkedin_redirect_uri: str = Field(
-        default="http://localhost:8080/auth/linkedin/callback"
-    )
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60)
