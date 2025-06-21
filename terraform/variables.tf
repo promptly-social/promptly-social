@@ -114,3 +114,9 @@ variable "dns_editor_service_accounts" {
   type        = list(string)
   default     = []
 }
+
+variable "terraform_state_reader_service_accounts" {
+  description = "A list of service accounts to grant read-only access to the terraform state bucket."
+  type        = list(string)
+  default     = []
+}

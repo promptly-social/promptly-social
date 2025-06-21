@@ -315,7 +315,6 @@ module "cloud_run_service" {
 locals {
   frontend_domain = var.frontend_domain_name
   backend_domain  = "api.${var.frontend_domain_name}"
-  is_production = var.environment == "production"
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -535,4 +534,13 @@ resource "google_dns_record_set" "api_a_record" {
   ttl          = 300
   rrdatas      = [google_compute_global_address.api_ip[0].address]
   project      = local.is_production ? var.project_id : var.production_project_id
+}
+
+# Grant read-only access to the Terraform state bucket for specified service accounts
+# This is typically used to allow staging environments to read production state.
+resource "google_storage_bucket_iam_member" "state_readers" {
+  for_each = toset(var.environment == "production" ? var.terraform_state_reader_service_accounts : [])
+  bucket   = "promptly-terraform-state" # This bucket is managed outside of this configuration.
+  role     = "roles/storage.objectViewer"
+  member   = "serviceAccount:${each.key}"
 }

@@ -1,2 +1,2 @@
-project_id  = "promptly-social-staging"
+project_id  = "promptly-social"
 github_repo = "promptly-social/promptly-social"

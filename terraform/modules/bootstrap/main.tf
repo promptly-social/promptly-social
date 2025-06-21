@@ -1,42 +1,4 @@
-# terraform/bootstrap/main.tf
-
-terraform {
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-  }
-  # This configuration is meant for a one-time, local execution.
-  # The backend is intentionally local.
-  backend "local" {}
-}
-
-provider "google" {
-  project = var.project_id
-}
-
-variable "project_id" {
-  description = "The ID of your Google Cloud project."
-  type        = string
-}
-
-variable "github_repo" {
-  description = "Your GitHub repository in owner/repo format (e.g., 'my-org/my-repo')."
-  type        = string
-}
-
-variable "app_name" {
-  description = "A short name for your application, used for naming resources."
-  type        = string
-  default     = "promptly"
-}
-
-variable "terraform_state_bucket_name" {
-  description = "The name for the GCS bucket that will store Terraform state."
-  type        = string
-  default     = "promptly-terraform-states"
-}
+# terraform/modules/bootstrap/main.tf
 
 # 1. Enable required APIs for this setup.
 resource "google_project_service" "iam_api" {
@@ -60,9 +22,9 @@ resource "google_project_service" "iam_credentials_api" {
 # 2. Create the Workload Identity Pool. This is the trust boundary.
 resource "google_iam_workload_identity_pool" "github_pool" {
   project                   = var.project_id
-  workload_identity_pool_id = "${var.app_name}-github-pool"
-  display_name              = "WIF Pool for ${var.app_name}"
-  description               = "Allows GitHub Actions to securely authenticate with GCP"
+  workload_identity_pool_id = "${var.app_name}-github-pool-${var.environment}"
+  display_name              = "WIF Pool for ${var.app_name} (${var.environment})"
+  description               = "Allows GitHub Actions to securely authenticate with GCP for ${var.environment}"
   depends_on                = [google_project_service.iam_api]
 }
 
@@ -77,7 +39,7 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "google.subject"       = "assertion.sub"
     "attribute.repository" = "assertion.repository"
   }
-  attribute_condition = "attribute.repository == '${var.github_repo}'"
+  attribute_condition = "assertion.repository_owner == 'promptly-social'"
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
@@ -108,8 +70,8 @@ resource "google_storage_bucket" "terraform_state" {
 # 4. Create a dedicated Service Account for Terraform to use in CI/CD.
 resource "google_service_account" "terraform_sa" {
   project      = var.project_id
-  account_id   = "${var.app_name}-terraform-sa"
-  display_name = "Terraform CI/CD Service Account"
+  account_id   = "${var.app_name}-tf-sa-${var.environment}"
+  display_name = "Terraform CI/CD SA (${var.environment})"
   depends_on   = [google_project_service.iam_api]
 }
 
@@ -178,26 +140,3 @@ resource "google_service_account_iam_binding" "terraform_sa_wif_binding" {
     google_iam_workload_identity_pool_provider.github_provider,
   ]
 }
-
-# --- Outputs ---
-# These values will be used to configure GitHub secrets for your CI/CD pipelines.
-
-output "gcp_project_id" {
-  description = "The GCP Project ID."
-  value       = var.project_id
-}
-
-output "workload_identity_provider" {
-  description = "The full ID of the Workload Identity Provider for GitHub Actions."
-  value       = google_iam_workload_identity_pool_provider.github_provider.name
-}
-
-output "terraform_service_account_email" {
-  description = "The email of the service account created for Terraform CI/CD."
-  value       = google_service_account.terraform_sa.email
-}
-
-output "terraform_state_bucket_name" {
-  description = "The name of the GCS bucket for Terraform state."
-  value       = google_storage_bucket.terraform_state.name
-} 
