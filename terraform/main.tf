@@ -22,16 +22,14 @@ provider "google" {
   zone    = var.zone
 }
 
-data "terraform_remote_state" "production" {
-  count   = var.environment == "staging" ? 1 : 0
-  backend = "gcs"
-  config = {
-    bucket = "promptly-terraform-state"
-    prefix = "terraform/state/production"
-  }
-}
-
 data "google_project" "current" {}
+
+# Data source to get the production DNS managed zone when running for staging
+data "google_dns_managed_zone" "production_zone" {
+  count   = !local.is_production ? 1 : 0
+  name    = "promptly-social-zone"
+  project = var.production_project_id # This var should be set in staging's .tfvars
+}
 
 # Enable required APIs
 resource "google_project_service" "apis" {
@@ -313,6 +311,7 @@ module "cloud_run_service" {
 # --- Frontend Infrastructure (GCS Bucket + CDN for Static Site) ---
 
 locals {
+  is_production   = var.environment == "production"
   frontend_domain = var.frontend_domain_name
   backend_domain  = "api.${var.frontend_domain_name}"
 }
@@ -443,7 +442,7 @@ resource "google_project_iam_member" "dns_editors" {
 resource "google_dns_record_set" "frontend_a_record" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
   name         = "${local.frontend_domain}."
   type         = "A"
   ttl          = 300
@@ -455,7 +454,7 @@ resource "google_dns_record_set" "frontend_a_record" {
 
 # 1. Serverless NEG for the Cloud Run service
 resource "google_compute_region_network_endpoint_group" "backend_neg" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name                  = "${var.app_name}-backend-neg-${var.environment}"
   network_endpoint_type = "SERVERLESS"
@@ -467,7 +466,7 @@ resource "google_compute_region_network_endpoint_group" "backend_neg" {
 
 # 2. Backend Service
 resource "google_compute_backend_service" "api_backend" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name                  = "${var.app_name}-api-backend-service-${var.environment}"
   protocol              = "HTTP"
@@ -483,13 +482,13 @@ resource "google_compute_backend_service" "api_backend" {
 
 # 3. Reserve a static IP for the API load balancer
 resource "google_compute_global_address" "api_ip" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
   name  = "${var.app_name}-api-ip-${var.environment}"
 }
 
 # 4. Managed SSL Certificate for the API domain
 resource "google_compute_managed_ssl_certificate" "api_ssl" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
   name  = "${var.app_name}-api-ssl-${var.environment}"
   managed {
     domains = [local.backend_domain]
@@ -498,7 +497,7 @@ resource "google_compute_managed_ssl_certificate" "api_ssl" {
 
 # 5. URL Map to route all requests to the API backend service
 resource "google_compute_url_map" "api_url_map" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name            = "${var.app_name}-api-url-map-${var.environment}"
   default_service = google_compute_backend_service.api_backend[0].id
@@ -506,7 +505,7 @@ resource "google_compute_url_map" "api_url_map" {
 
 # 6. HTTPS Target Proxy
 resource "google_compute_target_https_proxy" "api_https_proxy" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name             = "${var.app_name}-api-https-proxy-${var.environment}"
   url_map          = google_compute_url_map.api_url_map[0].id
@@ -515,7 +514,7 @@ resource "google_compute_target_https_proxy" "api_https_proxy" {
 
 # 7. Global Forwarding Rule (Load Balancer Frontend for API)
 resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name                  = "${var.app_name}-api-forwarding-rule-${var.environment}"
   target                = google_compute_target_https_proxy.api_https_proxy[0].id
@@ -526,9 +525,9 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
 
 # 8. DNS A record for the API
 resource "google_dns_record_set" "api_a_record" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
   name         = "${local.backend_domain}."
   type         = "A"
   ttl          = 300

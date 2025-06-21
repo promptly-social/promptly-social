@@ -1,7 +1,3 @@
-locals {
-  is_production = var.environment == "production"
-}
-
 output "project_id" {
   description = "The GCP project ID"
   value       = var.project_id
