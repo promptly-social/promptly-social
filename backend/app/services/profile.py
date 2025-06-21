@@ -6,7 +6,6 @@ import os
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
-import secrets
 import urllib.parse
 
 import httpx

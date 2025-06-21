@@ -94,9 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Fetch current user
       try {
-        console.log("Fetching current user");
         const currentUser = await apiClient.getCurrentUser();
-        console.log("Current user fetched successfully:", currentUser);
         setUser(currentUser);
       } catch (error) {
         console.error("Failed to fetch current user:", error);
