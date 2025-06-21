@@ -88,36 +88,36 @@ resource "google_project_iam_member" "terraform_sa_roles" {
   for_each = toset([
     # Core project management
     "roles/serviceusage.serviceUsageAdmin",     # Manage API services
-    
+
     # Service Account management
     "roles/iam.serviceAccountAdmin",            # Create/manage service accounts
     "roles/iam.serviceAccountKeyAdmin",         # Manage service account keys
     "roles/iam.securityAdmin",                  # Manage IAM policies and bindings
     "roles/iam.workloadIdentityPoolAdmin",      # Manage Workload Identity pools
-    
+
     # Artifact Registry
     "roles/artifactregistry.admin",             # Manage Artifact Registry repositories
     "roles/artifactregistry.writer",            # Write Artifact Registry repositories
-    
+
     # Secret Manager
     "roles/secretmanager.admin",                # Create and manage secrets
-    
+
     # Cloud Run
     "roles/run.admin",                          # Manage Cloud Run services
-    
+
     # Cloud Functions (for the separate GCP function)
     "roles/cloudfunctions.admin",               # Manage Cloud Functions
     "roles/cloudbuild.builds.editor",           # Build functions
-    
+
     # Storage (for function source code)
     "roles/storage.admin",                      # Manage Cloud Storage buckets
-    
+
     # Compute (for domain mappings and networking)
     "roles/compute.networkAdmin",               # Manage networking resources
-    
+
     # DNS (for managing domain records)
     "roles/dns.admin",                          # Manage Cloud DNS zones and records
-    
+
     # Monitoring and Logging (for observability resources)
     "roles/logging.admin",                      # Manage logging resources
     "roles/monitoring.admin"                    # Manage monitoring resources
@@ -141,20 +141,9 @@ resource "google_service_account_iam_binding" "terraform_sa_wif_binding" {
   ]
 }
 
-resource "google_project_iam_member" "terraform_sa_dns_reader" {
-  project = var.project_id
-  role    = "roles/dns.reader"
-  member  = "serviceAccount:${google_service_account.terraform_sa.email}"
-}
-
-# 7. Grant staging service account read-only access to production DNS.
-# This is necessary because the staging environment needs to read the production DNS zone
-# to create DNS records for its services. This resource should only be created
-# in the production environment.
-resource "google_project_iam_member" "staging_sa_dns_reader_on_prod" {
-  count   = var.environment == "production" ? 1 : 0
-  project = var.project_id # This will be the production project ID
-  role    = "roles/dns.reader"
-  # This assumes a 'staging_project_id' variable is available in the production workspace.
-  member  = "serviceAccount:${var.app_name}-tf-sa-staging@${var.staging_project_id}.iam.gserviceaccount.com"
+resource "google_project_iam_member" "dns_readers" {
+  count    = var.environment == "production" ? length(var.dns_reader_sds) : 0
+  project  = var.project_id
+  role     = "roles/dns.reader"
+  member   = "serviceAccount:${var.dns_reader_sds[count.index]}"
 }

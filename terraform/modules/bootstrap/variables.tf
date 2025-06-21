@@ -20,6 +20,12 @@ variable "app_name" {
   default     = "promptly"
 }
 
+variable "dns_reader_sds" {
+  description = "List of service accounts to grant dns.reader role to"
+  type        = list(string)
+  default     = []
+}
+
 variable "terraform_state_bucket_name" {
   description = "The name for the GCS bucket that will store Terraform state."
   type        = string

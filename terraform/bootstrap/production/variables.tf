@@ -12,10 +12,10 @@ variable "app_name" {
   description = "A short name for your application, used for naming resources."
   type        = string
   default     = "promptly"
-} 
+}
 
-variable "staging_project_id" {
-  description = "The ID of the staging Google Cloud project. Required for production to grant cross-project DNS access."
-  type        = string
-  default     = "promptly-social-staging"
+variable "dns_reader_sds" {
+  description = "List of service accounts to grant dns.reader role to"
+  type        = list(string)
+  default     = []
 }

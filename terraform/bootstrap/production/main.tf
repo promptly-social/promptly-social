@@ -22,5 +22,7 @@ module "bootstrap" {
   app_name                    = var.app_name
   environment                 = "production"
   terraform_state_bucket_name = "promptly-terraform-state"
-  staging_project_id          = var.staging_project_id
+  dns_reader_sds = [
+    "promptly-tf-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
+  ]
 } 
