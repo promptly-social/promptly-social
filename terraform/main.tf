@@ -154,12 +154,22 @@ resource "google_secret_manager_secret" "jwt_secret" {
   }
 }
 
+resource "google_secret_manager_secret_version" "jwt_secret_initial_version" {
+  secret      = google_secret_manager_secret.jwt_secret.id
+  secret_data = "placeholder"
+}
+
 resource "google_secret_manager_secret" "supabase_url" {
   secret_id = "SUPABASE_URL"
 
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "supabase_url_initial_version" {
+  secret      = google_secret_manager_secret.supabase_url.id
+  secret_data = "placeholder"
 }
 
 resource "google_secret_manager_secret" "supabase_key" {
@@ -170,12 +180,22 @@ resource "google_secret_manager_secret" "supabase_key" {
   }
 }
 
+resource "google_secret_manager_secret_version" "supabase_key_initial_version" {
+  secret      = google_secret_manager_secret.supabase_key.id
+  secret_data = "placeholder"
+}
+
 resource "google_secret_manager_secret" "supabase_service_key" {
   secret_id = "SUPABASE_SERVICE_KEY"
 
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "supabase_service_key_initial_version" {
+  secret      = google_secret_manager_secret.supabase_service_key.id
+  secret_data = "placeholder"
 }
 
 resource "google_secret_manager_secret" "google_client_id" {
@@ -186,12 +206,22 @@ resource "google_secret_manager_secret" "google_client_id" {
   }
 }
 
+resource "google_secret_manager_secret_version" "google_client_id_initial_version" {
+  secret      = google_secret_manager_secret.google_client_id.id
+  secret_data = "placeholder"
+}
+
 resource "google_secret_manager_secret" "google_client_secret" {
   secret_id = "GOOGLE_CLIENT_SECRET"
 
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "google_client_secret_initial_version" {
+  secret      = google_secret_manager_secret.google_client_secret.id
+  secret_data = "placeholder"
 }
 
 resource "google_secret_manager_secret" "gcp_analysis_function_url" {
@@ -213,6 +243,11 @@ resource "google_secret_manager_secret" "openrouter_api_key" {
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_api_key_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_api_key.id
+  secret_data = "placeholder"
 }
 
 # Data source to get the current version of the GCP analysis function URL secret
