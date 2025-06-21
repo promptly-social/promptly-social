@@ -33,10 +33,9 @@ class SupabaseClient:
             from gotrue import SyncMemoryStorage
             from supabase.lib.client_options import ClientOptions
 
-            # Configure client with PKCE flow for OAuth
+            # Configure client for server-side auth flow
             options = ClientOptions(
                 storage=SyncMemoryStorage(),
-                flow_type="pkce",
                 auto_refresh_token=False,
                 persist_session=False,
             )
@@ -301,90 +300,31 @@ class SupabaseClient:
             Dictionary containing user data, session, or error
         """
         try:
-            logger.info("Handling OAuth callback")
-            logger.info(f"Code: {code[:20]}...")
+            logger.info(f"Handling OAuth callback with code: {code[:20]}...")
 
-            # Try to exchange code for session using the standard method
-            try:
-                logger.info("Attempting standard exchange_code_for_session")
-                response = self.client.auth.exchange_code_for_session(
-                    {"auth_code": code}
-                )
-                logger.info(f"Standard exchange response type: {type(response)}")
+            response = self.client.auth.exchange_code_for_session({"auth_code": code})
 
-                if hasattr(response, "user") and hasattr(response, "session"):
-                    if response.user and response.session:
-                        logger.info(f"OAuth callback successful: {response.user.email}")
-                        return {
-                            "user": response.user,
-                            "session": response.session,
-                            "error": None,
-                        }
-
-            except Exception as exchange_error:
-                logger.warning(f"Standard exchange failed: {exchange_error}")
-
-            # Fallback: Use direct API call to Supabase Auth API
-            import httpx
-
-            logger.info("Attempting direct API call to exchange code")
-
-            async with httpx.AsyncClient() as http_client:
-                response = await http_client.post(
-                    f"{self.url}/auth/v1/token",
-                    headers={
-                        "apikey": self.key,
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "auth_code": code,
-                        "grant_type": "authorization_code",
-                    },
-                )
-
-                logger.info(f"Direct API response status: {response.status_code}")
-
-                if response.status_code == 200:
-                    data = response.json()
-                    logger.info("Direct API call successful")
-                    logger.info(f"Response data keys: {list(data.keys())}")
-
-                    # Create user and session objects from the response
-                    user_data = self._create_user_from_response(data)
-                    session_data = self._create_session_from_response(data)
-
-                    return {
-                        "user": user_data,
-                        "session": session_data,
-                        "error": None,
-                    }
-                else:
-                    logger.error(
-                        f"Direct API call failed: {response.status_code} - {response.text}"
-                    )
-                    return {
-                        "user": None,
-                        "session": None,
-                        "error": f"OAuth exchange failed: {response.text}",
-                    }
-
-            logger.warning("OAuth callback failed - no user or session")
-            return {
-                "user": None,
-                "session": None,
-                "error": "OAuth authentication failed",
-            }
+            if response.user and response.session:
+                logger.info(f"OAuth callback successful: {response.user.email}")
+                return {
+                    "user": response.user,
+                    "session": response.session,
+                    "error": None,
+                }
+            else:
+                logger.warning("OAuth callback failed - no user or session in response")
+                return {
+                    "user": None,
+                    "session": None,
+                    "error": "OAuth authentication failed",
+                }
 
         except Exception as e:
             logger.error(f"OAuth callback exception: {str(e)}")
-            logger.error(f"Exception type: {type(e)}")
-            import traceback
-
-            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 "user": None,
                 "session": None,
-                "error": "OAuth authentication failed",
+                "error": f"OAuth exchange failed: {str(e)}",
             }
 
     def sign_in_with_google_token(self, id_token: str) -> Dict[str, Any]:
