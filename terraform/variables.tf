@@ -126,3 +126,15 @@ variable "manage_backend_load_balancer" {
   type        = bool
   default     = true
 }
+
+variable "dns_reader_service_accounts" {
+  description = "A list of service accounts to grant DNS reader role in the production project"
+  type        = list(string)
+  default     = []
+}
+
+variable "dns_admin_service_accounts" {
+  description = "A list of service accounts to grant DNS admin role in the production project"
+  type        = list(string)
+  default     = []
+}

@@ -1,16 +1,22 @@
-variable "project_id" {
-  description = "The ID of the project in which to manage DNS resources."
+variable "create_zone" {
+  description = "Whether to create the DNS managed zone."
+  type        = bool
+  default     = false
+}
+
+variable "managed_zone_name" {
+  description = "The name of the managed zone to add records to."
   type        = string
 }
 
 variable "dns_zone_name" {
-  description = "A name for the managed zone in GCP."
+  description = "A name for the managed zone in GCP (used for creation)."
   type        = string
   default     = "promptly-social-zone"
 }
 
 variable "dns_domain_name" {
-  description = "The actual domain name for the DNS zone."
+  description = "The actual domain name for the DNS zone (used for creation)."
   type        = string
   default     = "promptly.social."
 }
@@ -27,8 +33,9 @@ variable "frontend_domain_name" {
 }
 
 variable "frontend_ip_address" {
-  description = "The external IP address for the frontend."
+  description = "The external IP address for the frontend. If empty, no record is created."
   type        = string
+  default     = ""
 }
 
 variable "backend_domain_name" {
@@ -37,6 +44,7 @@ variable "backend_domain_name" {
 }
 
 variable "api_ip_address" {
-  description = "The external IP address for the backend API."
+  description = "The external IP address for the backend API. If empty, no record is created."
   type        = string
+  default     = ""
 }
