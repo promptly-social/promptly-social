@@ -35,3 +35,7 @@ api_domain_name = "api.promptly.social"
 frontend_domain_name = "promptly.social" 
 
 manage_cloud_run_service = true
+manage_frontend_infra = true
+dns_editor_service_accounts = [
+  "promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
+]

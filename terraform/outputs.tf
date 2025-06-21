@@ -68,5 +68,10 @@ output "frontend_domain" {
 
 output "dns_zone_nameservers" {
   description = "Nameservers for the Cloud DNS managed zone. Update these in your domain registrar."
-  value       = var.manage_frontend_infra ? google_dns_managed_zone.frontend_zone[0].name_servers : ["DNS zone not managed by this configuration."]
+  value       = var.manage_frontend_infra && local.is_production ? google_dns_managed_zone.frontend_zone[0].name_servers : ["DNS zone not managed by this configuration."]
+}
+
+output "dns_zone_name" {
+  description = "The name of the DNS managed zone."
+  value       = var.manage_frontend_infra && local.is_production ? google_dns_managed_zone.frontend_zone[0].name : "n/a"
 } 

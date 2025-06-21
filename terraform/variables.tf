@@ -102,3 +102,15 @@ variable "manage_frontend_infra" {
   type        = bool
   default     = true
 }
+
+variable "production_project_id" {
+  description = "The project ID for the production environment"
+  type        = string
+  default     = "promptly-social"
+}
+
+variable "dns_editor_service_accounts" {
+  description = "A list of service accounts to grant DNS editor role in the production project"
+  type        = list(string)
+  default     = []
+}

@@ -22,6 +22,15 @@ provider "google" {
   zone    = var.zone
 }
 
+data "terraform_remote_state" "production" {
+  count   = var.environment == "staging" ? 1 : 0
+  backend = "gcs"
+  config = {
+    bucket = "promptly-terraform-state"
+    prefix = "terraform/state/production"
+  }
+}
+
 data "google_project" "current" {}
 
 # Enable required APIs
@@ -306,6 +315,7 @@ module "cloud_run_service" {
 locals {
   frontend_domain = var.frontend_domain_name
   backend_domain  = "api.${var.frontend_domain_name}"
+  is_production = var.environment == "production"
 }
 
 # 1. Cloud Storage bucket to host static files
@@ -411,27 +421,35 @@ resource "google_compute_global_forwarding_rule" "frontend_forwarding_rule" {
 }
 
 # --- DNS for Frontend ---
+
 # This creates a managed zone for 'promptly.social' and adds A records.
 # NOTE: After running this, you must update the nameservers at your
 # domain registrar to the ones provided in the `dns_zone_nameservers` output.
 resource "google_dns_managed_zone" "frontend_zone" {
-  count = var.manage_frontend_infra ? 1 : 0
+  count = var.manage_frontend_infra && local.is_production ? 1 : 0
 
-  name     = "promptly-social-zone" # A name for the zone in GCP
-  dns_name = "promptly.social."     # The actual domain name
-  project  = var.project_id
+  name        = "promptly-social-zone" # A name for the zone in GCP
+  dns_name    = "promptly.social."     # The actual domain name
+  project     = var.project_id
   description = "DNS zone for promptly.social"
+}
+
+resource "google_project_iam_member" "dns_editors" {
+  for_each = toset(var.dns_editor_service_accounts)
+  project  = var.project_id
+  role     = "roles/dns.admin"
+  member   = "serviceAccount:${each.key}"
 }
 
 resource "google_dns_record_set" "frontend_a_record" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
   name         = "${local.frontend_domain}."
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_global_address.frontend_ip[0].address]
-  project      = var.project_id
+  project      = local.is_production ? var.project_id : var.production_project_id
 }
 
 # --- Backend API Infrastructure (Load Balancer for Cloud Run) ---
@@ -511,10 +529,10 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
 resource "google_dns_record_set" "api_a_record" {
   count = var.manage_cloud_run_service ? 1 : 0
 
-  managed_zone = google_dns_managed_zone.frontend_zone[0].name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
   name         = "${local.backend_domain}."
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_global_address.api_ip[0].address]
-  project      = var.project_id
+  project      = local.is_production ? var.project_id : var.production_project_id
 }
