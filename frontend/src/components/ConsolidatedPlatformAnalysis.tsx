@@ -29,6 +29,7 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
   const [analysisData, setAnalysisData] =
     useState<PlatformAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState("");
   const [saving, setSaving] = useState(false);
@@ -41,7 +42,6 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
     if (user) {
       fetchConnections();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchConnections = async () => {
@@ -101,6 +101,10 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
+    // Prevent multiple parallel analyze requests
+    if (analyzing) return;
+
+    setAnalyzing(true);
     try {
       if (selectedSource === "import") {
         if (!importText.trim()) return;
@@ -118,6 +122,8 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
       fetchAnalysisData();
     } catch (error) {
       console.error("Error running analysis:", error);
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -126,7 +132,6 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
     if (user) {
       fetchAnalysisData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (
@@ -157,8 +162,17 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                 onOpenChange={setAnalyzeModalOpen}
               >
                 <DialogTrigger asChild>
-                  <Button size="sm" className="flex items-center gap-2">
-                    <Play className="w-4 h-4" /> Analyze
+                  <Button
+                    size="sm"
+                    className="flex items-center gap-2"
+                    disabled={analyzing}
+                  >
+                    {analyzing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                    {analyzing ? "Analyzing..." : "Analyze"}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-lg">
@@ -170,10 +184,12 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                   <Select
                     value={selectedSource}
                     onValueChange={(value) => {
+                      if (analyzing) return; // Don't allow changes while analyzing
                       setSelectedSource(value);
                     }}
+                    disabled={analyzing}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full" disabled={analyzing}>
                       <SelectValue placeholder="Select source" />
                     </SelectTrigger>
                     <SelectContent>
@@ -196,7 +212,12 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                   {(selectedSource === "linkedin" ||
                     selectedSource === "substack") && (
                     <div className="mt-4">
-                      {connections[selectedSource] ? (
+                      {analyzing ? (
+                        <p className="text-sm text-gray-600">
+                          We are analyzing your writing. It will be ready in a
+                          few minutes.
+                        </p>
+                      ) : connections[selectedSource] ? (
                         <p className="text-sm text-gray-600">
                           Connection detected. Click Analyze to proceed.
                         </p>
@@ -216,12 +237,16 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                     <Button
                       onClick={handleAnalyze}
                       disabled={
-                        selectedSource === "import"
+                        analyzing ||
+                        (selectedSource === "import"
                           ? !importText.trim()
-                          : !connections[selectedSource]
+                          : !connections[selectedSource])
                       }
                     >
-                      {selectedSource === "import" ? "Analyze" : "Analyze"}
+                      {analyzing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : null}
+                      {analyzing ? "Analyzing..." : "Analyze"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

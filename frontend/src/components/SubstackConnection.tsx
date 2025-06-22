@@ -176,7 +176,12 @@ export const SubstackConnection: React.FC = () => {
         <Button
           onClick={handleAnalyze}
           size="sm"
-          disabled={isLoading || isAnalyzing || !connection?.platform_username}
+          disabled={
+            isLoading ||
+            isAnalyzing ||
+            !connection?.platform_username ||
+            connection?.analysis_status === "in_progress"
+          }
         >
           <FileText className="w-4 h-4 mr-2" />
           {isAnalyzing || connection?.analysis_status === "in_progress"

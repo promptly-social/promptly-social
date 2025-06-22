@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -105,6 +111,10 @@ export const SocialConnections: React.FC = () => {
           <Link2 className="w-5 h-5" />
           Social Media Connections
         </CardTitle>
+        <CardDescription>
+          Connect your social media accounts to get personalized content
+          recommendations by analyzing your bio and content preferences.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Substack Connection Component */}

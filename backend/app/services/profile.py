@@ -328,7 +328,9 @@ class ProfileService:
             logger.info(f"Successfully shared post to LinkedIn with ID: {share_id}")
             return {"share_id": share_id}
 
-    async def analyze_substack(self, user_id: UUID) -> Optional[SocialConnection]:
+    async def analyze_substack(
+        self, user_id: UUID, content_to_analyze: List[str]
+    ) -> Optional[SocialConnection]:
         """
         Analyze Substack content for a user.
 
@@ -371,7 +373,9 @@ class ProfileService:
             logger.info(f"Started substack analysis for user {user_id}")
 
             # Trigger async edge function
-            await self._trigger_substack_analysis(user_id, connection.platform_username)
+            await self._trigger_substack_analysis(
+                user_id, connection.platform_username, content_to_analyze
+            )
 
             return connection
 
@@ -382,13 +386,15 @@ class ProfileService:
             raise
 
     async def _trigger_substack_analysis(
-        self, user_id: UUID, platform_username: str
+        self, user_id: UUID, platform_username: str, content_to_analyze: List[str]
     ) -> None:
         """Trigger the Substack analysis via GCP Cloud Run or Edge Function."""
         try:
             # Prefer Cloud Run if configured
             if settings.gcp_analysis_function_url:
-                await self._trigger_gcp_cloud_run(user_id, platform_username)
+                await self._trigger_gcp_cloud_run(
+                    user_id, platform_username, content_to_analyze
+                )
             else:
                 # Fallback to Supabase Edge Function (if you have one)
                 raise NotImplementedError("Edge function trigger not implemented")
@@ -398,7 +404,7 @@ class ProfileService:
             raise
 
     async def _trigger_gcp_cloud_run(
-        self, user_id: UUID, platform_username: str
+        self, user_id: UUID, platform_username: str, content_to_analyze: List[str]
     ) -> None:
         """Trigger GCP Cloud Run function for analysis."""
         try:
@@ -440,7 +446,11 @@ class ProfileService:
 
             headers = {"Authorization": f"Bearer {id_token}"}
 
-            payload = {"user_id": str(user_id), "platform_username": platform_username}
+            payload = {
+                "user_id": str(user_id),
+                "platform_username": platform_username,
+                "content_to_analyze": content_to_analyze,
+            }
 
             logger.info(
                 f"Triggering GCP Cloud Run for user {user_id}. This may take a few minutes..."

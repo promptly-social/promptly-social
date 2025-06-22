@@ -80,7 +80,7 @@ class SubstackAnalyzer:
 
                 topics = self._analyze_topics(subscription_posts_sample)
 
-            bio = ""
+            bio = current_bio
             if "bio" in content_to_analyze:
                 substack_bio = self.user.get_raw_data().get("bio", "")
                 newsletter_url = f"https://{platform_username}.substack.com"
@@ -147,7 +147,7 @@ class SubstackAnalyzer:
         prompt = f"""
         You are an expert at analyzing writing style of a list of posts of an author.
         You are given a list of URLs to posts.
-        Your task is to analyze the writing style of the posts.
+        Your task is to analyze the writing style of the posts using gender neutral descriptions.
         Return the writing style analysis in plain text format. Each sentence should be on a new line.
         URLs: {urls}
         """
@@ -248,7 +248,7 @@ class SubstackAnalyzer:
         prompt = f"""
         You are an expert at creating a user bio from a list of posts, their stubstack bio, and a current bio.
         You are given a list of URLs to posts and a current bio.
-        Your task is to create a user bio from the posts and the current bio.
+        Your task is to create a user bio from the posts and the current bio, please use the first person perspective and gender neutral descriptions.
         Return the user bio in plain text format. The substack bio and current bio might be empyt or incomplete.
         If the substack bio and/or the current bio are given, update them based on your analysis.
         The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.

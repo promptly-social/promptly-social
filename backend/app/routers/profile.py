@@ -297,10 +297,12 @@ async def run_substack_analysis(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Run Substack analysis for the user."""
+    """Run Substack analysis for the user to analyze their bio and interests."""
     try:
         profile_service = ProfileService(db)
-        connection = await profile_service.analyze_substack(current_user.id)
+        connection = await profile_service.analyze_substack(
+            current_user.id, ["bio", "interests"]
+        )
 
         if not connection:
             raise HTTPException(
@@ -361,29 +363,39 @@ async def run_writing_style_analysis(
                 is_connected=True,
             )
 
-        # For linked platforms (linkedin, substack) ensure connection exists
-        connection = await profile_service.get_social_connection(
-            current_user.id, source
-        )
-
-        if not connection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Social connection for {source} not found",
+        elif source == "substack":
+            profile_service = ProfileService(db)
+            connection = await profile_service.analyze_substack(
+                current_user.id, ["writing_style"]
             )
 
-        # Placeholder analysis logic until external analyzer integration
-        mock_analysis_data = f"Writing style analysis for {source} - placeholder data"
+            if not connection:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Substack connection not found or not configured for analysis",
+                )
 
-        analysis = await profile_service.upsert_writing_style_analysis(
-            current_user.id, source, mock_analysis_data
-        )
+            # Re-fetch the data to populate the response model
+            analysis_data = await get_substack_analysis(current_user, db)
+            analysis_data.is_analyzing = True
+            return analysis_data
 
-        return PlatformAnalysisResponse(
-            analysis_data=analysis.analysis_data,
-            last_analyzed=analysis.last_analyzed_at.isoformat(),
-            is_connected=True,
-        )
+        elif source == "linkedin":
+            # For linked platforms (linkedin, substack) ensure connection exists
+            connection = await profile_service.get_social_connection(
+                current_user.id, "linkedin"
+            )
+
+            if not connection:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Social connection for {source} not found",
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid source: {source}",
+            )
 
     except HTTPException:
         raise
