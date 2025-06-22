@@ -19,12 +19,12 @@ resource "google_dns_record_set" "frontend_a_record" {
 }
 
 # Creates a DNS A record for the backend API if an IP address is provided.
-resource "google_dns_record_set" "api_a_record" {
+resource "google_dns_record_set" "api_cname_record" {
   count = var.api_ip_address != "" ? 1 : 0
 
   managed_zone = var.managed_zone_name
   name         = "${var.backend_domain_name}."
-  type         = "A"
+  type         = "CNAME"
   ttl          = 300
-  rrdatas      = [var.api_ip_address]
+  rrdatas      = ["ghs.googlehosted.com."]
 }

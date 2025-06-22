@@ -42,6 +42,7 @@ class SocialConnectionBase(BaseModel):
     platform: str
     platform_username: Optional[str] = None
     is_active: bool = True
+    analysis_status: Optional[str] = "not_started"
 
 
 class SocialConnectionCreate(SocialConnectionBase):
@@ -62,6 +63,7 @@ class SocialConnectionUpdate(BaseModel):
     is_active: Optional[bool] = None
     analysis_started_at: Optional[datetime] = None
     analysis_completed_at: Optional[datetime] = None
+    analysis_status: Optional[str] = None
 
 
 class SocialConnectionResponse(SocialConnectionBase):
@@ -78,6 +80,7 @@ class SocialConnectionResponse(SocialConnectionBase):
     connection_data: Optional[Dict[str, Any]] = None
     analysis_started_at: Optional[datetime] = None
     analysis_completed_at: Optional[datetime] = None
+    analysis_status: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

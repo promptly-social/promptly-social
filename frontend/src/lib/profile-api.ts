@@ -26,6 +26,7 @@ export interface SocialConnection {
   is_active: boolean;
   analysis_started_at?: string | null;
   analysis_completed_at?: string | null;
+  analysis_status?: 'not_started' | 'in_progress' | 'error' | 'completed' | null;
   created_at: string;
   updated_at: string;
 }

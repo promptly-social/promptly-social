@@ -24,7 +24,7 @@ variable "function_name" {
 variable "max_posts_to_analyze" {
   description = "The maximum number of posts to analyze."
   type        = number
-  default     = 10
+  default     = 5
 }
 
 variable "environment" {

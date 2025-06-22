@@ -176,3 +176,29 @@ resource "google_project_iam_member" "dns_readers" {
   role     = "roles/dns.reader"
   member   = "serviceAccount:${var.dns_reader_sds[count.index]}"
 }
+
+# Grant the Terraform SA permission to create access tokens for the App SA.
+# The ServiceAccountUser role (impersonation) was already granted above in
+# `terraform_sa_impersonates_app_sa`.  Add the complementary
+# ServiceAccountTokenCreator role so the TF SA can mint OAuth2 tokens for the
+# App SA when needed (e.g., when Terraform uses `impersonate_service_account`).
+
+resource "google_service_account_iam_member" "terraform_sa_token_creator_app_sa" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.terraform_sa.email}"
+}
+
+resource "google_service_account_iam_member" "tf_sa_admin_user" {
+  for_each          = toset(var.bootstrap_admins)
+  service_account_id = google_service_account.terraform_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "user:${each.value}"
+}
+
+resource "google_service_account_iam_member" "tf_sa_admin_token_creator" {
+  for_each          = toset(var.bootstrap_admins)
+  service_account_id = google_service_account.terraform_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "user:${each.value}"
+}

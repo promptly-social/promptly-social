@@ -274,6 +274,7 @@ class TestProfileEndpoints:
                     user_id=mock_current_user.id,
                     platform="linkedin",
                     is_active=True,
+                    analysis_status="not_started",
                     created_at=datetime.now(timezone.utc),
                     updated_at=datetime.now(timezone.utc),
                 )
@@ -305,6 +306,7 @@ class TestProfileEndpoints:
                     platform="linkedin",
                     platform_username="testuser",
                     is_active=True,
+                    analysis_status="not_started",
                 )
                 mock_get_connection.return_value = mock_connection
 
@@ -343,6 +345,7 @@ class TestProfileEndpoints:
                 platform="substack",
                 platform_username="testuser",
                 is_active=True,
+                analysis_status="in_progress",
                 analysis_started_at=datetime.now(timezone.utc),
             )
             mock_fetch_token.return_value = "mock_token"
@@ -396,6 +399,7 @@ class TestProfileEndpoints:
                 platform="substack",
                 platform_username="testuser",
                 is_active=True,
+                analysis_status="not_started",
             )
             mock_get_connection.return_value = mock_connection
             mock_fetch_token.side_effect = Exception("GCP function failed")
@@ -423,6 +427,7 @@ class TestProfileEndpoints:
                         platform="substack",
                         platform_username="testnewsletter",
                         is_active=True,
+                        analysis_status="not_started",
                         created_at=datetime.now(timezone.utc),
                         updated_at=datetime.now(timezone.utc),
                     )
@@ -479,6 +484,7 @@ class TestProfileEndpoints:
                 platform="substack",
                 platform_username=None,
                 is_active=True,
+                analysis_status="not_started",
             )
             mock_get_connection.return_value = mock_connection
 

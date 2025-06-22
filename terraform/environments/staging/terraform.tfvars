@@ -18,7 +18,7 @@ terraform_state_reader_service_accounts = []
 # Cloud Run Configuration - Staging optimized for cost
 manage_cloud_run_service = true
 manage_backend_load_balancer = true
-cloud_run_min_instances = 0
+cloud_run_min_instances = 1
 cloud_run_max_instances = 2
 cloud_run_memory        = "1Gi"
 cloud_run_cpu          = "1000m"

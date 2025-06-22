@@ -2,14 +2,12 @@
 Content service for handling content-related business logic.
 """
 
-import os
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
 import urllib.parse
 import traceback
-import json
-import base64
+
 
 import httpx
 from loguru import logger
@@ -366,6 +364,7 @@ class ProfileService:
             # Set analysis_started_at timestamp
             connection.analysis_started_at = datetime.now(timezone.utc)
             connection.analysis_completed_at = None  # Reset completed timestamp
+            connection.analysis_status = "in_progress"
 
             await self.db.commit()
 

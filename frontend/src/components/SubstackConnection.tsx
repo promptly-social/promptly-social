@@ -179,12 +179,12 @@ export const SubstackConnection: React.FC = () => {
           disabled={isLoading || isAnalyzing || !connection?.platform_username}
         >
           <FileText className="w-4 h-4 mr-2" />
-          {isAnalyzing ||
-          (connection?.analysis_started_at &&
-            !connection?.analysis_completed_at)
+          {isAnalyzing || connection?.analysis_status === "in_progress"
             ? "Analyzing..."
-            : connection?.analysis_completed_at
+            : connection?.analysis_status === "completed"
             ? "Re-analyze"
+            : connection?.analysis_status === "error"
+            ? "Retry"
             : "Analyze"}
         </Button>
       </div>
@@ -223,19 +223,20 @@ export const SubstackConnection: React.FC = () => {
               <p className="text-sm text-gray-500">
                 {connection?.platform_username || "No handle set"}
               </p>
-              {connection?.analysis_started_at &&
-                !connection?.analysis_completed_at && (
-                  <p className="text-xs text-blue-600">
-                    Analysis in progress...
+              {connection?.analysis_completed_at &&
+                connection?.analysis_status === "completed" && (
+                  <p className="text-xs text-green-600">
+                    Last analyzed:{" "}
+                    {new Date(
+                      connection.analysis_completed_at
+                    ).toLocaleDateString()}
                   </p>
                 )}
-              {connection?.analysis_completed_at && (
-                <p className="text-xs text-green-600">
-                  Last analyzed:{" "}
-                  {new Date(
-                    connection.analysis_completed_at
-                  ).toLocaleDateString()}
-                </p>
+              {connection?.analysis_status === "error" && (
+                <p className="text-xs text-red-600">Analysis failed</p>
+              )}
+              {connection?.analysis_status === "in_progress" && (
+                <p className="text-xs text-blue-600">Analysis in progress...</p>
               )}
             </div>
             {connection?.platform_username && (

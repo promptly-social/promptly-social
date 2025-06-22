@@ -68,6 +68,7 @@ class SocialConnection(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     analysis_started_at = Column(DateTime(timezone=True))
     analysis_completed_at = Column(DateTime(timezone=True))
+    analysis_status = Column(String, default="not_started", nullable=False)
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

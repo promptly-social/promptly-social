@@ -20,4 +20,5 @@ module "bootstrap" {
   app_name                    = var.app_name
   environment                 = "staging"
   terraform_state_bucket_name = "promptly-terraform-states"
+  bootstrap_admins            = var.bootstrap_admins
 } 

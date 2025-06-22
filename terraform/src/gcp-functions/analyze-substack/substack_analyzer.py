@@ -49,7 +49,6 @@ class SubstackAnalyzer:
                 self.user.get_raw_data()
             except Exception as e:
                 logger.error(f"Error getting raw data for {platform_username}: {e}")
-                # TODO: surface the error to the user
                 return self._create_empty_analysis(platform_username)
 
             # Step 1: get a list of subscriptions, and persist them to the database
@@ -57,6 +56,7 @@ class SubstackAnalyzer:
             websites = [
                 f"https://{subscription['domain']}" for subscription in subscriptions
             ]
+            logger.info(f"Substack subscriptions fetched: {len(websites)}")
 
             # Step 2: get a list of post URLs from user's subscriptions
             subscription_posts = []
@@ -72,6 +72,7 @@ class SubstackAnalyzer:
             # Step 3: get a list of post URLs from user's newsletter
             newsletter_url = f"https://{platform_username}.substack.com"
             newsletter_posts = self._fetch_substack_posts(newsletter_url)
+            logger.info(f"Substack newsletter posts fetched: {len(newsletter_posts)}")
 
             # Step 4: combine the two lists to generate a list of topics
             posts = subscription_posts_sample + newsletter_posts
@@ -121,9 +122,11 @@ class SubstackAnalyzer:
     def _analyze_writing_style(self, posts: List[Dict]) -> str:
         """Analyze writing style of posts."""
         if not posts:
+            logger.error("No posts provided for writing style analysis")
             return ""
 
         urls = "\n".join(posts)
+
         prompt = f"""
         You are an expert at analyzing writing style of a list of posts of an author.
         You are given a list of URLs to posts.
@@ -150,6 +153,7 @@ class SubstackAnalyzer:
     def _analyze_topics(self, posts: List[Dict]) -> List[str]:
         """Extract main topics from posts by processing in batches."""
         if not posts:
+            logger.error("No posts provided for topics analysis")
             return []
 
         # Split posts into batches of 20
@@ -220,6 +224,7 @@ class SubstackAnalyzer:
     ) -> str:
         """Create a user bio from a list of posts and a current bio."""
         if not posts:
+            logger.error("No posts provided for user bio creation")
             return substack_bio or current_bio
 
         urls = "\n".join(posts)

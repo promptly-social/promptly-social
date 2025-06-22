@@ -133,6 +133,7 @@ async def update_analysis_results(
             .update(
                 {
                     "analysis_completed_at": datetime.now(timezone.utc).isoformat(),
+                    "analysis_status": "completed",
                 }
             )
             .eq("user_id", user_id)
@@ -166,6 +167,7 @@ async def mark_analysis_failed(
             **connection_data,
             "analysis_error": error_message,
             "analysis_failed_at": datetime.now(timezone.utc).isoformat(),
+            "analysis_status": "error",
         }
 
         supabase.table("social_connections").update(

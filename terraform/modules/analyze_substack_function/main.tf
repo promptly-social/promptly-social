@@ -69,6 +69,7 @@ data "archive_file" "source" {
 # Local variables for resource names
 locals {
   bucket_name = "${var.app_name}-cf-source-${var.environment}"
+  terraform_sa_email = "${var.app_name}-tf-sa-${var.environment}@${var.project_id}.iam.gserviceaccount.com"
 }
 
 # Storage bucket to hold the zipped code
@@ -289,6 +290,13 @@ resource "google_service_account_iam_member" "cloudbuild_impersonate_function_sa
   service_account_id = google_service_account.function_sa.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
+}
+
+# Grant the Terraform SA permission to impersonate the function's runtime SA
+resource "google_service_account_iam_member" "terraform_sa_impersonate_function_sa" {
+  service_account_id = google_service_account.function_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.terraform_sa_email}"
 }
 
 # Grant Cloud Build Service Agent permission to impersonate the function's runtime SA

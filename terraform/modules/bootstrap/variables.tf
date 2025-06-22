@@ -35,3 +35,8 @@ variable "environment" {
   description = "The deployment environment (e.g., staging, production)."
   type        = string
 } 
+
+variable "bootstrap_admins" {
+  type        = list(string)
+  description = "Users allowed to impersonate the Terraform SA locally"
+}
