@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 5.0"
+    }
     archive = {
       source  = "hashicorp/archive"
       version = "~> 2.2.0"
@@ -17,6 +21,11 @@ terraform {
 }
 
 provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
@@ -246,8 +255,9 @@ data "google_project" "project" {
 }
 
 resource "google_project_service_identity" "gcp_sa_cloudfunctions" {
-  project = var.project_id
-  service = "cloudfunctions.googleapis.com"
+  provider = google-beta
+  project  = var.project_id
+  service  = "cloudfunctions.googleapis.com"
 
   depends_on = [
     google_project_service.project_services,
