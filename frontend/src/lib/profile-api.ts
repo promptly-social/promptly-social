@@ -22,7 +22,29 @@ export interface SocialConnection {
   user_id: string;
   platform: string;
   platform_username: string | null;
-  connection_data?: unknown;
+  // All authentication data is now stored in connection_data JSON field
+  // Structure varies by auth method:
+  // - Native LinkedIn: {"auth_method": "native", "access_token": "...", "refresh_token": "...", "expires_at": "...", "scope": "...", "linkedin_user_id": "...", "email": "..."}
+  // - Unipile: {"auth_method": "unipile", "account_id": "...", "unipile_account_id": "...", "provider": "...", "status": "..."}
+  connection_data?: {
+    auth_method?: 'native' | 'unipile';
+    // Native LinkedIn fields
+    access_token?: string;
+    refresh_token?: string;
+    expires_at?: string;
+    scope?: string;
+    linkedin_user_id?: string;
+    email?: string;
+    picture?: string;
+    // Unipile fields
+    account_id?: string;
+    unipile_account_id?: string;
+    provider?: string;
+    status?: string;
+    webhook_status?: string;
+    webhook_data?: unknown;
+    [key: string]: unknown;
+  };
   is_active: boolean;
   analysis_started_at?: string | null;
   analysis_completed_at?: string | null;
@@ -58,6 +80,31 @@ export interface SubstackAnalysisResponse {
 
 export interface LinkedInAuthResponse {
   authorization_url: string;
+}
+
+export interface LinkedInAuthInfo {
+  auth_method: 'native' | 'unipile';
+  provider: string;
+  configured: boolean;
+}
+
+export interface UnipileAccount {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface UnipileAccountsResponse {
+  accounts: UnipileAccount[];
+}
+
+export interface LinkedInConnectionStatus {
+  connected: boolean;
+  auth_method?: string;
+  account_id?: string;
+  error?: string;
 }
 
 // Profile API
@@ -134,6 +181,18 @@ export const profileApi = {
 
   async linkedinCallback(code: string, state: string): Promise<SocialConnection> {
     return apiClient.request<SocialConnection>(`/profile/linkedin/callback?code=${code}&state=${state}`);
+  },
+
+  async linkedinAuthInfo(): Promise<LinkedInAuthInfo> {
+    return apiClient.request<LinkedInAuthInfo>('/profile/linkedin/auth-info');
+  },
+
+  async checkLinkedInConnectionStatus(state: string): Promise<LinkedInConnectionStatus> {
+    return apiClient.request<LinkedInConnectionStatus>(`/profile/linkedin/connection-status/${state}`);
+  },
+
+  async getUnipileAccounts(): Promise<UnipileAccountsResponse> {
+    return apiClient.request<UnipileAccountsResponse>('/profile/linkedin/unipile-accounts');
   },
 
   async shareOnLinkedIn(text: string): Promise<{ share_id: string }> {

@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     linkedin_client_id: Optional[str] = Field(default=None)
     linkedin_client_secret: Optional[str] = Field(default=None)
 
+    # Unipile Configuration
+    unipile_dsn: Optional[str] = Field(default=None)
+    unipile_access_token: Optional[str] = Field(default=None)
+
+    # Feature Flags
+    use_unipile_for_linkedin: bool = Field(default=False)
+
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60)
 

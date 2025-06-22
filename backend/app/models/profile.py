@@ -1,6 +1,9 @@
 import uuid
+from datetime import datetime
+from typing import Any, Dict, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
 from app.core.database import Base
 from app.models.helpers import get_array_column, get_json_column, get_uuid_column
@@ -60,10 +63,10 @@ class SocialConnection(Base):
     user_id = Column(get_uuid_column(), nullable=False)
     platform = Column(String, nullable=False)
     platform_username = Column(String)
-    access_token = Column(String)
-    refresh_token = Column(String)
-    expires_at = Column(DateTime(timezone=True))
-    scope = Column(String)
+    # All authentication data is now stored in connection_data JSON field
+    # Structure varies by auth method:
+    # - Native LinkedIn: {"auth_method": "native", "access_token": "...", "refresh_token": "...", "expires_at": "...", "scope": "...", "linkedin_user_id": "...", "email": "..."}
+    # - Unipile: {"auth_method": "unipile", "account_id": "...", "unipile_account_id": "...", "provider": "...", "status": "..."}
     connection_data = Column(get_json_column())
     is_active = Column(Boolean, default=True, nullable=False)
     analysis_started_at = Column(DateTime(timezone=True))
