@@ -171,6 +171,7 @@ resource "google_cloudfunctions2_function" "function" {
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
     google_service_account_iam_member.cloudbuild_impersonate_function_sa,
+    google_service_account_iam_member.cloudbuild_agent_impersonate_function_sa,
     google_project_iam_member.cloudbuild_logging_writer,
     google_project_iam_member.cloudbuild_artifactregistry_admin,
     google_project_iam_member.cloudbuild_service_account_token_creator,
@@ -288,6 +289,13 @@ resource "google_service_account_iam_member" "cloudbuild_impersonate_function_sa
   service_account_id = google_service_account.function_sa.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
+}
+
+# Grant Cloud Build Service Agent permission to impersonate the function's runtime SA
+resource "google_service_account_iam_member" "cloudbuild_agent_impersonate_function_sa" {
+  service_account_id = google_service_account.function_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-cloudbuild.iam.gserviceaccount.com"
 }
 
 # Grant the Cloud Functions Service Agent permission to act as the function's runtime SA.
