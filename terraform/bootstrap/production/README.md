@@ -5,7 +5,7 @@ This Terraform configuration is for a **one-time manual setup** to establish a s
 It creates:
 
 1.  A **Workload Identity Pool** and **OIDC Provider** to trust GitHub Actions.
-2.  A dedicated **Service Account for Terraform** (`promptly-terraform-sa`).
+2.  A dedicated **Service Account for Terraform** (`promptly-tf`).
 3.  IAM bindings to give the Terraform SA owner permissions (for simplicity) and allow GitHub Actions from your repository to impersonate it.
 
 ## Manual Setup Steps
@@ -54,6 +54,6 @@ After Terraform successfully applies, it will output three values. **You must ad
 - `GCP_WIF_PROVIDER`: The full ID of the Workload Identity Provider.
   - e.g., `projects/123456789/locations/global/workloadIdentityPools/promptly-github-pool/providers/github-provider`
 - `GCP_TERRAFORM_SA_EMAIL`: The email of the service account created for Terraform CI/CD.
-  - e.g., `promptly-terraform-sa@your-project-id.iam.gserviceaccount.com`
+  - e.g., `promptly-tf-sa@your-project-id.iam.gserviceaccount.com`
 
 **Important**: Your CI/CD pipelines will now use these secrets to authenticate without a key. You no longer need the `GCP_SA_KEY` secret.

@@ -34,7 +34,7 @@ variable "docker_registry_location" {
 }
 
 variable "cloud_run_min_instances" {
-  description = "Minimum number of Cloud Run instances"
+  description = "The minimum number of container instances for the Cloud Run service."
   type        = number
   default     = 0
 }
@@ -46,9 +46,9 @@ variable "cloud_run_max_instances" {
 }
 
 variable "cloud_run_memory" {
-  description = "Memory allocation for Cloud Run"
+  description = "Memory for the Cloud Run service"
   type        = string
-  default     = "2Gi"
+  default     = "512Mi"
 }
 
 variable "cloud_run_cpu" {
@@ -80,9 +80,9 @@ variable "api_domain_name" {
 }
 
 variable "manage_cloud_run_service" {
-  description = "If true, Terraform will manage the Cloud Run service. Set to false to manage it via a separate pipeline."
+  description = "Boolean flag to indicate if cloud run service should be managed by this Terraform config."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "allow_unauthenticated_invocations" {
@@ -104,13 +104,48 @@ variable "manage_frontend_infra" {
 }
 
 variable "production_project_id" {
-  description = "The project ID for the production environment"
+  description = "The project ID of the production environment. Required for non-production environments to manage DNS."
   type        = string
-  default     = "promptly-social"
+  default     = null
 }
 
 variable "dns_editor_service_accounts" {
   description = "A list of service accounts to grant DNS editor role in the production project"
   type        = list(string)
   default     = []
+}
+
+variable "terraform_state_reader_service_accounts" {
+  description = "A list of service accounts to grant read-only access to the terraform state bucket."
+  type        = list(string)
+  default     = []
+}
+
+variable "manage_backend_load_balancer" {
+  description = "Boolean flag to indicate if the backend load balancer infrastructure should be managed."
+  type        = bool
+  default     = true
+}
+
+variable "dns_reader_service_accounts" {
+  description = "A list of service accounts to grant DNS reader role in the production project"
+  type        = list(string)
+  default     = []
+}
+
+variable "dns_admin_service_accounts" {
+  description = "A list of service accounts to grant DNS admin role in the production project"
+  type        = list(string)
+  default     = []
+}
+
+variable "image_tag" {
+  description = "The Docker image tag to deploy."
+  type        = string
+  default     = "latest"
+}
+
+variable "terraform_service_account_email" {
+  description = "The email of the service account used by Terraform to apply changes."
+  type        = string
 }

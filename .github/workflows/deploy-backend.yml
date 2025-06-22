@@ -115,42 +115,5 @@ jobs:
     uses: ./.github/workflows/terraform-cloud-run.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      action: "apply"
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
     secrets: inherit
-
-  post-deploy:
-    runs-on: ubuntu-latest
-    needs: [build-and-push, deploy]
-    environment: ${{ github.event.inputs.environment }}
-    permissions: write-all
-    steps:
-      - name: Test deployment
-        run: |
-          SERVICE_URL="${{ needs.deploy.outputs.service_url }}"
-          if [ -z "$SERVICE_URL" ] || [ "$SERVICE_URL" = "n/a" ]; then
-            echo "⚠️ No service URL available, skipping health check"
-            echo "This might happen if:"
-            echo "  - manage_cloud_run_service is false in terraform"
-            echo "  - Cloud Run service is not deployed yet"
-            echo "  - There were no changes to apply"
-            exit 0
-          fi
-
-          echo "🔍 Testing deployment at: $SERVICE_URL"
-          sleep 30
-          curl -f "$SERVICE_URL/health" || exit 1
-          echo "✅ Deployment health check passed"
-
-      - name: Update environment info
-        run: |
-          echo "🚀 Successfully deployed to ${{ github.event.inputs.environment }}"
-          echo "📍 Service URL: ${{ needs.deploy.outputs.service_url }}"
-          echo "🏷️  Docker Tag: ${{ needs.build-and-push.outputs.image_tag }}"
-          echo "💾 Database: Using Supabase (no CloudSQL needed)"
-          echo "🔑 WIF principal has token creator role for Docker auth."
-          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            echo "🔄 Minimum instances set to 1 to avoid cold starts"
-          else
-            echo "💰 Minimum instances set to 0 for cost optimization in staging"
-          fi

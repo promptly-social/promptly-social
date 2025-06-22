@@ -39,3 +39,9 @@ manage_frontend_infra = true
 dns_editor_service_accounts = [
   "promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
 ]
+
+  dns_admin_service_accounts = ["promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"]
+  dns_reader_service_accounts = ["promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"]
+
+
+terraform_service_account_email = "promptly-tf-sa-production@promptly-social.iam.gserviceaccount.com"

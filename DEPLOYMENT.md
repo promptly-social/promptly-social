@@ -56,7 +56,7 @@ After completing the bootstrap process, you must configure the following secrets
 
 - `GCP_PROJECT_ID`: Your Google Cloud project ID
 - `GCP_WIF_PROVIDER`: The full resource name of the Workload Identity Provider created by the bootstrap process (e.g., `projects/123.../providers/github-provider`)
-- `GCP_TERRAFORM_SA_EMAIL`: The email of the service account created for Terraform CI/CD (e.g., `promptly-terraform-sa@...`)
+- `GCP_TERRAFORM_SA_EMAIL`: The email of the service account created for Terraform CI/CD (e.g., `promptly-tf-sa@...`)
 - `GCP_TERRAFORM_STATE_BUCKET`: The name of the GCS bucket for storing Terraform state
 - `APP_NAME`: Application name (default: `promptly`)
 - `FRONTEND_URL`: Your frontend domain URL

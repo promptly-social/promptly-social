@@ -124,3 +124,28 @@ variable "allow_unauthenticated_invocations" {
   type        = bool
   default     = true
 }
+
+variable "frontend_url" {
+  description = "The URL of the frontend application."
+  type        = string
+}
+
+variable "backend_url" {
+  description = "The URL of the backend application."
+  type        = string
+}
+
+variable "linkedin_client_id_name" {
+  description = "The name of the Secret Manager secret for the LinkedIn Client ID."
+  type        = string
+}
+
+variable "linkedin_client_secret_name" {
+  description = "The name of the Secret Manager secret for the LinkedIn Client Secret."
+  type        = string
+}
+
+variable "database_url_name" {
+  description = "The name of the Secret Manager secret for the database URL."
+  type        = string
+}

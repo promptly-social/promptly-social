@@ -22,16 +22,19 @@ provider "google" {
   zone    = var.zone
 }
 
-data "terraform_remote_state" "production" {
-  count   = var.environment == "staging" ? 1 : 0
-  backend = "gcs"
-  config = {
-    bucket = "promptly-terraform-state"
-    prefix = "terraform/state/production"
-  }
+provider "google" {
+  alias   = "dns"
+  project = local.is_production ? var.project_id : var.production_project_id
 }
 
 data "google_project" "current" {}
+
+# Data source to get the production DNS managed zone when running for staging
+data "google_dns_managed_zone" "production_zone" {
+  count   = !local.is_production ? 1 : 0
+  name    = "promptly-social-zone"
+  project = var.production_project_id # This var should be set in staging's .tfvars
+}
 
 # Enable required APIs
 resource "google_project_service" "apis" {
@@ -58,12 +61,22 @@ resource "google_artifact_registry_repository" "backend_repo" {
   depends_on = [google_project_service.apis]
 }
 
-
-# Service account for Cloud Run
+# Create the application service account
 resource "google_service_account" "app_sa" {
+  project      = var.project_id
   account_id   = "${var.app_name}-app-sa-${var.environment}"
-  display_name = "App Service Account for ${var.app_name} (${var.environment})"
-  description  = "Service account for the main application, used by Cloud Run."
+  display_name = "Application Service Account (${var.app_name} ${var.environment})"
+  description  = "Service account for the ${var.app_name} application in ${var.environment}."
+
+  depends_on = [google_project_service.apis]
+}
+
+# Allow the Terraform SA to impersonate the Application SA.
+# This is necessary for deploying resources like Cloud Run services that run as the App SA.
+resource "google_service_account_iam_member" "tf_sa_impersonates_app_sa" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${var.terraform_service_account_email}"
 }
 
 # Grant necessary permissions to the service account
@@ -259,6 +272,45 @@ resource "google_secret_manager_secret_version" "openrouter_api_key_initial_vers
   secret_data = "placeholder"
 }
 
+resource "google_secret_manager_secret" "linkedin_client_id" {
+  secret_id = "LINKEDIN_CLIENT_ID"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "linkedin_client_id_initial_version" {
+  secret      = google_secret_manager_secret.linkedin_client_id.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "linkedin_client_secret" {
+  secret_id = "LINKEDIN_CLIENT_SECRET"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "linkedin_client_secret_initial_version" {
+  secret      = google_secret_manager_secret.linkedin_client_secret.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "database_url" {
+  secret_id = "DATABASE_URL"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "database_url_initial_version" {
+  secret      = google_secret_manager_secret.database_url.id
+  secret_data = "placeholder-db-url"
+}
+
 # Data source to get the current version of the GCP analysis function URL secret
 /* data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
   secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
@@ -275,6 +327,9 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     google_client_secret  = google_secret_manager_secret.google_client_secret
     gcp_analysis_function_url = google_secret_manager_secret.gcp_analysis_function_url
     openrouter_api_key    = google_secret_manager_secret.openrouter_api_key
+    linkedin_client_id    = google_secret_manager_secret.linkedin_client_id
+    linkedin_client_secret = google_secret_manager_secret.linkedin_client_secret
+    database_url          = google_secret_manager_secret.database_url
   }
 
   secret_id = each.value.secret_id
@@ -298,6 +353,8 @@ module "cloud_run_service" {
   docker_registry_location   = var.docker_registry_location
   backend_repo_repository_id = google_artifact_registry_repository.backend_repo.repository_id
   cors_origins               = var.cors_origins
+  frontend_url               = local.frontend_url
+  backend_url                = local.backend_url
   jwt_secret_name            = google_secret_manager_secret.jwt_secret.secret_id
   supabase_url_name          = google_secret_manager_secret.supabase_url.secret_id
   supabase_key_name          = google_secret_manager_secret.supabase_key.secret_id
@@ -307,22 +364,27 @@ module "cloud_run_service" {
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
   gcp_analysis_function_url_version = google_secret_manager_secret_version.gcp_analysis_function_url_initial_version.version
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
+  linkedin_client_id_name    = google_secret_manager_secret.linkedin_client_id.secret_id
+  linkedin_client_secret_name = google_secret_manager_secret.linkedin_client_secret.secret_id
+  database_url_name          = google_secret_manager_secret.database_url.secret_id
   allow_unauthenticated_invocations = false
 }
 
 # --- Frontend Infrastructure (GCS Bucket + CDN for Static Site) ---
 
 locals {
+  is_production   = var.environment == "production"
   frontend_domain = var.frontend_domain_name
   backend_domain  = "api.${var.frontend_domain_name}"
-  is_production = var.environment == "production"
+  frontend_url    = "https://${var.frontend_domain_name}"
+  backend_url     = "https://api.${var.frontend_domain_name}"
 }
 
 # 1. Cloud Storage bucket to host static files
 resource "google_storage_bucket" "frontend_bucket" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  name          = local.frontend_domain # Bucket names must be globally unique
+  name          = "${local.frontend_domain}" # Bucket names must be globally unique
   project       = var.project_id
   location      = "US"                  # Multi-regional for high availability
   storage_class = "STANDARD"
@@ -342,12 +404,18 @@ resource "google_storage_bucket" "frontend_bucket" {
 }
 
 # 2. Grant public read access to the bucket objects for the CDN
-resource "google_storage_bucket_iam_member" "public_access" {
+data "google_iam_policy" "public_bucket_policy" {
+  binding {
+    role    = "roles/storage.objectViewer"
+    members = ["allUsers"]
+  }
+}
+
+resource "google_storage_bucket_iam_policy" "public_access" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  bucket = google_storage_bucket.frontend_bucket[0].name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
+  bucket      = google_storage_bucket.frontend_bucket[0].name
+  policy_data = data.google_iam_policy.public_bucket_policy.policy_data
 
   depends_on = [google_storage_bucket.frontend_bucket]
 }
@@ -384,7 +452,7 @@ resource "google_compute_backend_bucket" "frontend_backend" {
     client_ttl           = 86400
     max_ttl              = 31536000 # 1 year
     cache_mode           = "CACHE_ALL_STATIC"
-    negative_caching     = true
+    negative_caching     = false
     signed_url_cache_max_age_sec = 0
   }
 }
@@ -432,10 +500,21 @@ resource "google_dns_managed_zone" "frontend_zone" {
   dns_name    = "promptly.social."     # The actual domain name
   project     = var.project_id
   description = "DNS zone for promptly.social"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-resource "google_project_iam_member" "dns_editors" {
-  for_each = toset(var.dns_editor_service_accounts)
+resource "google_project_iam_member" "dns_readers" {
+  for_each = toset(local.is_production ? var.dns_reader_service_accounts : [])
+  project  = var.project_id
+  role     = "roles/dns.reader"
+  member   = "serviceAccount:${each.key}"
+}
+
+resource "google_project_iam_member" "dns_admins" {
+  for_each = toset(local.is_production ? var.dns_admin_service_accounts : [])
   project  = var.project_id
   role     = "roles/dns.admin"
   member   = "serviceAccount:${each.key}"
@@ -444,7 +523,7 @@ resource "google_project_iam_member" "dns_editors" {
 resource "google_dns_record_set" "frontend_a_record" {
   count = var.manage_frontend_infra ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
   name         = "${local.frontend_domain}."
   type         = "A"
   ttl          = 300
@@ -456,7 +535,7 @@ resource "google_dns_record_set" "frontend_a_record" {
 
 # 1. Serverless NEG for the Cloud Run service
 resource "google_compute_region_network_endpoint_group" "backend_neg" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name                  = "${var.app_name}-backend-neg-${var.environment}"
   network_endpoint_type = "SERVERLESS"
@@ -468,7 +547,7 @@ resource "google_compute_region_network_endpoint_group" "backend_neg" {
 
 # 2. Backend Service
 resource "google_compute_backend_service" "api_backend" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name                  = "${var.app_name}-api-backend-service-${var.environment}"
   protocol              = "HTTP"
@@ -484,13 +563,13 @@ resource "google_compute_backend_service" "api_backend" {
 
 # 3. Reserve a static IP for the API load balancer
 resource "google_compute_global_address" "api_ip" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
   name  = "${var.app_name}-api-ip-${var.environment}"
 }
 
 # 4. Managed SSL Certificate for the API domain
 resource "google_compute_managed_ssl_certificate" "api_ssl" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
   name  = "${var.app_name}-api-ssl-${var.environment}"
   managed {
     domains = [local.backend_domain]
@@ -499,7 +578,7 @@ resource "google_compute_managed_ssl_certificate" "api_ssl" {
 
 # 5. URL Map to route all requests to the API backend service
 resource "google_compute_url_map" "api_url_map" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name            = "${var.app_name}-api-url-map-${var.environment}"
   default_service = google_compute_backend_service.api_backend[0].id
@@ -507,7 +586,7 @@ resource "google_compute_url_map" "api_url_map" {
 
 # 6. HTTPS Target Proxy
 resource "google_compute_target_https_proxy" "api_https_proxy" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name             = "${var.app_name}-api-https-proxy-${var.environment}"
   url_map          = google_compute_url_map.api_url_map[0].id
@@ -516,7 +595,7 @@ resource "google_compute_target_https_proxy" "api_https_proxy" {
 
 # 7. Global Forwarding Rule (Load Balancer Frontend for API)
 resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
   name                  = "${var.app_name}-api-forwarding-rule-${var.environment}"
   target                = google_compute_target_https_proxy.api_https_proxy[0].id
@@ -527,12 +606,21 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
 
 # 8. DNS A record for the API
 resource "google_dns_record_set" "api_a_record" {
-  count = var.manage_cloud_run_service ? 1 : 0
+  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.terraform_remote_state.production[0].outputs.dns_zone_name
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
   name         = "${local.backend_domain}."
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_global_address.api_ip[0].address]
   project      = local.is_production ? var.project_id : var.production_project_id
+}
+
+# Grant read-only access to the Terraform state bucket for specified service accounts
+# This is typically used to allow staging environments to read production state.
+resource "google_storage_bucket_iam_member" "state_readers" {
+  for_each = toset(var.environment == "production" ? var.terraform_state_reader_service_accounts : [])
+  bucket   = "promptly-terraform-state" # This bucket is managed outside of this configuration.
+  role     = "roles/storage.objectViewer"
+  member   = "serviceAccount:${each.key}"
 }
