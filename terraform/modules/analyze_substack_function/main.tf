@@ -21,6 +21,23 @@ provider "google" {
   region  = var.region
 }
 
+resource "google_project_service" "project_services" {
+  for_each = toset([
+    "cloudfunctions.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "secretmanager.googleapis.com",
+    "iam.googleapis.com",
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "logging.googleapis.com",
+    "storage-component.googleapis.com",
+  ])
+  project                    = var.project_id
+  service                    = each.key
+  disable_on_destroy         = false
+  disable_dependent_services = false
+}
+
 # Data source for zipping the function code
 data "archive_file" "source" {
   type        = "zip"
@@ -52,6 +69,8 @@ resource "google_storage_bucket" "source_bucket" {
   force_destroy = false # Set to false in production
   uniform_bucket_level_access = true
 
+  depends_on = [google_project_service.project_services]
+
   lifecycle {
     prevent_destroy = true
     ignore_changes = [
@@ -73,6 +92,8 @@ resource "google_storage_bucket_object" "source_archive" {
 resource "google_service_account" "function_sa" {
   account_id   = "${var.function_name}-sa-${var.environment}"
   display_name = "Service Account for ${var.function_name} function"
+
+  depends_on = [google_project_service.project_services]
 
   lifecycle {
     prevent_destroy = true
@@ -141,7 +162,6 @@ resource "google_cloudfunctions2_function" "function" {
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
     google_service_account_iam_member.cloudbuild_impersonate_function_sa,
-    google_service_account_iam_member.functions_sa_impersonate_function_sa,
     google_project_iam_member.cloudbuild_logging_writer,
     google_project_iam_member.cloudbuild_artifactregistry_admin,
     google_project_iam_member.cloudbuild_service_account_token_creator,
@@ -149,7 +169,8 @@ resource "google_cloudfunctions2_function" "function" {
     google_project_iam_member.compute_sa_storage_viewer,
     google_project_iam_member.compute_sa_artifactregistry_writer,
     google_project_iam_member.compute_sa_token_creator,
-    google_project_iam_member.function_sa_logging_writer
+    google_project_iam_member.function_sa_logging_writer,
+    google_service_account_iam_member.functions_sa_impersonate_function_sa
   ]
 }
 
@@ -224,6 +245,15 @@ data "google_project" "project" {
   project_id = var.project_id
 }
 
+resource "google_project_service_identity" "gcp_sa_cloudfunctions" {
+  project = var.project_id
+  service = "cloudfunctions.googleapis.com"
+
+  depends_on = [
+    google_project_service.project_services,
+  ]
+}
+
 # Grant Cloud Build service account necessary permissions for building Cloud Functions
 resource "google_project_iam_member" "cloudbuild_storage_admin" {
   project = var.project_id
@@ -255,9 +285,10 @@ resource "google_service_account_iam_member" "cloudbuild_impersonate_function_sa
 resource "google_service_account_iam_member" "functions_sa_impersonate_function_sa" {
   service_account_id = google_service_account.function_sa.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-cloudfunctions.iam.gserviceaccount.com"
+  member             = "serviceAccount:${google_project_service_identity.gcp_sa_cloudfunctions.email}"
 }
 
+# Grant the Cloud Build service account permission to write logs
 resource "google_project_iam_member" "cloudbuild_logging_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"
