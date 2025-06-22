@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timezone
 import asyncio
 from typing import Dict, Any
+import traceback
 
 import functions_framework
 from supabase import create_client, Client
@@ -263,7 +264,9 @@ def analyze_substack(request):
             .execute()
         )
 
-        current_bio = user_preferences_response.data[0].get("bio", "")
+        current_bio = ""
+        if user_preferences_response.data:
+            current_bio = user_preferences_response.data[0].get("bio", "")
 
         # Perform the analysis
         try:
@@ -325,4 +328,5 @@ def analyze_substack(request):
 
     except Exception as e:
         logger.error(f"Error in analyze_substack function: {e}")
+        logger.error(traceback.format_exc())
         return (json.dumps({"success": False, "error": str(e)}), 500, headers)

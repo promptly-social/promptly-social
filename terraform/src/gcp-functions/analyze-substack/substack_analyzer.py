@@ -141,6 +141,10 @@ class SubstackAnalyzer:
             temperature=0.0,
         )
 
+        if not response.choices:
+            logger.error("API call for writing style analysis returned no choices.")
+            return ""
+
         return response.choices[0].message.content
 
     def _analyze_topics(self, posts: List[Dict]) -> List[str]:
@@ -197,6 +201,10 @@ class SubstackAnalyzer:
             temperature=0.0,
         )
 
+        if not response.choices:
+            logger.error("API call for topics batch analysis returned no choices.")
+            return []
+
         raw_content = response.choices[0].message.content
         content_json = self._extract_json_from_llm_response(raw_content)
 
@@ -236,6 +244,10 @@ class SubstackAnalyzer:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
         )
+
+        if not response.choices:
+            logger.error("API call for user bio creation returned no choices.")
+            return substack_bio or current_bio
 
         return response.choices[0].message.content
 

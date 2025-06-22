@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60)
 
+    # Cloud run function url
+    gcp_analysis_function_url: Optional[str] = Field(default=None)
+
     @field_validator("environment")
     @classmethod
     def validate_environment(cls, v):

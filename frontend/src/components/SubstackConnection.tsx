@@ -14,6 +14,7 @@ type SocialConnection = ApiSocialConnection;
 export const SubstackConnection: React.FC = () => {
   const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [handle, setHandle] = useState("");
   const { toast } = useToast();
@@ -128,7 +129,7 @@ export const SubstackConnection: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
+    setIsAnalyzing(true);
     try {
       // Trigger the analysis
       const result = await profileApi.runSubstackAnalysis();
@@ -149,13 +150,16 @@ export const SubstackConnection: React.FC = () => {
       fetchConnection();
     } catch (error) {
       console.error("Error analyzing Substack:", error);
+      const apiError = error as { response?: { data?: { detail?: string } } };
       toast({
         title: "Analysis Error",
-        description: "Failed to analyze Substack content",
+        description:
+          apiError.response?.data?.detail ||
+          "Failed to start Substack analysis.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -172,10 +176,12 @@ export const SubstackConnection: React.FC = () => {
         <Button
           onClick={handleAnalyze}
           size="sm"
-          disabled={isLoading || !connection?.platform_username}
+          disabled={isLoading || isAnalyzing || !connection?.platform_username}
         >
           <FileText className="w-4 h-4 mr-2" />
-          {connection?.analysis_started_at && !connection?.analysis_completed_at
+          {isAnalyzing ||
+          (connection?.analysis_started_at &&
+            !connection?.analysis_completed_at)
             ? "Analyzing..."
             : connection?.analysis_completed_at
             ? "Re-analyze"
