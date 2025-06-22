@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Security
     jwt_secret_key: str = Field(default="dev_jwt_secret")
     jwt_algorithm: str = Field(default="HS256")
-    access_token_expire_minutes: int = Field(default=30)
+    access_token_expire_minutes: int = Field(default=1440)
     refresh_token_expire_days: int = Field(default=7)
 
     # CORS - Use string instead of List to avoid JSON parsing

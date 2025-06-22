@@ -88,9 +88,8 @@ class SocialConnectionResponse(SocialConnectionBase):
 class WritingStyleAnalysisBase(BaseModel):
     """Base schema for writing style analysis."""
 
-    platform: str
+    source: str  # import, substack, linkedin
     analysis_data: str
-    content_count: int = 0
 
 
 class WritingStyleAnalysisCreate(WritingStyleAnalysisBase):
@@ -103,8 +102,8 @@ class WritingStyleAnalysisUpdate(BaseModel):
     """Schema for updating writing style analysis."""
 
     analysis_data: Optional[str] = None
-    content_count: Optional[int] = None
     last_analyzed_at: Optional[datetime] = None
+    source: Optional[str] = None
 
 
 class WritingStyleAnalysisResponse(WritingStyleAnalysisBase):
@@ -147,28 +146,9 @@ class SuggestedPostResponse(SuggestedPostBase):
     created_at: datetime
 
 
-# Substack-specific schemas
-class SubstackData(BaseModel):
-    """Schema for Substack data."""
-
-    name: str
-    url: str
-    topics: List[str]
-    subscriber_count: Optional[int] = None
-    recent_posts: Optional[List[Dict[str, Any]]] = None
-
-
-class SubstackConnectionData(BaseModel):
-    """Schema for Substack connection data."""
-
-    substackData: List[SubstackData]
-    analyzed_at: str
-
-
 class SubstackAnalysisResponse(BaseModel):
     """Schema for Substack analysis response."""
 
-    substack_data: List[SubstackData]
     is_connected: bool
     analyzed_at: Optional[str] = None
     analysis_started_at: Optional[str] = None

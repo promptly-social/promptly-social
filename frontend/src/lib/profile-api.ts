@@ -47,20 +47,8 @@ export interface WritingStyleAnalysisUpdate {
   analysis_data?: string;
 }
 
-export interface SubstackData {
-  name: string;
-  url: string;
-  topics: string[];
-  subscriber_count?: number;
-  recent_posts?: Array<{
-    title: string;
-    url: string;
-    published_date: string;
-  }>;
-}
 
 export interface SubstackAnalysisResponse {
-  substack_data: SubstackData[];
   is_connected: boolean;
   analyzed_at: string | null;
   analysis_started_at?: string | null;
@@ -104,18 +92,25 @@ export const profileApi = {
   },
 
   // Writing Style Analysis
-  async getWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`);
+  async getWritingStyleAnalysis(platform?: string): Promise<PlatformAnalysisResponse> {
+    const url = platform
+      ? `/profile/writing-analysis/${platform}`
+      : '/profile/writing-analysis';
+    return apiClient.request<PlatformAnalysisResponse>(url);
   },
 
-  async runWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+  async runWritingStyleAnalysis(source: string, data?: Record<string, unknown>): Promise<PlatformAnalysisResponse> {
+    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${source}`, {
       method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
     });
   },
 
-  async updateWritingStyleAnalysis(platform: string, data: WritingStyleAnalysisUpdate): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+  async updateWritingStyleAnalysis(data: WritingStyleAnalysisUpdate, platform?: string): Promise<PlatformAnalysisResponse> {
+    const url = platform
+      ? `/profile/writing-analysis/${platform}`
+      : '/profile/writing-analysis';
+    return apiClient.request<PlatformAnalysisResponse>(url, {
       method: 'PUT',
       body: JSON.stringify(data),
     });

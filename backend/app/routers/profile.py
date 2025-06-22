@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,6 @@ from app.schemas.profile import (
     SocialConnectionResponse,
     SocialConnectionUpdate,
     SubstackAnalysisResponse,
-    SubstackConnectionData,
-    SubstackData,
     UserPreferencesResponse,
     UserPreferencesUpdate,
     WritingStyleAnalysisUpdate,
@@ -152,147 +150,6 @@ async def update_social_connection(
         )
 
 
-# Writing Style Analysis Endpoints
-@router.get("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def get_writing_style_analysis(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Get writing style analysis for a platform."""
-    try:
-        profile_service = ProfileService(db)
-
-        # Check connection
-        connection = await profile_service.get_social_connection(
-            current_user.id, platform
-        )
-        is_connected = connection is not None
-
-        # Get analysis
-        analysis = await profile_service.get_writing_style_analysis(
-            current_user.id, platform
-        )
-
-        if analysis:
-            return PlatformAnalysisResponse(
-                analysis_data=analysis.analysis_data,
-                last_analyzed=analysis.last_analyzed_at.isoformat(),
-                is_connected=is_connected,
-            )
-        else:
-            return PlatformAnalysisResponse(
-                analysis_data=None, last_analyzed=None, is_connected=is_connected
-            )
-
-    except Exception as e:
-        logger.error(f"Error getting writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch writing style analysis",
-        )
-
-
-@router.post("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def run_writing_style_analysis(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Run writing style analysis for a platform."""
-    try:
-        profile_service = ProfileService(db)
-
-        # Check connection
-        connection = await profile_service.get_social_connection(
-            current_user.id, platform
-        )
-
-        if not connection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Social connection for {platform} not found",
-            )
-
-        # For now, create a mock analysis - in real implementation this would trigger actual analysis
-        mock_analysis_data = f"Writing style analysis for {platform} - placeholder data"
-
-        # Create or update analysis
-        analysis = await profile_service.upsert_writing_style_analysis(
-            current_user.id, platform, mock_analysis_data
-        )
-
-        return PlatformAnalysisResponse(
-            analysis_data=analysis.analysis_data,
-            last_analyzed=analysis.last_analyzed_at.isoformat(),
-            is_connected=True,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error running writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to run writing style analysis",
-        )
-
-
-@router.put("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def update_writing_style_analysis(
-    platform: str,
-    update_data: WritingStyleAnalysisUpdate,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Update writing style analysis for a platform."""
-    try:
-        profile_service = ProfileService(db)
-
-        # Check if analysis exists
-        existing_analysis = await profile_service.get_writing_style_analysis(
-            current_user.id, platform
-        )
-
-        if not existing_analysis:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Writing style analysis for {platform} not found",
-            )
-
-        # Update analysis data if provided
-        if update_data.analysis_data is not None:
-            analysis = await profile_service.upsert_writing_style_analysis(
-                current_user.id, platform, update_data.analysis_data
-            )
-
-            # Check connection status
-            connection = await profile_service.get_social_connection(
-                current_user.id, platform
-            )
-            is_connected = connection is not None
-
-            return PlatformAnalysisResponse(
-                analysis_data=analysis.analysis_data,
-                last_analyzed=analysis.last_analyzed_at.isoformat(),
-                is_connected=is_connected,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="analysis_data is required for update",
-            )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update writing style analysis",
-        )
-
-
 # LinkedIn Integration Endpoints
 @router.get("/linkedin/authorize", response_model=LinkedInAuthResponse)
 async def linkedin_authorize(
@@ -388,7 +245,6 @@ async def get_substack_analysis(
 
         if not connection:
             return SubstackAnalysisResponse(
-                substack_data=[],
                 is_connected=False,
                 analyzed_at=None,
                 analysis_started_at=None,
@@ -397,7 +253,6 @@ async def get_substack_analysis(
             )
 
         # Prepare response based on current connection state
-        substack_data = []
         analyzed_at = None
         analysis_started_at = (
             connection.analysis_started_at.isoformat()
@@ -419,37 +274,9 @@ async def get_substack_analysis(
             connection.connection_data
             and "analysis_result" in connection.connection_data
         ):
-            analysis_result = connection.connection_data["analysis_result"]
-
-            # Convert analysis result to SubstackData format
-            substack_data = [
-                SubstackData(
-                    name=connection.platform_username or "Unknown",
-                    url=f"https://{connection.platform_username}.substack.com"
-                    if connection.platform_username
-                    else "",
-                    topics=analysis_result.get("topics", []),
-                    subscriber_count=analysis_result.get("subscriber_insights", {}).get(
-                        "estimated_subscribers"
-                    ),
-                    recent_posts=analysis_result.get("recent_posts", []),
-                )
-            ]
             analyzed_at = analysis_completed_at
 
-        # Check for legacy format (for backward compatibility)
-        elif (
-            connection.connection_data and "substackData" in connection.connection_data
-        ):
-            try:
-                connection_data = SubstackConnectionData(**connection.connection_data)
-                substack_data = connection_data.substackData
-                analyzed_at = connection_data.analyzed_at
-            except Exception as e:
-                logger.warning(f"Failed to parse legacy substack data: {e}")
-
         return SubstackAnalysisResponse(
-            substack_data=substack_data,
             is_connected=True,
             analyzed_at=analyzed_at,
             analysis_started_at=analysis_started_at,
@@ -496,4 +323,153 @@ async def run_substack_analysis(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to run Substack analysis: {e}",
+        )
+
+
+# Writing Style Analysis Endpoints
+@router.post("/writing-analysis/{source}", response_model=PlatformAnalysisResponse)
+async def run_writing_style_analysis(
+    source: str,
+    request: Request,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Run writing style analysis for a platform."""
+    try:
+        profile_service = ProfileService(db)
+
+        # Special handling for importing manual text samples
+        if source == "import":
+            body = await request.json()
+            text = body.get("text") if isinstance(body, dict) else None
+            if not text:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="`text` field is required when source is 'import'",
+                )
+
+            # TODO: Implement real analysis logic for free-form text
+            mock_analysis_data = text  # For now just echo back
+
+            analysis = await profile_service.upsert_writing_style_analysis(
+                current_user.id, source, mock_analysis_data
+            )
+
+            return PlatformAnalysisResponse(
+                analysis_data=analysis.analysis_data,
+                last_analyzed=analysis.last_analyzed_at.isoformat(),
+                is_connected=True,
+            )
+
+        # For linked platforms (linkedin, substack) ensure connection exists
+        connection = await profile_service.get_social_connection(
+            current_user.id, source
+        )
+
+        if not connection:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Social connection for {source} not found",
+            )
+
+        # Placeholder analysis logic until external analyzer integration
+        mock_analysis_data = f"Writing style analysis for {source} - placeholder data"
+
+        analysis = await profile_service.upsert_writing_style_analysis(
+            current_user.id, source, mock_analysis_data
+        )
+
+        return PlatformAnalysisResponse(
+            analysis_data=analysis.analysis_data,
+            last_analyzed=analysis.last_analyzed_at.isoformat(),
+            is_connected=True,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error running writing style analysis {source}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to run writing style analysis",
+        )
+
+
+@router.get("/writing-analysis", response_model=PlatformAnalysisResponse)
+async def get_latest_writing_style_analysis(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Return the most recent writing style analysis for the user, regardless of source."""
+    try:
+        profile_service = ProfileService(db)
+        analysis = await profile_service.get_latest_writing_style_analysis(
+            current_user.id
+        )
+
+        if analysis:
+            return PlatformAnalysisResponse(
+                analysis_data=analysis.analysis_data,
+                last_analyzed=analysis.last_analyzed_at.isoformat()
+                if analysis.last_analyzed_at
+                else analysis.updated_at.isoformat(),
+                is_connected=True,
+            )
+        else:
+            # No analysis yet – return empty payload
+            return PlatformAnalysisResponse(
+                analysis_data=None, last_analyzed=None, is_connected=False
+            )
+
+    except Exception as e:
+        logger.error(f"Error getting consolidated writing style analysis for user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch writing style analysis",
+        )
+
+
+@router.put("/writing-analysis", response_model=PlatformAnalysisResponse)
+async def update_latest_writing_style_analysis(
+    update_data: WritingStyleAnalysisUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Update the most recent writing style analysis for the user. If none exists, one is created using a default 'import' source."""
+    try:
+        profile_service = ProfileService(db)
+
+        # Find the current analysis (if any) to determine source
+        existing = await profile_service.get_latest_writing_style_analysis(
+            current_user.id
+        )
+
+        # Fallback source if there is no previous record
+        source = existing.source if existing else "import"
+
+        if update_data.analysis_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="analysis_data is required for update",
+            )
+
+        analysis = await profile_service.upsert_writing_style_analysis(
+            current_user.id, source, update_data.analysis_data
+        )
+
+        return PlatformAnalysisResponse(
+            analysis_data=analysis.analysis_data,
+            last_analyzed=analysis.last_analyzed_at.isoformat(),
+            is_connected=True,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error updating consolidated writing style analysis for user: {e}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update writing style analysis",
         )

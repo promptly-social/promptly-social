@@ -96,6 +96,9 @@ resource "google_storage_bucket_object" "source_archive" {
   name   = "analyze-substack-source.zip#${data.archive_file.source.output_md5}"
   bucket = local.bucket_name
   source = data.archive_file.source.output_path
+
+  # Make Terraform notice when the ZIP changes
+  detect_md5hash = data.archive_file.source.output_md5
 }
 
 # Service account for the Cloud Function
@@ -183,6 +186,12 @@ resource "google_cloudfunctions2_function" "function" {
     google_project_iam_member.function_sa_logging_writer,
     google_service_account_iam_member.functions_sa_impersonate_function_sa
   ]
+
+  lifecycle {
+    replace_triggered_by = [
+      google_storage_bucket_object.source_archive
+    ]
+  }
 }
 
 # Data sources for existing secrets

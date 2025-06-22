@@ -34,9 +34,9 @@ class WritingStyleAnalysis(Base):
 
     id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
     user_id = Column(get_uuid_column(), nullable=False)
-    platform = Column(String, nullable=False)
+    # Source of the writing sample (e.g. "import", "substack", "linkedin")
+    source = Column(String, nullable=False)
     analysis_data = Column(String, nullable=False)
-    content_count = Column(Integer, default=0, nullable=False)
     last_analyzed_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

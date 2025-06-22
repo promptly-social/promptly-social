@@ -21,8 +21,6 @@ from .profile import (
     SocialConnectionResponse,
     SocialConnectionUpdate,
     SubstackAnalysisResponse,
-    SubstackConnectionData,
-    SubstackData,
     SuggestedPostBase,
     SuggestedPostCreate,
     SuggestedPostResponse,
@@ -74,8 +72,6 @@ __all__ = [
     "SuggestedPostCreate",
     "SuggestedPostResponse",
     # Platform analysis schemas
-    "SubstackData",
-    "SubstackConnectionData",
     "SubstackAnalysisResponse",
     "WritingStyleData",
     "PostingPatterns",

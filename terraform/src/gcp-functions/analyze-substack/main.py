@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, List
 import traceback
 
 import functions_framework
@@ -26,7 +26,9 @@ def get_supabase_client() -> Client:
     return create_client(supabase_url, supabase_service_key)
 
 
-def fetch_substack_content(platform_username: str, current_bio: str) -> Dict[str, Any]:
+def fetch_substack_content(
+    platform_username: str, current_bio: str, content_to_analyze: List[str]
+) -> Dict[str, Any]:
     """
     Fetch and analyze Substack content using the SubstackAnalyzer.
     """
@@ -39,7 +41,7 @@ def fetch_substack_content(platform_username: str, current_bio: str) -> Dict[str
     analyzer = SubstackAnalyzer(
         max_posts=max_posts, openrouter_api_key=openrouter_api_key
     )
-    return analyzer.analyze_substack(platform_username, current_bio)
+    return analyzer.analyze_substack(platform_username, current_bio, content_to_analyze)
 
 
 async def update_analysis_results(
@@ -113,17 +115,16 @@ async def update_analysis_results(
         # Store writing style analysis
         writing_style_data = {
             "user_id": user_id,
-            "platform": "substack",
+            "source": "substack",
             "analysis_data": analysis_result["writing_style"],
-            "content_count": analysis_result.get("writing_content_count", 0),
             "last_analyzed_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Upsert writing style analysis using the unique constraint on (user_id, platform)
+        # Upsert writing style analysis using the unique constraint on (user_id, )
         style_response = (
             supabase.table("writing_style_analysis")
-            .upsert(writing_style_data, on_conflict="user_id,platform")
+            .upsert(writing_style_data, on_conflict="user_id")
             .execute()
         )
 
@@ -173,6 +174,9 @@ async def mark_analysis_failed(
         supabase.table("social_connections").update(
             {
                 "connection_data": updated_connection_data,
+                "analysis_started_at": None,
+                "analysis_completed_at": None,
+                "analysis_status": "error",
             }
         ).eq("user_id", user_id).eq("platform", "substack").execute()
 
@@ -218,13 +222,14 @@ def analyze_substack(request):
 
         user_id = request_json.get("user_id")
         platform_username = request_json.get("platform_username")
+        content_to_analyze = request_json.get("content_to_analyze", [])
 
-        if not user_id or not platform_username:
+        if not user_id or not platform_username or not content_to_analyze:
             return (
                 json.dumps(
                     {
                         "success": False,
-                        "error": "user_id and platform_username are required",
+                        "error": "user_id, platform_username and content_to_analyze are required",
                     }
                 ),
                 400,
@@ -272,7 +277,9 @@ def analyze_substack(request):
 
         # Perform the analysis
         try:
-            analysis_result = fetch_substack_content(platform_username, current_bio)
+            analysis_result = fetch_substack_content(
+                platform_username, current_bio, content_to_analyze
+            )
 
             # Update database with results
             asyncio.run(

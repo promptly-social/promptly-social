@@ -202,3 +202,18 @@ resource "google_service_account_iam_member" "tf_sa_admin_token_creator" {
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "user:${each.value}"
 }
+
+# Get the project number to construct the Compute Engine default SA email
+
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+# Allow the Terraform SA to impersonate the Compute Engine default Service Account. This is
+# required because Cloud Functions builds often run under that SA and the caller must have
+# iam.serviceAccountUser (actAs) on it.
+resource "google_service_account_iam_member" "terraform_sa_impersonate_compute_sa" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.terraform_sa.email}"
+}
