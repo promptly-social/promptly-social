@@ -8,6 +8,8 @@ from typing import List, Optional
 from uuid import UUID
 import urllib.parse
 import traceback
+import json
+import base64
 
 import httpx
 from loguru import logger
@@ -16,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import google.auth
 import google.auth.transport.requests
 import google.oauth2.id_token
+import google.oauth2.service_account
 
 from app.core.config import settings
 from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
@@ -352,18 +355,19 @@ class ProfileService:
                 logger.warning(f"No Substack connection found for user {user_id}")
                 return None
 
+            # if connection.analysis_completed_at:
+            #     raise ValueError("Substack analysis has already been completed")
+
             if not connection.platform_username:
-                logger.warning(
-                    f"No platform username set for Substack connection for user {user_id}"
+                raise ValueError(
+                    "Substack connection has no platform_username configured"
                 )
-                return None
 
             # Set analysis_started_at timestamp
             connection.analysis_started_at = datetime.now(timezone.utc)
             connection.analysis_completed_at = None  # Reset completed timestamp
 
             await self.db.commit()
-            await self.db.refresh(connection)
 
             logger.info(f"Started substack analysis for user {user_id}")
 
@@ -384,7 +388,7 @@ class ProfileService:
         """Trigger the Substack analysis via GCP Cloud Run or Edge Function."""
         try:
             # Prefer Cloud Run if configured
-            if settings.gcp_cloud_run_url and settings.gcp_sa_key:
+            if settings.gcp_analysis_function_url:
                 await self._trigger_gcp_cloud_run(user_id, platform_username)
             else:
                 # Fallback to Supabase Edge Function (if you have one)
@@ -399,48 +403,64 @@ class ProfileService:
     ) -> None:
         """Trigger GCP Cloud Run function for analysis."""
         try:
-            if not settings.gcp_cloud_run_url:
+            if not settings.gcp_analysis_function_url:
                 logger.error("Missing GCP Cloud Run function URL")
                 return
 
-            headers = {}
-            # When running locally, get the ID token from gcloud auth
-            # When running in a GCP environment, the metadata server will provide it
-            try:
-                # Explicitly check for ADC file in the standard location for local dev
-                adc_file = os.path.expanduser(
-                    "~/.config/gcloud/application_default_credentials.json"
-                )
-                if os.path.exists(adc_file):
-                    credentials, _ = google.auth.load_credentials_from_file(adc_file)
-                    auth_req = google.auth.transport.requests.Request()
-                    # We need to refresh the credentials to get a token
-                    credentials.refresh(auth_req)
-                    id_token = credentials.id_token
+            id_token = None
+            auth_req = google.auth.transport.requests.Request()
 
-                else:  # Fallback for deployed environments
-                    auth_req = google.auth.transport.requests.Request()
-                    id_token = google.oauth2.id_token.fetch_id_token(
-                        auth_req, settings.gcp_cloud_run_url
+            if (
+                settings.environment == "development"
+                and settings.gcp_service_account_key_path
+            ):
+                # Local development: Use service account key file
+                logger.debug("Using service account key for GCP authentication.")
+                try:
+                    creds = google.oauth2.service_account.IDTokenCredentials.from_service_account_file(
+                        settings.gcp_service_account_key_path,
+                        target_audience=settings.gcp_analysis_function_url,
                     )
-
-                headers["Authorization"] = f"Bearer {id_token}"
-            except Exception as e:
-                logger.warning(
-                    f"Could not automatically generate ID token. This might fail if the function is not public. Error: {e}"
+                    creds.refresh(auth_req)
+                    id_token = creds.token
+                except FileNotFoundError:
+                    logger.error(
+                        f"Service account key file not found at: {settings.gcp_service_account_key_path}"
+                    )
+                    raise
+            else:
+                # Deployed environment: Use default credentials (metadata server)
+                logger.debug("Using default credentials for GCP authentication.")
+                id_token = google.oauth2.id_token.fetch_id_token(
+                    auth_req, settings.gcp_analysis_function_url
                 )
+
+            if not id_token:
+                logger.error("Could not obtain GCP ID token.")
+                return
+
+            headers = {"Authorization": f"Bearer {id_token}"}
 
             payload = {"user_id": str(user_id), "platform_username": platform_username}
 
+            logger.info(
+                f"Triggering GCP Cloud Run for user {user_id}. This may take a few minutes..."
+            )
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    settings.gcp_cloud_run_url,
+                    settings.gcp_analysis_function_url,
                     json=payload,
                     headers=headers,
-                    timeout=30.0,
+                    timeout=300.0,  # Increased timeout to 5 minutes
                 )
                 response.raise_for_status()
-                logger.info(f"Successfully triggered GCP Cloud Run for user {user_id}")
+            logger.info(f"Successfully triggered GCP Cloud Run for user {user_id}")
+        except httpx.ReadTimeout:
+            logger.error(
+                "Timeout triggering GCP Cloud Run function. The analysis function took too long to respond."
+            )
+            logger.error(traceback.format_exc())
+            raise
         except httpx.HTTPStatusError as e:
             logger.error(
                 f"HTTP error triggering GCP Cloud Run function: {e.response.status_code} - {e.response.text}"

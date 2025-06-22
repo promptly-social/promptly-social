@@ -470,74 +470,30 @@ async def run_substack_analysis(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Run Substack analysis."""
+    """Run Substack analysis for the user."""
     try:
         profile_service = ProfileService(db)
-
-        # Start the analysis
         connection = await profile_service.analyze_substack(current_user.id)
 
         if not connection:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Substack connection not found or not configured",
+                detail="Substack connection not found or not configured for analysis",
             )
 
-        # Prepare response based on current connection state
-        substack_data = []
-        analyzed_at = None
-        analysis_started_at = (
-            connection.analysis_started_at.isoformat()
-            if connection.analysis_started_at
-            else None
-        )
-        analysis_completed_at = (
-            connection.analysis_completed_at.isoformat()
-            if connection.analysis_completed_at
-            else None
-        )
-        is_analyzing = (
-            connection.analysis_started_at is not None
-            and connection.analysis_completed_at is None
-        )
-
-        # If analysis is completed, extract the data
-        if (
-            connection.connection_data
-            and "analysis_result" in connection.connection_data
-        ):
-            analysis_result = connection.connection_data["analysis_result"]
-
-            # Convert analysis result to SubstackData format
-            substack_data = [
-                SubstackData(
-                    name=connection.platform_username or "Unknown",
-                    url=f"https://{connection.platform_username}.substack.com"
-                    if connection.platform_username
-                    else "",
-                    topics=analysis_result.get("topics", []),
-                    subscriber_count=analysis_result.get("subscriber_insights", {}).get(
-                        "estimated_subscribers"
-                    ),
-                    recent_posts=analysis_result.get("recent_posts", []),
-                )
-            ]
-            analyzed_at = analysis_completed_at
-
-        return SubstackAnalysisResponse(
-            substack_data=substack_data,
-            is_connected=True,
-            analyzed_at=analyzed_at,
-            analysis_started_at=analysis_started_at,
-            analysis_completed_at=analysis_completed_at,
-            is_analyzing=is_analyzing,
-        )
+        # Re-fetch the data to populate the response model
+        analysis_data = await get_substack_analysis(current_user, db)
+        analysis_data.is_analyzing = True
+        return analysis_data
 
     except HTTPException:
         raise
+    except ValueError as e:
+        logger.error(f"Validation error running Substack analysis: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Error running Substack analysis: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to run Substack analysis",
+            detail=f"Failed to run Substack analysis: {e}",
         )

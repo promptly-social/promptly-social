@@ -29,7 +29,6 @@ data "archive_file" "source" {
   excludes = [
     "terraform/**",
     "README.md",
-    "deploy.sh",
     "env.example",
     "test_analyzer_local.py",
     "test_db_transcation_local.py",
@@ -148,7 +147,8 @@ resource "google_cloudfunctions2_function" "function" {
     google_project_iam_member.compute_sa_logging_writer,
     google_project_iam_member.compute_sa_storage_viewer,
     google_project_iam_member.compute_sa_artifactregistry_writer,
-    google_project_iam_member.compute_sa_token_creator
+    google_project_iam_member.compute_sa_token_creator,
+    google_project_iam_member.function_sa_logging_writer
   ]
 }
 
@@ -209,6 +209,13 @@ resource "google_secret_manager_secret_iam_member" "secret_access_gcp_function_u
   secret_id = data.google_secret_manager_secret.gcp_analysis_function_url.secret_id
   role      = "roles/secretmanager.secretVersionManager"
   member    = "serviceAccount:${google_service_account.function_sa.email}"
+}
+
+# Grant the function's service account permission to write logs
+resource "google_project_iam_member" "function_sa_logging_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
 # Data source to get project number for Cloud Build service account
