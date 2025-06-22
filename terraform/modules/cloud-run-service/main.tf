@@ -171,6 +171,36 @@ resource "google_cloud_run_service" "backend" {
             }
           }
         }
+
+        env {
+          name = "UNIPILE_DSN"
+          value_from {
+            secret_key_ref {
+              name = var.unipile_dsn_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "UNIPILE_ACCESS_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = var.unipile_access_token_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "USE_UNIPILE_FOR_LINKEDIN"
+          value_from {
+            secret_key_ref {
+              name = var.use_unipile_for_linkedin_name
+              key  = "latest"
+            }
+          }
+        }
       }
     }
   }
