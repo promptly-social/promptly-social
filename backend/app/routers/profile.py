@@ -564,6 +564,14 @@ async def run_writing_style_analysis(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Social connection for {source} not found",
                 )
+
+            # TODO: Implement LinkedIn writing style analysis
+            # For now, return a placeholder response indicating connection exists
+            return PlatformAnalysisResponse(
+                analysis_data=None,
+                last_analyzed=None,
+                is_connected=True,
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

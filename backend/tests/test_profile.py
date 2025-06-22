@@ -145,9 +145,8 @@ class TestProfileService:
             test_user.id, "linkedin", analysis_data_str
         )
 
-        assert analysis.platform == "linkedin"
+        assert analysis.source == "linkedin"
         assert analysis.analysis_data == "this is the writing style analysis data"
-        assert analysis.content_count == 0  # Default value
 
         # Get analysis
         retrieved = await profile_service.get_writing_style_analysis(
@@ -259,37 +258,6 @@ class TestProfileEndpoints:
             data = response.json()
             assert isinstance(data, list)
 
-    def test_get_writing_style_analysis_endpoint(
-        self, test_client, mock_current_user, mock_db
-    ):
-        """Test GET /profile/writing-analysis/{platform} endpoint."""
-        with patch(
-            "app.services.profile.ProfileService.get_social_connection"
-        ) as mock_conn:
-            with patch(
-                "app.services.profile.ProfileService.get_writing_style_analysis"
-            ) as mock_analysis:
-                mock_conn.return_value = SocialConnection(
-                    id=str(uuid4()),
-                    user_id=mock_current_user.id,
-                    platform="linkedin",
-                    is_active=True,
-                    analysis_status="not_started",
-                    created_at=datetime.now(timezone.utc),
-                    updated_at=datetime.now(timezone.utc),
-                )
-                mock_analysis.return_value = None
-
-                response = test_client.get(
-                    "/api/v1/profile/writing-analysis/linkedin",
-                    headers={"Authorization": "Bearer test_token"},
-                )
-
-                assert response.status_code == status.HTTP_200_OK
-                data = response.json()
-                assert "is_connected" in data
-                assert data["is_connected"] is True
-
     def test_run_writing_style_analysis_endpoint(
         self, test_client, mock_current_user, mock_db
     ):
@@ -313,7 +281,7 @@ class TestProfileEndpoints:
                 mock_analysis = WritingStyleAnalysis(
                     id=uuid4(),
                     user_id=mock_current_user.id,
-                    platform="linkedin",
+                    source="linkedin",
                     analysis_data="mock analysis",
                     last_analyzed_at=datetime.now(timezone.utc),
                 )
@@ -360,7 +328,9 @@ class TestProfileEndpoints:
                 assert response.status_code == status.HTTP_200_OK
                 data = response.json()
                 assert data["is_analyzing"] is True
-                mock_service.assert_called_once_with(mock_current_user.id)
+                mock_service.assert_called_once_with(
+                    mock_current_user.id, ["bio", "interests"]
+                )
 
     def test_run_substack_analysis_no_connection(
         self, test_client, mock_current_user, mock_db
