@@ -21,10 +21,13 @@ def test_analysis(username: str):
     print("-" * 50)
 
     analyzer = SubstackAnalyzer(
-        max_posts=5, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
+        max_posts=5,
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
     )
     try:
-        result = analyzer.analyze_substack(username, "")
+        result = analyzer.analyze_substack(
+            username, "", content_to_analyze=["bio", "interests", "writing_style"]
+        )
 
         print("✅ Analysis completed successfully!")
         print("\n📊 Results Summary:")
@@ -56,7 +59,7 @@ def main():
     # Set test environment variables if needed
 
     if not os.getenv("MAX_POSTS_TO_ANALYZE"):
-        os.environ["MAX_POSTS_TO_ANALYZE"] = "10"
+        os.environ["MAX_POSTS_TO_ANALYZE"] = "5"
 
     test_analysis(username)
 

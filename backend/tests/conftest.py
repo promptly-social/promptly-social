@@ -29,7 +29,7 @@ os.environ.update(
         "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
         "JWT_SECRET_KEY": "test-jwt-secret-key",
         "CORS_ORIGINS": "http://localhost:3000",
-        "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+        "ACCESS_TOKEN_EXPIRE_MINUTES": "1440",
         "REFRESH_TOKEN_EXPIRE_DAYS": "7",
         "LOG_LEVEL": "DEBUG",
         "LOG_FORMAT": "console",

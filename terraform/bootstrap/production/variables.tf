@@ -19,3 +19,8 @@ variable "dns_reader_sds" {
   type        = list(string)
   default     = []
 }
+
+variable "bootstrap_admins" {
+  type        = list(string)
+  description = "Users allowed to impersonate the Terraform SA locally"
+}

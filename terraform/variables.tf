@@ -36,7 +36,7 @@ variable "docker_registry_location" {
 variable "cloud_run_min_instances" {
   description = "The minimum number of container instances for the Cloud Run service."
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "cloud_run_max_instances" {

@@ -22,10 +22,33 @@ export interface SocialConnection {
   user_id: string;
   platform: string;
   platform_username: string | null;
-  connection_data?: unknown;
+  // All authentication data is now stored in connection_data JSON field
+  // Structure varies by auth method:
+  // - Native LinkedIn: {"auth_method": "native", "access_token": "...", "refresh_token": "...", "expires_at": "...", "scope": "...", "linkedin_user_id": "...", "email": "..."}
+  // - Unipile: {"auth_method": "unipile", "account_id": "...", "unipile_account_id": "...", "provider": "...", "status": "..."}
+  connection_data?: {
+    auth_method?: 'native' | 'unipile';
+    // Native LinkedIn fields
+    access_token?: string;
+    refresh_token?: string;
+    expires_at?: string;
+    scope?: string;
+    linkedin_user_id?: string;
+    email?: string;
+    picture?: string;
+    // Unipile fields
+    account_id?: string;
+    unipile_account_id?: string;
+    provider?: string;
+    status?: string;
+    webhook_status?: string;
+    webhook_data?: unknown;
+    [key: string]: unknown;
+  };
   is_active: boolean;
   analysis_started_at?: string | null;
   analysis_completed_at?: string | null;
+  analysis_status?: 'not_started' | 'in_progress' | 'error' | 'completed' | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,20 +69,8 @@ export interface WritingStyleAnalysisUpdate {
   analysis_data?: string;
 }
 
-export interface SubstackData {
-  name: string;
-  url: string;
-  topics: string[];
-  subscriber_count?: number;
-  recent_posts?: Array<{
-    title: string;
-    url: string;
-    published_date: string;
-  }>;
-}
 
 export interface SubstackAnalysisResponse {
-  substack_data: SubstackData[];
   is_connected: boolean;
   analyzed_at: string | null;
   analysis_started_at?: string | null;
@@ -69,6 +80,31 @@ export interface SubstackAnalysisResponse {
 
 export interface LinkedInAuthResponse {
   authorization_url: string;
+}
+
+export interface LinkedInAuthInfo {
+  auth_method: 'native' | 'unipile';
+  provider: string;
+  configured: boolean;
+}
+
+export interface UnipileAccount {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface UnipileAccountsResponse {
+  accounts: UnipileAccount[];
+}
+
+export interface LinkedInConnectionStatus {
+  connected: boolean;
+  auth_method?: string;
+  account_id?: string;
+  error?: string;
 }
 
 // Profile API
@@ -103,18 +139,25 @@ export const profileApi = {
   },
 
   // Writing Style Analysis
-  async getWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`);
+  async getWritingStyleAnalysis(platform?: string): Promise<PlatformAnalysisResponse> {
+    const url = platform
+      ? `/profile/writing-analysis/${platform}`
+      : '/profile/writing-analysis';
+    return apiClient.request<PlatformAnalysisResponse>(url);
   },
 
-  async runWritingStyleAnalysis(platform: string): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+  async runWritingStyleAnalysis(source: string, data?: Record<string, unknown>): Promise<PlatformAnalysisResponse> {
+    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${source}`, {
       method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
     });
   },
 
-  async updateWritingStyleAnalysis(platform: string, data: WritingStyleAnalysisUpdate): Promise<PlatformAnalysisResponse> {
-    return apiClient.request<PlatformAnalysisResponse>(`/profile/writing-analysis/${platform}`, {
+  async updateWritingStyleAnalysis(data: WritingStyleAnalysisUpdate, platform?: string): Promise<PlatformAnalysisResponse> {
+    const url = platform
+      ? `/profile/writing-analysis/${platform}`
+      : '/profile/writing-analysis';
+    return apiClient.request<PlatformAnalysisResponse>(url, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -138,6 +181,18 @@ export const profileApi = {
 
   async linkedinCallback(code: string, state: string): Promise<SocialConnection> {
     return apiClient.request<SocialConnection>(`/profile/linkedin/callback?code=${code}&state=${state}`);
+  },
+
+  async linkedinAuthInfo(): Promise<LinkedInAuthInfo> {
+    return apiClient.request<LinkedInAuthInfo>('/profile/linkedin/auth-info');
+  },
+
+  async checkLinkedInConnectionStatus(state: string): Promise<LinkedInConnectionStatus> {
+    return apiClient.request<LinkedInConnectionStatus>(`/profile/linkedin/connection-status/${state}`);
+  },
+
+  async getUnipileAccounts(): Promise<UnipileAccountsResponse> {
+    return apiClient.request<UnipileAccountsResponse>('/profile/linkedin/unipile-accounts');
   },
 
   async shareOnLinkedIn(text: string): Promise<{ share_id: string }> {

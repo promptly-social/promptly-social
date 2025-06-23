@@ -14,6 +14,7 @@ type SocialConnection = ApiSocialConnection;
 export const SubstackConnection: React.FC = () => {
   const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [handle, setHandle] = useState("");
   const { toast } = useToast();
@@ -128,7 +129,7 @@ export const SubstackConnection: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
+    setIsAnalyzing(true);
     try {
       // Trigger the analysis
       const result = await profileApi.runSubstackAnalysis();
@@ -149,13 +150,16 @@ export const SubstackConnection: React.FC = () => {
       fetchConnection();
     } catch (error) {
       console.error("Error analyzing Substack:", error);
+      const apiError = error as { response?: { data?: { detail?: string } } };
       toast({
         title: "Analysis Error",
-        description: "Failed to analyze Substack content",
+        description:
+          apiError.response?.data?.detail ||
+          "Failed to start Substack analysis.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -172,13 +176,20 @@ export const SubstackConnection: React.FC = () => {
         <Button
           onClick={handleAnalyze}
           size="sm"
-          disabled={isLoading || !connection?.platform_username}
+          disabled={
+            isLoading ||
+            isAnalyzing ||
+            !connection?.platform_username ||
+            connection?.analysis_status === "in_progress"
+          }
         >
           <FileText className="w-4 h-4 mr-2" />
-          {connection?.analysis_started_at && !connection?.analysis_completed_at
+          {isAnalyzing || connection?.analysis_status === "in_progress"
             ? "Analyzing..."
-            : connection?.analysis_completed_at
+            : connection?.analysis_status === "completed"
             ? "Re-analyze"
+            : connection?.analysis_status === "error"
+            ? "Retry"
             : "Analyze"}
         </Button>
       </div>
@@ -217,19 +228,20 @@ export const SubstackConnection: React.FC = () => {
               <p className="text-sm text-gray-500">
                 {connection?.platform_username || "No handle set"}
               </p>
-              {connection?.analysis_started_at &&
-                !connection?.analysis_completed_at && (
-                  <p className="text-xs text-blue-600">
-                    Analysis in progress...
+              {connection?.analysis_completed_at &&
+                connection?.analysis_status === "completed" && (
+                  <p className="text-xs text-green-600">
+                    Last analyzed:{" "}
+                    {new Date(
+                      connection.analysis_completed_at
+                    ).toLocaleDateString()}
                   </p>
                 )}
-              {connection?.analysis_completed_at && (
-                <p className="text-xs text-green-600">
-                  Last analyzed:{" "}
-                  {new Date(
-                    connection.analysis_completed_at
-                  ).toLocaleDateString()}
-                </p>
+              {connection?.analysis_status === "error" && (
+                <p className="text-xs text-red-600">Analysis failed</p>
+              )}
+              {connection?.analysis_status === "in_progress" && (
+                <p className="text-xs text-blue-600">Analysis in progress...</p>
               )}
             </div>
             {connection?.platform_username && (

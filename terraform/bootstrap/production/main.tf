@@ -25,4 +25,5 @@ module "bootstrap" {
   dns_reader_sds = [
     "promptly-tf-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
   ]
+  bootstrap_admins            = var.bootstrap_admins
 } 

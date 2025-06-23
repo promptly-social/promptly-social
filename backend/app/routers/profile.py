@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,6 @@ from app.schemas.profile import (
     SocialConnectionResponse,
     SocialConnectionUpdate,
     SubstackAnalysisResponse,
-    SubstackConnectionData,
-    SubstackData,
     UserPreferencesResponse,
     UserPreferencesUpdate,
     WritingStyleAnalysisUpdate,
@@ -152,154 +150,39 @@ async def update_social_connection(
         )
 
 
-# Writing Style Analysis Endpoints
-@router.get("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def get_writing_style_analysis(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Get writing style analysis for a platform."""
-    try:
-        profile_service = ProfileService(db)
-
-        # Check connection
-        connection = await profile_service.get_social_connection(
-            current_user.id, platform
-        )
-        is_connected = connection is not None
-
-        # Get analysis
-        analysis = await profile_service.get_writing_style_analysis(
-            current_user.id, platform
-        )
-
-        if analysis:
-            return PlatformAnalysisResponse(
-                analysis_data=analysis.analysis_data,
-                last_analyzed=analysis.last_analyzed_at.isoformat(),
-                is_connected=is_connected,
-            )
-        else:
-            return PlatformAnalysisResponse(
-                analysis_data=None, last_analyzed=None, is_connected=is_connected
-            )
-
-    except Exception as e:
-        logger.error(f"Error getting writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch writing style analysis",
-        )
-
-
-@router.post("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def run_writing_style_analysis(
-    platform: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Run writing style analysis for a platform."""
-    try:
-        profile_service = ProfileService(db)
-
-        # Check connection
-        connection = await profile_service.get_social_connection(
-            current_user.id, platform
-        )
-
-        if not connection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Social connection for {platform} not found",
-            )
-
-        # For now, create a mock analysis - in real implementation this would trigger actual analysis
-        mock_analysis_data = f"Writing style analysis for {platform} - placeholder data"
-
-        # Create or update analysis
-        analysis = await profile_service.upsert_writing_style_analysis(
-            current_user.id, platform, mock_analysis_data
-        )
-
-        return PlatformAnalysisResponse(
-            analysis_data=analysis.analysis_data,
-            last_analyzed=analysis.last_analyzed_at.isoformat(),
-            is_connected=True,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error running writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to run writing style analysis",
-        )
-
-
-@router.put("/writing-analysis/{platform}", response_model=PlatformAnalysisResponse)
-async def update_writing_style_analysis(
-    platform: str,
-    update_data: WritingStyleAnalysisUpdate,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Update writing style analysis for a platform."""
-    try:
-        profile_service = ProfileService(db)
-
-        # Check if analysis exists
-        existing_analysis = await profile_service.get_writing_style_analysis(
-            current_user.id, platform
-        )
-
-        if not existing_analysis:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Writing style analysis for {platform} not found",
-            )
-
-        # Update analysis data if provided
-        if update_data.analysis_data is not None:
-            analysis = await profile_service.upsert_writing_style_analysis(
-                current_user.id, platform, update_data.analysis_data
-            )
-
-            # Check connection status
-            connection = await profile_service.get_social_connection(
-                current_user.id, platform
-            )
-            is_connected = connection is not None
-
-            return PlatformAnalysisResponse(
-                analysis_data=analysis.analysis_data,
-                last_analyzed=analysis.last_analyzed_at.isoformat(),
-                is_connected=is_connected,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="analysis_data is required for update",
-            )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating writing style analysis {platform}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update writing style analysis",
-        )
-
-
 # LinkedIn Integration Endpoints
+@router.get("/linkedin/auth-info")
+async def get_linkedin_auth_info():
+    """Get information about the current LinkedIn authentication method."""
+    from app.core.config import settings
+
+    return {
+        "auth_method": "unipile" if settings.use_unipile_for_linkedin else "native",
+        "provider": "Unipile"
+        if settings.use_unipile_for_linkedin
+        else "LinkedIn OAuth",
+        "configured": (
+            bool(settings.unipile_dsn and settings.unipile_access_token)
+            if settings.use_unipile_for_linkedin
+            else bool(settings.linkedin_client_id and settings.linkedin_client_secret)
+        ),
+    }
+
+
 @router.get("/linkedin/authorize", response_model=LinkedInAuthResponse)
 async def linkedin_authorize(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Get LinkedIn authorization URL."""
+    """
+    Get LinkedIn authorization URL.
+
+    This endpoint supports both native LinkedIn OAuth and Unipile integration.
+    The method used is controlled by the USE_UNIPILE_FOR_LINKEDIN environment variable.
+
+    - Native LinkedIn OAuth: Returns standard LinkedIn OAuth authorization URL
+    - Unipile: Returns Unipile hosted auth wizard URL for LinkedIn
+    """
     try:
         # Using a simple state for now, but should be more robust in production
         state = "linkedin_oauth_state_" + current_user.id.hex
@@ -314,6 +197,71 @@ async def linkedin_authorize(
         )
 
 
+@router.post("/linkedin/unipile-callback")
+async def linkedin_unipile_callback(
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Handle Unipile webhook callback when user connects LinkedIn account."""
+    try:
+        body = await request.json()
+        logger.info(f"Received Unipile callback: {body}")
+
+        # Extract data from Unipile webhook
+        status = body.get("status")
+        account_id = body.get("account_id")
+        name = body.get("name")  # This is our state value
+
+        if status != "CREATION_SUCCESS":
+            logger.warning(f"Unipile callback with non-success status: {status}")
+            return {"status": "ignored", "reason": f"Non-success status: {status}"}
+
+        if not account_id or not name:
+            logger.error("Missing account_id or name in Unipile callback")
+            return {"status": "error", "reason": "Missing required fields"}
+
+        # Extract user_id from the state/name
+        if not name.startswith("linkedin_oauth_state_"):
+            logger.error(f"Invalid state format in Unipile callback: {name}")
+            return {"status": "error", "reason": "Invalid state format"}
+
+        user_id_hex = name.replace("linkedin_oauth_state_", "")
+        try:
+            user_id = UUID(user_id_hex.replace("-", ""))
+        except ValueError:
+            logger.error(f"Invalid user ID in state: {user_id_hex}")
+            return {"status": "error", "reason": "Invalid user ID"}
+
+        # Store the connection with all auth data in connection_data JSON
+        profile_service = ProfileService(db)
+
+        connection_data = SocialConnectionUpdate(
+            platform_username="LinkedIn User",  # Will be updated when we fetch account details
+            is_active=True,
+            connection_data={
+                "auth_method": "unipile",
+                "account_id": account_id,
+                "unipile_account_id": account_id,  # Keep both for backward compatibility
+                "status": "connected",
+                "provider": "linkedin",
+                # Additional webhook data
+                "webhook_status": status,
+                "webhook_data": body,
+            },
+        )
+
+        await profile_service.upsert_social_connection(
+            user_id, "linkedin", connection_data
+        )
+
+        logger.info(f"Successfully processed Unipile callback for user {user_id}")
+        return {"status": "success", "account_id": account_id}
+
+    except Exception as e:
+        logger.error(f"Error processing Unipile callback: {e}")
+        return {"status": "error", "reason": str(e)}
+
+
 @router.get("/linkedin/callback", response_model=SocialConnectionResponse)
 async def linkedin_callback(
     code: str,
@@ -321,7 +269,16 @@ async def linkedin_callback(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Handle LinkedIn callback, exchange code for token, and store connection."""
+    """
+    Handle LinkedIn callback, exchange code for token, and store connection.
+
+    This endpoint handles callbacks from both native LinkedIn OAuth and Unipile:
+    - Native LinkedIn OAuth: 'code' is the authorization code from LinkedIn
+    - Unipile: 'code' is the account_id returned from Unipile's auth flow (deprecated - use webhook)
+
+    Note: For Unipile, this endpoint may not be called as Unipile uses webhooks.
+    The frontend should poll the connection status or listen for real-time updates.
+    """
     try:
         # Validate state to prevent CSRF attacks
         expected_state = "linkedin_oauth_state_" + current_user.id.hex
@@ -332,10 +289,38 @@ async def linkedin_callback(
             )
 
         profile_service = ProfileService(db)
-        connection = await profile_service.exchange_linkedin_code_for_token(
-            code, current_user.id
-        )
-        return SocialConnectionResponse.model_validate(connection)
+
+        # Check if this is a native LinkedIn callback or if we already have a Unipile connection
+        from app.core.config import settings
+
+        if settings.use_unipile_for_linkedin:
+            # For Unipile, check if we already have a connection from the webhook
+            existing_connection = (
+                await profile_service.get_social_connection_for_analysis(
+                    current_user.id, "linkedin"
+                )
+            )
+            if (
+                existing_connection
+                and existing_connection.connection_data.get("auth_method") == "unipile"
+            ):
+                return SocialConnectionResponse.model_validate(existing_connection)
+            else:
+                # Fallback: treat code as account_id for backward compatibility
+                logger.warning(
+                    "Unipile callback received at OAuth endpoint - using fallback handling"
+                )
+                connection = await profile_service._exchange_unipile_linkedin_code(
+                    code, current_user.id
+                )
+                return SocialConnectionResponse.model_validate(connection)
+        else:
+            # Native LinkedIn OAuth flow
+            connection = await profile_service.exchange_linkedin_code_for_token(
+                code, current_user.id
+            )
+            return SocialConnectionResponse.model_validate(connection)
+
     except HTTPException:
         raise
     except Exception as e:
@@ -352,7 +337,15 @@ async def share_on_linkedin(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Share a post on LinkedIn."""
+    """
+    Share a post on LinkedIn.
+
+    This endpoint supports sharing via both native LinkedIn API and Unipile:
+    - Native LinkedIn OAuth: Uses LinkedIn's ugcPosts API
+    - Unipile: Uses Unipile's unified messaging API
+
+    The method used depends on how the user's LinkedIn connection was established.
+    """
     try:
         profile_service = ProfileService(db)
         result = await profile_service.share_on_linkedin(
@@ -373,6 +366,43 @@ async def share_on_linkedin(
         )
 
 
+@router.get("/linkedin/unipile-accounts")
+async def get_unipile_accounts(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Get all Unipile accounts (only available when USE_UNIPILE_FOR_LINKEDIN=true).
+
+    This endpoint lists all connected accounts in your Unipile workspace,
+    useful for debugging and administration.
+    """
+    from app.core.config import settings
+
+    if not settings.use_unipile_for_linkedin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This endpoint is only available when using Unipile for LinkedIn integration",
+        )
+
+    try:
+        profile_service = ProfileService(db)
+        accounts = await profile_service.get_unipile_accounts()
+        return {"accounts": accounts}
+    except ValueError as e:
+        logger.error(f"Value error getting Unipile accounts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Error getting Unipile accounts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get Unipile accounts",
+        )
+
+
 # Substack Analysis Endpoints
 @router.get("/substack-analysis", response_model=SubstackAnalysisResponse)
 async def get_substack_analysis(
@@ -388,7 +418,6 @@ async def get_substack_analysis(
 
         if not connection:
             return SubstackAnalysisResponse(
-                substack_data=[],
                 is_connected=False,
                 analyzed_at=None,
                 analysis_started_at=None,
@@ -397,7 +426,6 @@ async def get_substack_analysis(
             )
 
         # Prepare response based on current connection state
-        substack_data = []
         analyzed_at = None
         analysis_started_at = (
             connection.analysis_started_at.isoformat()
@@ -419,37 +447,9 @@ async def get_substack_analysis(
             connection.connection_data
             and "analysis_result" in connection.connection_data
         ):
-            analysis_result = connection.connection_data["analysis_result"]
-
-            # Convert analysis result to SubstackData format
-            substack_data = [
-                SubstackData(
-                    name=connection.platform_username or "Unknown",
-                    url=f"https://{connection.platform_username}.substack.com"
-                    if connection.platform_username
-                    else "",
-                    topics=analysis_result.get("topics", []),
-                    subscriber_count=analysis_result.get("subscriber_insights", {}).get(
-                        "estimated_subscribers"
-                    ),
-                    recent_posts=analysis_result.get("recent_posts", []),
-                )
-            ]
             analyzed_at = analysis_completed_at
 
-        # Check for legacy format (for backward compatibility)
-        elif (
-            connection.connection_data and "substackData" in connection.connection_data
-        ):
-            try:
-                connection_data = SubstackConnectionData(**connection.connection_data)
-                substack_data = connection_data.substackData
-                analyzed_at = connection_data.analyzed_at
-            except Exception as e:
-                logger.warning(f"Failed to parse legacy substack data: {e}")
-
         return SubstackAnalysisResponse(
-            substack_data=substack_data,
             is_connected=True,
             analyzed_at=analyzed_at,
             analysis_started_at=analysis_started_at,
@@ -470,74 +470,242 @@ async def run_substack_analysis(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Run Substack analysis."""
+    """Run Substack analysis for the user to analyze their bio and interests."""
     try:
         profile_service = ProfileService(db)
-
-        # Start the analysis
-        connection = await profile_service.analyze_substack(current_user.id)
+        connection = await profile_service.analyze_substack(
+            current_user.id, ["bio", "interests"]
+        )
 
         if not connection:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Substack connection not found or not configured",
+                detail="Substack connection not found or not configured for analysis",
             )
 
-        # Prepare response based on current connection state
-        substack_data = []
-        analyzed_at = None
-        analysis_started_at = (
-            connection.analysis_started_at.isoformat()
-            if connection.analysis_started_at
-            else None
-        )
-        analysis_completed_at = (
-            connection.analysis_completed_at.isoformat()
-            if connection.analysis_completed_at
-            else None
-        )
-        is_analyzing = (
-            connection.analysis_started_at is not None
-            and connection.analysis_completed_at is None
+        # Re-fetch the data to populate the response model
+        analysis_data = await get_substack_analysis(current_user, db)
+        analysis_data.is_analyzing = True
+        return analysis_data
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error running Substack analysis: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error running Substack analysis: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to run Substack analysis: {e}",
         )
 
-        # If analysis is completed, extract the data
-        if (
-            connection.connection_data
-            and "analysis_result" in connection.connection_data
-        ):
-            analysis_result = connection.connection_data["analysis_result"]
 
-            # Convert analysis result to SubstackData format
-            substack_data = [
-                SubstackData(
-                    name=connection.platform_username or "Unknown",
-                    url=f"https://{connection.platform_username}.substack.com"
-                    if connection.platform_username
-                    else "",
-                    topics=analysis_result.get("topics", []),
-                    subscriber_count=analysis_result.get("subscriber_insights", {}).get(
-                        "estimated_subscribers"
-                    ),
-                    recent_posts=analysis_result.get("recent_posts", []),
+# Writing Style Analysis Endpoints
+@router.post("/writing-analysis/{source}", response_model=PlatformAnalysisResponse)
+async def run_writing_style_analysis(
+    source: str,
+    request: Request,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Run writing style analysis for a platform."""
+    try:
+        profile_service = ProfileService(db)
+
+        # Special handling for importing manual text samples
+        if source == "import":
+            body = await request.json()
+            text = body.get("text") if isinstance(body, dict) else None
+            if not text:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="`text` field is required when source is 'import'",
                 )
-            ]
-            analyzed_at = analysis_completed_at
 
-        return SubstackAnalysisResponse(
-            substack_data=substack_data,
+            # TODO: Implement real analysis logic for free-form text
+            mock_analysis_data = text  # For now just echo back
+
+            analysis = await profile_service.upsert_writing_style_analysis(
+                current_user.id, source, mock_analysis_data
+            )
+
+            return PlatformAnalysisResponse(
+                analysis_data=analysis.analysis_data,
+                last_analyzed=analysis.last_analyzed_at.isoformat(),
+                is_connected=True,
+            )
+
+        elif source == "substack":
+            profile_service = ProfileService(db)
+            connection = await profile_service.analyze_substack(
+                current_user.id, ["writing_style"]
+            )
+
+            if not connection:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Substack connection not found or not configured for analysis",
+                )
+
+            # Re-fetch the data to populate the response model
+            analysis_data = await get_substack_analysis(current_user, db)
+            analysis_data.is_analyzing = True
+            return analysis_data
+
+        elif source == "linkedin":
+            # For linked platforms (linkedin, substack) ensure connection exists
+            connection = await profile_service.get_social_connection(
+                current_user.id, "linkedin"
+            )
+
+            if not connection:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Social connection for {source} not found",
+                )
+
+            # TODO: Implement LinkedIn writing style analysis
+            # For now, return a placeholder response indicating connection exists
+            return PlatformAnalysisResponse(
+                analysis_data=None,
+                last_analyzed=None,
+                is_connected=True,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid source: {source}",
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error running writing style analysis {source}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to run writing style analysis",
+        )
+
+
+@router.get("/writing-analysis", response_model=PlatformAnalysisResponse)
+async def get_latest_writing_style_analysis(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Return the most recent writing style analysis for the user, regardless of source."""
+    try:
+        profile_service = ProfileService(db)
+        analysis = await profile_service.get_latest_writing_style_analysis(
+            current_user.id
+        )
+
+        if analysis:
+            return PlatformAnalysisResponse(
+                analysis_data=analysis.analysis_data,
+                last_analyzed=analysis.last_analyzed_at.isoformat()
+                if analysis.last_analyzed_at
+                else analysis.updated_at.isoformat(),
+                is_connected=True,
+            )
+        else:
+            # No analysis yet – return empty payload
+            return PlatformAnalysisResponse(
+                analysis_data=None, last_analyzed=None, is_connected=False
+            )
+
+    except Exception as e:
+        logger.error(f"Error getting consolidated writing style analysis for user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch writing style analysis",
+        )
+
+
+@router.put("/writing-analysis", response_model=PlatformAnalysisResponse)
+async def update_latest_writing_style_analysis(
+    update_data: WritingStyleAnalysisUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Update the most recent writing style analysis for the user. If none exists, one is created using a default 'import' source."""
+    try:
+        profile_service = ProfileService(db)
+
+        # Find the current analysis (if any) to determine source
+        existing = await profile_service.get_latest_writing_style_analysis(
+            current_user.id
+        )
+
+        # Fallback source if there is no previous record
+        source = existing.source if existing else "import"
+
+        if update_data.analysis_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="analysis_data is required for update",
+            )
+
+        analysis = await profile_service.upsert_writing_style_analysis(
+            current_user.id, source, update_data.analysis_data
+        )
+
+        return PlatformAnalysisResponse(
+            analysis_data=analysis.analysis_data,
+            last_analyzed=analysis.last_analyzed_at.isoformat(),
             is_connected=True,
-            analyzed_at=analyzed_at,
-            analysis_started_at=analysis_started_at,
-            analysis_completed_at=analysis_completed_at,
-            is_analyzing=is_analyzing,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error running Substack analysis: {e}")
+        logger.error(
+            f"Error updating consolidated writing style analysis for user: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to run Substack analysis",
+            detail="Failed to update writing style analysis",
         )
+
+
+@router.get("/linkedin/connection-status/{state}")
+async def check_linkedin_connection_status(
+    state: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Check if a LinkedIn connection was established for a given state.
+    This endpoint doesn't require authentication and is used by the frontend
+    to check if a Unipile webhook was processed successfully.
+    """
+    try:
+        # Extract user_id from the state
+        if not state.startswith("linkedin_oauth_state_"):
+            return {"connected": False, "error": "Invalid state format"}
+
+        user_id_hex = state.replace("linkedin_oauth_state_", "")
+        try:
+            user_id = UUID(user_id_hex.replace("-", ""))
+        except ValueError:
+            return {"connected": False, "error": "Invalid user ID"}
+
+        # Check if a LinkedIn connection exists for this user
+        profile_service = ProfileService(db)
+        connection = await profile_service.get_social_connection_for_analysis(
+            user_id, "linkedin"
+        )
+
+        if connection and connection.connection_data:
+            auth_method = connection.connection_data.get("auth_method")
+            if auth_method == "unipile" and connection.is_active:
+                return {
+                    "connected": True,
+                    "auth_method": "unipile",
+                    "account_id": connection.connection_data.get("account_id"),
+                }
+
+        return {"connected": False}
+
+    except Exception as e:
+        logger.error(f"Error checking connection status: {e}")
+        return {"connected": False, "error": str(e)}

@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Security
     jwt_secret_key: str = Field(default="dev_jwt_secret")
     jwt_algorithm: str = Field(default="HS256")
-    access_token_expire_minutes: int = Field(default=30)
+    access_token_expire_minutes: int = Field(default=1440)
     refresh_token_expire_days: int = Field(default=7)
 
     # CORS - Use string instead of List to avoid JSON parsing
@@ -51,8 +51,19 @@ class Settings(BaseSettings):
     linkedin_client_id: Optional[str] = Field(default=None)
     linkedin_client_secret: Optional[str] = Field(default=None)
 
+    # Unipile Configuration
+    unipile_dsn: Optional[str] = Field(default=None)
+    unipile_access_token: Optional[str] = Field(default=None)
+
+    # Feature Flags
+    use_unipile_for_linkedin: bool = Field(default=False)
+
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60)
+
+    # Cloud run function url
+    gcp_analysis_function_url: Optional[str] = Field(default=None)
+    gcp_service_account_key_path: Optional[str] = Field(default=None)
 
     @field_validator("environment")
     @classmethod

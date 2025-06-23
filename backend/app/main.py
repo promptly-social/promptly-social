@@ -24,19 +24,19 @@ def configure_logging():
     # Remove default handler
     logger.remove()
 
-    # Add structured logging
-    if settings.log_format == "json":
+    # Use plain text for development, JSON for other environments
+    if settings.environment == "development":
         logger.add(
             sys.stdout,
             level=settings.log_level,
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
-            serialize=True,
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
         )
     else:
         logger.add(
             sys.stdout,
             level=settings.log_level,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
+            serialize=True,
         )
 
     # Add file logging for production
@@ -257,12 +257,27 @@ async def root():
 @app.options("/{path:path}")
 async def options_handler(request: Request):
     """Handle OPTIONS requests for CORS preflight."""
+    # Get the request origin
+    origin = request.headers.get("origin", "")
+
+    # Determine allowed origin
+    if settings.environment == "development":
+        allowed_origin = "*"
+    else:
+        # Check if the origin is in our allowed CORS origins
+        cors_origins = settings.get_cors_origins()
+        if origin in cors_origins:
+            allowed_origin = origin
+        elif cors_origins:
+            # Use the first allowed origin as fallback (don't use "*" in non-dev)
+            allowed_origin = cors_origins[0]
+        else:
+            allowed_origin = origin or "*"
+
     return JSONResponse(
         content={},
         headers={
-            "Access-Control-Allow-Origin": "*"
-            if settings.environment == "development"
-            else request.headers.get("origin", "*"),
+            "Access-Control-Allow-Origin": allowed_origin,
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Allow-Credentials": "true",

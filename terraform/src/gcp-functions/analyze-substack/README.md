@@ -16,7 +16,6 @@ Backend FastAPI ----HTTP----> GCP Cloud Function ----Updates----> Supabase Datab
 
 - `main.py` - Main Cloud Function code
 - `requirements.txt` - Python dependencies
-- `deploy.sh` - Deployment script
 - `env.example` - Environment variables template
 - `README.md` - This file
 

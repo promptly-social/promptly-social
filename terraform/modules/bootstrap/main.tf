@@ -176,3 +176,44 @@ resource "google_project_iam_member" "dns_readers" {
   role     = "roles/dns.reader"
   member   = "serviceAccount:${var.dns_reader_sds[count.index]}"
 }
+
+# Grant the Terraform SA permission to create access tokens for the App SA.
+# The ServiceAccountUser role (impersonation) was already granted above in
+# `terraform_sa_impersonates_app_sa`.  Add the complementary
+# ServiceAccountTokenCreator role so the TF SA can mint OAuth2 tokens for the
+# App SA when needed (e.g., when Terraform uses `impersonate_service_account`).
+
+resource "google_service_account_iam_member" "terraform_sa_token_creator_app_sa" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.terraform_sa.email}"
+}
+
+resource "google_service_account_iam_member" "tf_sa_admin_user" {
+  for_each          = toset(var.bootstrap_admins)
+  service_account_id = google_service_account.terraform_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "user:${each.value}"
+}
+
+resource "google_service_account_iam_member" "tf_sa_admin_token_creator" {
+  for_each          = toset(var.bootstrap_admins)
+  service_account_id = google_service_account.terraform_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "user:${each.value}"
+}
+
+# Get the project number to construct the Compute Engine default SA email
+
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+# Allow the Terraform SA to impersonate the Compute Engine default Service Account. This is
+# required because Cloud Functions builds often run under that SA and the caller must have
+# iam.serviceAccountUser (actAs) on it.
+resource "google_service_account_iam_member" "terraform_sa_impersonate_compute_sa" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.terraform_sa.email}"
+}

@@ -11,71 +11,58 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileApi, PlatformAnalysisResponse } from "@/lib/profile-api";
-import { BarChart3, Edit3, Check, X, Loader2 } from "lucide-react";
-
-interface SocialConnection {
-  platform: string;
-  is_active: boolean;
-}
+import { BarChart3, Edit3, Check, X, Loader2, Play, Link2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 export const ConsolidatedPlatformAnalysis: React.FC = () => {
   const { user } = useAuth();
-  const [connections, setConnections] = useState<SocialConnection[]>([]);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("");
+  const [connections, setConnections] = useState<Record<string, boolean>>({});
+  const [selectedSource, setSelectedSource] = useState<string>("import");
   const [analysisData, setAnalysisData] =
     useState<PlatformAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Analyze modal state
+  const [analyzeModalOpen, setAnalyzeModalOpen] = useState(false);
+  const [importText, setImportText] = useState("");
 
   useEffect(() => {
     if (user) {
       fetchConnections();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchConnections = async () => {
     try {
       const data = await profileApi.getSocialConnections();
-
-      // Filter for active connections
-      const connectionsData = data
-        .filter((conn) => conn.is_active)
-        .map((conn) => ({
-          platform: conn.platform,
-          is_active: conn.is_active,
-        }));
-
-      setConnections(connectionsData);
-
-      // Auto-select first platform if available
-      if (connectionsData.length > 0 && !selectedPlatform) {
-        setSelectedPlatform(connectionsData[0].platform);
-      }
+      const active: Record<string, boolean> = {};
+      data.forEach((conn) => {
+        if (conn.is_active) {
+          active[conn.platform] = true;
+        }
+      });
+      setConnections(active);
     } catch (error) {
       console.error("Error fetching connections:", error);
     }
   };
 
-  const getPlatformDisplayName = (platform: string) => {
-    switch (platform) {
-      case "substack":
-        return "Substack";
-      case "linkedin":
-        return "LinkedIn";
-      default:
-        return platform.charAt(0).toUpperCase() + platform.slice(1);
-    }
-  };
-
-  const fetchAnalysisData = async (platform: string) => {
-    if (!platform) return;
-
+  const fetchAnalysisData = async () => {
     setLoading(true);
     try {
-      const data = await profileApi.getWritingStyleAnalysis(platform);
+      const data = await profileApi.getWritingStyleAnalysis();
       setAnalysisData(data);
       setEditedText(data.analysis_data || "");
     } catch (error) {
@@ -92,14 +79,13 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!selectedPlatform || !editedText.trim()) return;
+    if (!selectedSource || !editedText.trim()) return;
 
     setSaving(true);
     try {
-      const updatedData = await profileApi.updateWritingStyleAnalysis(
-        selectedPlatform,
-        { analysis_data: editedText.trim() }
-      );
+      const updatedData = await profileApi.updateWritingStyleAnalysis({
+        analysis_data: editedText.trim(),
+      });
       setAnalysisData(updatedData);
       setIsEditing(false);
     } catch (error) {
@@ -114,33 +100,39 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
     setEditedText(analysisData?.analysis_data || "");
   };
 
-  // Fetch analysis data when platform changes
-  useEffect(() => {
-    if (selectedPlatform) {
-      fetchAnalysisData(selectedPlatform);
-    }
-  }, [selectedPlatform]);
+  const handleAnalyze = async () => {
+    // Prevent multiple parallel analyze requests
+    if (analyzing) return;
 
-  if (connections.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            Platform Writing Styles
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-600">No connected platforms found</p>
-            <p className="text-sm text-gray-500">
-              Connect your social accounts to analyze your writing style
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    setAnalyzing(true);
+    try {
+      if (selectedSource === "import") {
+        if (!importText.trim()) return;
+        await profileApi.runWritingStyleAnalysis("import", {
+          text: importText.trim(),
+        });
+      } else {
+        await profileApi.runWritingStyleAnalysis(selectedSource);
+      }
+
+      setAnalyzeModalOpen(false);
+      setImportText("");
+
+      // Refresh analysis data
+      fetchAnalysisData();
+    } catch (error) {
+      console.error("Error running analysis:", error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // Fetch analysis data on component mount and when user changes
+  useEffect(() => {
+    if (user) {
+      fetchAnalysisData();
+    }
+  }, [user]);
 
   return (
     <div className="space-y-6">
@@ -149,7 +141,7 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              Platform Writing Styles
+              Writing Styles
             </div>
             <div className="flex items-center gap-2">
               {!isEditing && analysisData?.analysis_data && (
@@ -163,29 +155,107 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                   Edit
                 </Button>
               )}
-              <Select
-                value={selectedPlatform}
-                onValueChange={setSelectedPlatform}
+
+              {/* Analyze Dialog Trigger */}
+              <Dialog
+                open={analyzeModalOpen}
+                onOpenChange={setAnalyzeModalOpen}
               >
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((connection) => (
-                    <SelectItem
-                      key={connection.platform}
-                      value={connection.platform}
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="flex items-center gap-2"
+                    disabled={analyzing}
+                  >
+                    {analyzing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                    {analyzing ? "Analyzing..." : "Analyze"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Select Writing Sample Source</DialogTitle>
+                  </DialogHeader>
+
+                  {/* Source Selection */}
+                  <Select
+                    value={selectedSource}
+                    onValueChange={(value) => {
+                      if (analyzing) return; // Don't allow changes while analyzing
+                      setSelectedSource(value);
+                    }}
+                    disabled={analyzing}
+                  >
+                    <SelectTrigger className="w-full" disabled={analyzing}>
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="linkedin">LinkedIn</SelectItem>
+                      <SelectItem value="substack">Substack</SelectItem>
+                      <SelectItem value="import">Import</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Conditional UI based on source */}
+                  {selectedSource === "import" && (
+                    <Textarea
+                      value={importText}
+                      onChange={(e) => setImportText(e.target.value)}
+                      placeholder="Paste your writing sample here..."
+                      className="mt-4 min-h-[180px] resize-none"
+                    />
+                  )}
+
+                  {(selectedSource === "linkedin" ||
+                    selectedSource === "substack") && (
+                    <div className="mt-4">
+                      {analyzing ? (
+                        <p className="text-sm text-gray-600">
+                          We are analyzing your writing. It will be ready in a
+                          few minutes.
+                        </p>
+                      ) : connections[selectedSource] ? (
+                        <p className="text-sm text-gray-600">
+                          Connection detected. Click Analyze to proceed.
+                        </p>
+                      ) : (
+                        <div className="flex items-center gap-2 text-red-600 text-sm">
+                          <Link2 className="w-4 h-4" />
+                          Please connect your {selectedSource} account first.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <DialogFooter className="mt-4">
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={
+                        analyzing ||
+                        (selectedSource === "import"
+                          ? !importText.trim()
+                          : !connections[selectedSource])
+                      }
                     >
-                      {getPlatformDisplayName(connection.platform)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                      {analyzing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : null}
+                      {analyzing ? "Analyzing..." : "Analyze"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {selectedPlatform && (
+          {selectedSource && (
             <>
               {loading ? (
                 <div className="flex items-center justify-center py-8">

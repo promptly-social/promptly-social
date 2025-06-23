@@ -13,3 +13,8 @@ variable "app_name" {
   type        = string
   default     = "promptly"
 } 
+
+variable "bootstrap_admins" {
+  type        = list(string)
+  description = "Users allowed to impersonate the Terraform SA locally"
+}

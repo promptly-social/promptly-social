@@ -85,3 +85,5 @@ terraform.rc
 
 .coverage
 coverage.xml
+
+gcp-sa-key.json

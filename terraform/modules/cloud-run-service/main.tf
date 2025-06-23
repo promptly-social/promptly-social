@@ -17,6 +17,7 @@ resource "google_cloud_run_service" "backend" {
         "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
         "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
         "run.googleapis.com/execution-environment" = "gen2"
+        "terraform.io/last-applied" = timestamp()
       }
     }
 
@@ -167,6 +168,36 @@ resource "google_cloud_run_service" "backend" {
           value_from {
             secret_key_ref {
               name = var.database_url_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "UNIPILE_DSN"
+          value_from {
+            secret_key_ref {
+              name = var.unipile_dsn_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "UNIPILE_ACCESS_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = var.unipile_access_token_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "USE_UNIPILE_FOR_LINKEDIN"
+          value_from {
+            secret_key_ref {
+              name = var.use_unipile_for_linkedin_name
               key  = "latest"
             }
           }

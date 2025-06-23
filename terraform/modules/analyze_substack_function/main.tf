@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 5.0"
+    }
     archive = {
       source  = "hashicorp/archive"
       version = "~> 2.2.0"
@@ -21,6 +25,28 @@ provider "google" {
   region  = var.region
 }
 
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
+resource "google_project_service" "project_services" {
+  for_each = toset([
+    "cloudfunctions.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "secretmanager.googleapis.com",
+    "iam.googleapis.com",
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "logging.googleapis.com",
+    "storage-component.googleapis.com",
+  ])
+  project                    = var.project_id
+  service                    = each.key
+  disable_on_destroy         = false
+  disable_dependent_services = false
+}
+
 # Data source for zipping the function code
 data "archive_file" "source" {
   type        = "zip"
@@ -29,7 +55,6 @@ data "archive_file" "source" {
   excludes = [
     "terraform/**",
     "README.md",
-    "deploy.sh",
     "env.example",
     "test_analyzer_local.py",
     "test_db_transcation_local.py",
@@ -44,6 +69,7 @@ data "archive_file" "source" {
 # Local variables for resource names
 locals {
   bucket_name = "${var.app_name}-cf-source-${var.environment}"
+  terraform_sa_email = "${var.app_name}-tf-sa-${var.environment}@${var.project_id}.iam.gserviceaccount.com"
 }
 
 # Storage bucket to hold the zipped code
@@ -52,6 +78,8 @@ resource "google_storage_bucket" "source_bucket" {
   location      = var.region
   force_destroy = false # Set to false in production
   uniform_bucket_level_access = true
+
+  depends_on = [google_project_service.project_services]
 
   lifecycle {
     prevent_destroy = true
@@ -68,12 +96,17 @@ resource "google_storage_bucket_object" "source_archive" {
   name   = "analyze-substack-source.zip#${data.archive_file.source.output_md5}"
   bucket = local.bucket_name
   source = data.archive_file.source.output_path
+
+  # Make Terraform notice when the ZIP changes
+  detect_md5hash = data.archive_file.source.output_md5
 }
 
 # Service account for the Cloud Function
 resource "google_service_account" "function_sa" {
   account_id   = "${var.function_name}-sa-${var.environment}"
   display_name = "Service Account for ${var.function_name} function"
+
+  depends_on = [google_project_service.project_services]
 
   lifecycle {
     prevent_destroy = true
@@ -142,14 +175,23 @@ resource "google_cloudfunctions2_function" "function" {
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
     google_service_account_iam_member.cloudbuild_impersonate_function_sa,
+    google_service_account_iam_member.cloudbuild_agent_impersonate_function_sa,
     google_project_iam_member.cloudbuild_logging_writer,
     google_project_iam_member.cloudbuild_artifactregistry_admin,
     google_project_iam_member.cloudbuild_service_account_token_creator,
     google_project_iam_member.compute_sa_logging_writer,
     google_project_iam_member.compute_sa_storage_viewer,
     google_project_iam_member.compute_sa_artifactregistry_writer,
-    google_project_iam_member.compute_sa_token_creator
+    google_project_iam_member.compute_sa_token_creator,
+    google_project_iam_member.function_sa_logging_writer,
+    google_service_account_iam_member.functions_sa_impersonate_function_sa
   ]
+
+  lifecycle {
+    replace_triggered_by = [
+      google_storage_bucket_object.source_archive
+    ]
+  }
 }
 
 # Data sources for existing secrets
@@ -211,9 +253,26 @@ resource "google_secret_manager_secret_iam_member" "secret_access_gcp_function_u
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
+# Grant the function's service account permission to write logs
+resource "google_project_iam_member" "function_sa_logging_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.function_sa.email}"
+}
+
 # Data source to get project number for Cloud Build service account
 data "google_project" "project" {
   project_id = var.project_id
+}
+
+resource "google_project_service_identity" "gcp_sa_cloudfunctions" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "cloudfunctions.googleapis.com"
+
+  depends_on = [
+    google_project_service.project_services,
+  ]
 }
 
 # Grant Cloud Build service account necessary permissions for building Cloud Functions
@@ -242,6 +301,29 @@ resource "google_service_account_iam_member" "cloudbuild_impersonate_function_sa
   member             = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
 }
 
+# Grant the Terraform SA permission to impersonate the function's runtime SA
+resource "google_service_account_iam_member" "terraform_sa_impersonate_function_sa" {
+  service_account_id = google_service_account.function_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.terraform_sa_email}"
+}
+
+# Grant Cloud Build Service Agent permission to impersonate the function's runtime SA
+resource "google_service_account_iam_member" "cloudbuild_agent_impersonate_function_sa" {
+  service_account_id = google_service_account.function_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-cloudbuild.iam.gserviceaccount.com"
+}
+
+# Grant the Cloud Functions Service Agent permission to act as the function's runtime SA.
+# This is necessary for the service to manage the function.
+resource "google_service_account_iam_member" "functions_sa_impersonate_function_sa" {
+  service_account_id = google_service_account.function_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_project_service_identity.gcp_sa_cloudfunctions.email}"
+}
+
+# Grant the Cloud Build service account permission to write logs
 resource "google_project_iam_member" "cloudbuild_logging_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"

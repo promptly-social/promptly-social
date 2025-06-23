@@ -311,6 +311,46 @@ resource "google_secret_manager_secret_version" "database_url_initial_version" {
   secret_data = "placeholder-db-url"
 }
 
+# Unipile Configuration Secrets
+resource "google_secret_manager_secret" "unipile_dsn" {
+  secret_id = "UNIPILE_DSN"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "unipile_dsn_initial_version" {
+  secret      = google_secret_manager_secret.unipile_dsn.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "unipile_access_token" {
+  secret_id = "UNIPILE_ACCESS_TOKEN"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "unipile_access_token_initial_version" {
+  secret      = google_secret_manager_secret.unipile_access_token.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "use_unipile_for_linkedin" {
+  secret_id = "USE_UNIPILE_FOR_LINKEDIN"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "use_unipile_for_linkedin_initial_version" {
+  secret      = google_secret_manager_secret.use_unipile_for_linkedin.id
+  secret_data = "true"
+}
+
 # Data source to get the current version of the GCP analysis function URL secret
 /* data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
   secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
@@ -330,6 +370,9 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     linkedin_client_id    = google_secret_manager_secret.linkedin_client_id
     linkedin_client_secret = google_secret_manager_secret.linkedin_client_secret
     database_url          = google_secret_manager_secret.database_url
+    unipile_dsn           = google_secret_manager_secret.unipile_dsn
+    unipile_access_token  = google_secret_manager_secret.unipile_access_token
+    use_unipile_for_linkedin = google_secret_manager_secret.use_unipile_for_linkedin
   }
 
   secret_id = each.value.secret_id
@@ -367,6 +410,9 @@ module "cloud_run_service" {
   linkedin_client_id_name    = google_secret_manager_secret.linkedin_client_id.secret_id
   linkedin_client_secret_name = google_secret_manager_secret.linkedin_client_secret.secret_id
   database_url_name          = google_secret_manager_secret.database_url.secret_id
+  unipile_dsn_name           = google_secret_manager_secret.unipile_dsn.secret_id
+  unipile_access_token_name  = google_secret_manager_secret.unipile_access_token.secret_id
+  use_unipile_for_linkedin_name = google_secret_manager_secret.use_unipile_for_linkedin.secret_id
   allow_unauthenticated_invocations = false
 }
 
@@ -604,17 +650,17 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# 8. DNS A record for the API
-resource "google_dns_record_set" "api_a_record" {
-  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
+  # 8. DNS A record for the API (points to Load Balancer IP)
+  resource "google_dns_record_set" "api_a_record" {
+    count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
-  name         = "${local.backend_domain}."
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_compute_global_address.api_ip[0].address]
-  project      = local.is_production ? var.project_id : var.production_project_id
-}
+    managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
+    name         = "${local.backend_domain}."
+    type         = "A"
+    ttl          = 300
+    rrdatas      = [google_compute_global_address.api_ip[0].address]
+    project      = local.is_production ? var.project_id : var.production_project_id
+  }
 
 # Grant read-only access to the Terraform state bucket for specified service accounts
 # This is typically used to allow staging environments to read production state.
