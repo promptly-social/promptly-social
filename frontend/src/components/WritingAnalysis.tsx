@@ -21,9 +21,11 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
-export const ConsolidatedPlatformAnalysis: React.FC = () => {
+export const WritingAnalysis: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [connections, setConnections] = useState<Record<string, boolean>>({});
   const [selectedSource, setSelectedSource] = useState<string>("import");
   const [analysisData, setAnalysisData] =
@@ -111,8 +113,20 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
         await profileApi.runWritingStyleAnalysis("import", {
           text: importText.trim(),
         });
+        toast({
+          title: "Analysis Complete",
+          description: "Your imported text has been analyzed successfully.",
+        });
       } else {
+        // For LinkedIn and Substack, call the writing style analysis endpoint
         await profileApi.runWritingStyleAnalysis(selectedSource);
+
+        const platformName =
+          selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1);
+        toast({
+          title: "Analysis Started",
+          description: `Analyzing your ${platformName} writing style. This may take a few minutes.`,
+        });
       }
 
       setAnalyzeModalOpen(false);
@@ -122,6 +136,14 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
       fetchAnalysisData();
     } catch (error) {
       console.error("Error running analysis:", error);
+      const apiError = error as { response?: { data?: { detail?: string } } };
+      toast({
+        title: "Analysis Error",
+        description:
+          apiError.response?.data?.detail ||
+          `Failed to start ${selectedSource} analysis. Please try again.`,
+        variant: "destructive",
+      });
     } finally {
       setAnalyzing(false);
     }
@@ -217,18 +239,32 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                     selectedSource === "substack") && (
                     <div className="mt-4">
                       {analyzing ? (
-                        <p className="text-sm text-gray-600">
-                          We are analyzing your writing. It will be ready in a
-                          few minutes.
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-600">
+                            We are analyzing your {selectedSource} writing
+                            style. This may take a few minutes.
+                          </p>
+                          <div className="flex items-center gap-2 text-blue-600 text-xs">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Analysis in progress...
+                          </div>
+                        </div>
                       ) : connections[selectedSource] ? (
-                        <p className="text-sm text-gray-600">
-                          Connection detected. Click Analyze to proceed.
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-600">
+                            Connection detected. Click Analyze to analyze your{" "}
+                            {selectedSource} writing style.
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            This will analyze your posts and content to
+                            understand your writing patterns.
+                          </p>
+                        </div>
                       ) : (
                         <div className="flex items-center gap-2 text-red-600 text-sm">
                           <Link2 className="w-4 h-4" />
-                          Please connect your {selectedSource} account first.
+                          Please connect your {selectedSource} account first to
+                          analyze your writing style.
                         </div>
                       )}
                     </div>

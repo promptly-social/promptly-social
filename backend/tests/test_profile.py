@@ -263,39 +263,30 @@ class TestProfileEndpoints:
     ):
         """Test POST /profile/analyze-writing-style endpoint."""
         with patch(
-            "app.services.profile.ProfileService.get_social_connection"
-        ) as mock_get_connection:
-            with patch(
-                "app.services.profile.ProfileService.upsert_writing_style_analysis"
-            ) as mock_upsert_analysis:
-                mock_connection = SocialConnection(
-                    id=uuid4(),
-                    user_id=mock_current_user.id,
-                    platform="linkedin",
-                    platform_username="testuser",
-                    is_active=True,
-                    analysis_status="not_started",
-                )
-                mock_get_connection.return_value = mock_connection
+            "app.services.profile.ProfileService.analyze_linkedin"
+        ) as mock_analyze_linkedin:
+            mock_connection = SocialConnection(
+                id=uuid4(),
+                user_id=mock_current_user.id,
+                platform="linkedin",
+                platform_username="testuser",
+                is_active=True,
+                analysis_status="in_progress",
+                analysis_started_at=datetime.now(timezone.utc),
+            )
+            mock_analyze_linkedin.return_value = mock_connection
 
-                mock_analysis = WritingStyleAnalysis(
-                    id=uuid4(),
-                    user_id=mock_current_user.id,
-                    source="linkedin",
-                    analysis_data="mock analysis",
-                    last_analyzed_at=datetime.now(timezone.utc),
-                )
-                mock_upsert_analysis.return_value = mock_analysis
+            response = test_client.post(
+                "/api/v1/profile/writing-analysis/linkedin",
+                headers={"Authorization": "Bearer test_token"},
+            )
 
-                response = test_client.post(
-                    "/api/v1/profile/writing-analysis/linkedin",
-                    headers={"Authorization": "Bearer test_token"},
-                )
-
-                assert response.status_code == status.HTTP_200_OK
-                data = response.json()
-                assert data["is_connected"] is True
-                assert "analysis_data" in data
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["is_connected"] is True
+            mock_analyze_linkedin.assert_called_once_with(
+                mock_current_user.id, ["writing_style"]
+            )
 
     def test_run_substack_analysis_endpoint(
         self, test_client, mock_current_user, mock_db
@@ -464,7 +455,7 @@ class TestProfileEndpoints:
             )
             assert response.status_code == status.HTTP_400_BAD_REQUEST
             assert (
-                "Substack connection has no platform_username configured"
+                "substack connection has no platform_username configured"
                 in response.json()["detail"]
             )
 

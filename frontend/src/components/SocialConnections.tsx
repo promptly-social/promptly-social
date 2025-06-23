@@ -13,7 +13,7 @@ import {
   type SocialConnection as ApiSocialConnection,
 } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link2, Unlink, Users } from "lucide-react";
+import { Link2, Unlink, Users, FileText } from "lucide-react";
 import { SubstackConnection } from "./SubstackConnection";
 
 type SocialConnection = ApiSocialConnection;
@@ -21,6 +21,7 @@ type SocialConnection = ApiSocialConnection;
 export const SocialConnections: React.FC = () => {
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -89,6 +90,53 @@ export const SocialConnections: React.FC = () => {
     }
   };
 
+  const analyzePlatform = async (platform: "linkedin") => {
+    if (platform === "linkedin") {
+      const connection = getConnection("linkedin");
+      if (!connection) {
+        toast({
+          title: "Error",
+          description: "Please connect to LinkedIn first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsAnalyzing(true);
+      try {
+        // Trigger the analysis
+        const result = await profileApi.runLinkedInAnalysis();
+
+        if (result.is_analyzing) {
+          toast({
+            title: "Analysis Started",
+            description: "Analyzing your LinkedIn bio and interests...",
+          });
+        } else if (result.analysis_completed_at) {
+          toast({
+            title: "Analysis Completed",
+            description: "Your LinkedIn analysis is ready!",
+          });
+        }
+
+        // Refresh the connection data to show updated status
+        fetchConnections();
+      } catch (error) {
+        console.error("Error analyzing LinkedIn:", error);
+        const apiError = error as { response?: { data?: { detail?: string } } };
+        toast({
+          title: "Analysis Error",
+          description:
+            apiError.response?.data?.detail ||
+            "Failed to start LinkedIn analysis.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }
+  };
+
   const getConnection = (platform: string) =>
     connections.find((conn) => conn.platform === platform && conn.is_active);
 
@@ -124,38 +172,80 @@ export const SocialConnections: React.FC = () => {
         {platforms.map((platform) => (
           <div
             key={platform.key}
-            className="flex items-center justify-between p-4 border rounded-lg"
+            className="flex flex-col gap-3 p-4 border rounded-lg"
           >
-            <div className="flex items-center gap-3">
-              <platform.icon className={`w-5 h-5 text-${platform.color}-600`} />
-              <div>
-                <p className="font-medium">{platform.name}</p>
-                <p className="text-sm text-gray-500">
-                  {platform.connection ? "Connected" : "Not connected"}
-                </p>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <platform.icon
+                  className={`w-5 h-5 text-${platform.color}-600`}
+                />
+                <div>
+                  <p className="font-medium">{platform.name}</p>
+                  <div className="text-sm text-gray-500">
+                    <p>{platform.connection ? "Connected" : "Not connected"}</p>
+                    {platform.connection?.analysis_completed_at &&
+                      platform.connection?.analysis_status === "completed" && (
+                        <p className="text-xs text-green-600">
+                          Last analyzed:{" "}
+                          {new Date(
+                            platform.connection.analysis_completed_at
+                          ).toLocaleDateString()}
+                        </p>
+                      )}
+                    {platform.connection?.analysis_status === "error" && (
+                      <p className="text-xs text-red-600">Analysis failed</p>
+                    )}
+                    {platform.connection?.analysis_status === "in_progress" && (
+                      <p className="text-xs text-blue-600">
+                        Analysis in progress...
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {platform.connection ? (
-              <Button
-                onClick={() => disconnectPlatform(platform.key)}
-                variant="outline"
-                size="sm"
-                disabled={isLoading}
-              >
-                <Unlink className="w-4 h-4 mr-2" />
-                Disconnect
-              </Button>
-            ) : (
-              <Button
-                onClick={() => connectPlatform(platform.key)}
-                size="sm"
-                disabled={isLoading}
-              >
-                <Link2 className="w-4 h-4 mr-2" />
-                Connect
-              </Button>
-            )}
+              {platform.connection ? (
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => analyzePlatform(platform.key)}
+                    size="sm"
+                    disabled={
+                      isLoading ||
+                      isAnalyzing ||
+                      platform.connection?.analysis_status === "in_progress"
+                    }
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    {isAnalyzing ||
+                    platform.connection?.analysis_status === "in_progress"
+                      ? "Analyzing..."
+                      : platform.connection?.analysis_status === "completed"
+                      ? "Re-analyze"
+                      : platform.connection?.analysis_status === "error"
+                      ? "Retry"
+                      : "Analyze"}
+                  </Button>
+                  <Button
+                    onClick={() => disconnectPlatform(platform.key)}
+                    variant="outline"
+                    size="sm"
+                    disabled={isLoading}
+                  >
+                    <Unlink className="w-4 h-4 mr-2" />
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => connectPlatform(platform.key)}
+                  size="sm"
+                  disabled={isLoading}
+                >
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Connect
+                </Button>
+              )}
+            </div>
           </div>
         ))}
       </CardContent>

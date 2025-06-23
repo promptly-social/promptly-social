@@ -713,8 +713,9 @@ class ProfileService:
                 )
             elif platform == "linkedin":
                 # For LinkedIn, we need the account_id from connection_data
-                if not connection.connection_data or not connection.connection_data.get(
-                    "account_id"
+                if (
+                    not connection.connection_data
+                    or not connection.connection_data.get("account_id")
                 ):
                     raise ValueError(
                         f"{platform} connection has no account_id configured"

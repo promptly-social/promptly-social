@@ -201,4 +201,11 @@ export const profileApi = {
       body: JSON.stringify({ text }),
     });
   },
+
+  // LinkedIn Analysis
+  async runLinkedInAnalysis(): Promise<SubstackAnalysisResponse> {
+    return apiClient.request<SubstackAnalysisResponse>('/profile/analyze-linkedin', {
+      method: 'POST',
+    });
+  },
 }; 
