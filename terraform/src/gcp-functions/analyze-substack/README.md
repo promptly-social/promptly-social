@@ -1,22 +1,30 @@
-# Substack Analysis - GCP Cloud Function
+# Social Media Analysis - GCP Cloud Function
 
-This directory contains a Python-based GCP Cloud Function that analyzes Substack content for writing style, topics, and engagement patterns.
+This directory contains a Python-based GCP Cloud Function that analyzes social media content for writing style, topics, and engagement patterns. Currently supports Substack and LinkedIn platforms.
 
 ## 🏗️ Architecture
 
 ```
 Backend FastAPI ----HTTP----> GCP Cloud Function ----Updates----> Supabase Database
      ↓                              ↓                                    ↓
-1. User triggers analysis    2. Fetches Substack content        3. Stores analysis results
+1. User triggers analysis    2. Fetches platform content        3. Stores analysis results
 2. Sets analysis_started_at  3. Performs NLP analysis           4. Sets analysis_completed_at
 3. Calls GCP function        4. Analyzes writing patterns       5. Updates writing_style_analysis
+
+Supported Platforms:
+- Substack: RSS feed + API analysis
+- LinkedIn: Unipile API integration
 ```
 
 ## 📁 Files
 
 - `main.py` - Main Cloud Function code
+- `substack_analyzer.py` - Substack content analysis module
+- `linkedin_analyzer.py` - LinkedIn content analysis module (via Unipile)
 - `requirements.txt` - Python dependencies
 - `env.example` - Environment variables template
+- `test_analyzer_local.py` - Substack analyzer local test script
+- `test_linkedin_analyzer_local.py` - LinkedIn analyzer local test script
 - `README.md` - This file
 
 ## 🚀 Deployment
@@ -87,12 +95,15 @@ gcloud functions deploy analyze-substack \
 
 Set these in the GCP Console or via gcloud:
 
-| Variable                    | Description                        | Required |
-| --------------------------- | ---------------------------------- | -------- |
-| `SUPABASE_URL`              | Your Supabase project URL          | Yes      |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key          | Yes      |
-| `ANALYSIS_TIMEOUT_SECONDS`  | Analysis timeout (default: 300)    | No       |
-| `MAX_POSTS_TO_ANALYZE`      | Max posts to analyze (default: 50) | No       |
+| Variable                        | Description                                 | Required |
+| ------------------------------- | ------------------------------------------- | -------- |
+| `SUPABASE_URL`                  | Your Supabase project URL                   | Yes      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key                   | Yes      |
+| `OPENROUTER_API_KEY`            | OpenRouter API key for LLM analysis         | Yes      |
+| `UNIPILE_DSN`                   | Unipile DSN hostname for LinkedIn           | Yes      |
+| `UNIPILE_ACCESS_TOKEN`          | Unipile access token for LinkedIn           | Yes      |
+| `MAX_POSTS_TO_ANALYZE`          | Max Substack posts to analyze (default: 10) | No       |
+| `MAX_POSTS_TO_ANALYZE_LINKEDIN` | Max LinkedIn posts to analyze (default: 20) | No       |
 
 ### Backend Configuration
 
@@ -127,10 +138,31 @@ GCP_ANALYSIS_FUNCTION_URL=https://us-central1-your-project.cloudfunctions.net/an
    ```
 
 4. **Test the function**:
+
+   **Substack analysis:**
+
    ```bash
    curl -X POST http://localhost:8080 \
      -H "Content-Type: application/json" \
-     -d '{"user_id": "test-uuid", "platform_username": "testuser"}'
+     -d '{"user_id": "test-uuid", "platform": "substack", "platform_username": "testuser", "content_to_analyze": ["bio", "writing_style"]}'
+   ```
+
+   **LinkedIn analysis:**
+
+   ```bash
+   curl -X POST http://localhost:8080 \
+     -H "Content-Type: application/json" \
+     -d '{"user_id": "test-uuid", "platform": "linkedin", "platform_username": "unipile-account-id", "content_to_analyze": ["bio", "writing_style"]}'
+   ```
+
+5. **Test analyzers directly**:
+
+   ```bash
+   # Test Substack analyzer
+   python test_analyzer_local.py stratechery
+
+   # Test LinkedIn analyzer
+   python test_linkedin_analyzer_local.py your-unipile-account-id
    ```
 
 ### Function Logs
@@ -146,10 +178,10 @@ gcloud functions logs tail analyze-substack --region=us-central1
 1. **Trigger**: Backend calls the function when user requests analysis
 2. **Validation**: Function validates user and connection exist
 3. **Analysis**:
-   - Fetches Substack RSS feed
-   - Parses recent posts
-   - Analyzes writing style using NLP
-   - Calculates engagement patterns
+   - **Substack**: Fetches RSS feed, parses recent posts
+   - **LinkedIn**: Fetches posts via Unipile API
+   - Analyzes writing style using NLP (OpenRouter/OpenAI)
+   - Extracts topics and content patterns
 4. **Storage**: Updates Supabase with results and completion timestamp
 
 ## 🔍 Analysis Features

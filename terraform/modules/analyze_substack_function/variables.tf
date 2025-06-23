@@ -27,6 +27,12 @@ variable "max_posts_to_analyze" {
   default     = 5
 }
 
+variable "max_posts_to_analyze_linkedin" {
+  description = "The maximum number of LinkedIn posts to analyze."
+  type        = number
+  default     = 20
+}
+
 variable "environment" {
   description = "The deployment environment (e.g., staging, production)."
   type        = string

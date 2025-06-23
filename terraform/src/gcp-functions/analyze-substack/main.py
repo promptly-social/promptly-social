@@ -9,6 +9,7 @@ import traceback
 import functions_framework
 from supabase import create_client, Client
 from substack_analyzer import SubstackAnalyzer
+from linkedin_analyzer import LinkedInAnalyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,28 +27,54 @@ def get_supabase_client() -> Client:
     return create_client(supabase_url, supabase_service_key)
 
 
-def fetch_substack_content(
-    platform_username: str, current_bio: str, content_to_analyze: List[str]
+def fetch_content(
+    platform: str,
+    platform_identifier: str,
+    current_bio: str,
+    content_to_analyze: List[str],
 ) -> Dict[str, Any]:
     """
-    Fetch and analyze Substack content using the SubstackAnalyzer.
+    Fetch and analyze content using the appropriate analyzer based on platform.
     """
-    logger.info(f"Starting comprehensive analysis for {platform_username}")
+    logger.info(
+        f"Starting comprehensive analysis for {platform_identifier} on {platform}"
+    )
 
     # Get configuration from environment
-    max_posts = int(os.getenv("MAX_POSTS_TO_ANALYZE", "10"))
     openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
-    analyzer = SubstackAnalyzer(
-        max_posts=max_posts, openrouter_api_key=openrouter_api_key
-    )
-    return analyzer.analyze_substack(platform_username, current_bio, content_to_analyze)
+    if platform == "substack":
+        max_posts = int(os.getenv("MAX_POSTS_TO_ANALYZE", "10"))
+        analyzer = SubstackAnalyzer(
+            max_posts=max_posts, openrouter_api_key=openrouter_api_key
+        )
+        return analyzer.analyze_substack(
+            platform_identifier, current_bio, content_to_analyze
+        )
+
+    elif platform == "linkedin":
+        max_posts = int(os.getenv("MAX_POSTS_TO_ANALYZE_LINKEDIN", "20"))
+        unipile_access_token = os.getenv("UNIPILE_ACCESS_TOKEN")
+        unipile_dsn = os.getenv("UNIPILE_DSN")
+        analyzer = LinkedInAnalyzer(
+            max_posts=max_posts,
+            openrouter_api_key=openrouter_api_key,
+            unipile_access_token=unipile_access_token,
+            unipile_dsn=unipile_dsn,
+        )
+        return analyzer.analyze_linkedin(
+            platform_identifier, current_bio, content_to_analyze
+        )
+
+    else:
+        raise ValueError(f"Unsupported platform: {platform}")
 
 
 async def update_analysis_results(
     supabase: Client,
     user_id: str,
     analysis_result: Dict[str, Any],
+    platform: str = "substack",
 ) -> None:
     """Update the social connection with analysis results."""
     try:
@@ -138,7 +165,7 @@ async def update_analysis_results(
                 }
             )
             .eq("user_id", user_id)
-            .eq("platform", "substack")
+            .eq("platform", platform)
             .execute()
         )
 
@@ -160,7 +187,11 @@ async def update_analysis_results(
 
 
 async def mark_analysis_failed(
-    supabase: Client, user_id: str, error_message: str, connection_data: Dict[str, Any]
+    supabase: Client,
+    user_id: str,
+    error_message: str,
+    connection_data: Dict[str, Any],
+    platform: str = "substack",
 ) -> None:
     """Mark analysis as failed."""
     try:
@@ -178,7 +209,7 @@ async def mark_analysis_failed(
                 "analysis_completed_at": None,
                 "analysis_status": "error",
             }
-        ).eq("user_id", user_id).eq("platform", "substack").execute()
+        ).eq("user_id", user_id).eq("platform", platform).execute()
 
         logger.info(f"Marked analysis as failed for user {user_id}")
 
@@ -189,12 +220,14 @@ async def mark_analysis_failed(
 @functions_framework.http
 def analyze_substack(request):
     """
-    GCP Cloud Function for analyzing Substack content.
+    GCP Cloud Function for analyzing social media content (Substack and LinkedIn).
 
     Expected request body:
     {
         "user_id": "uuid",
-        "platform_username": "username"
+        "platform": "substack" | "linkedin",
+        "platform_username": "username" (for Substack) or "account_id" (for LinkedIn),
+        "content_to_analyze": ["bio", "interests", "writing_style"]
     }
     """
     # Handle CORS
@@ -221,6 +254,9 @@ def analyze_substack(request):
             )
 
         user_id = request_json.get("user_id")
+        platform = request_json.get(
+            "platform", "substack"
+        )  # Default to substack for backward compatibility
         platform_username = request_json.get("platform_username")
         content_to_analyze = request_json.get("content_to_analyze", [])
 
@@ -237,7 +273,7 @@ def analyze_substack(request):
             )
 
         logger.info(
-            f"Starting Substack analysis for user {user_id} with username {platform_username}"
+            f"Starting {platform} analysis for user {user_id} with identifier {platform_username}"
         )
 
         # Initialize Supabase client
@@ -248,12 +284,12 @@ def analyze_substack(request):
             supabase.table("social_connections")
             .select("*")
             .eq("user_id", user_id)
-            .eq("platform", "substack")
+            .eq("platform", platform)
             .execute()
         )
 
         if not connection_response.data:
-            error_msg = f"Substack connection not found for user {user_id}"
+            error_msg = f"{platform} connection not found for user {user_id}"
             logger.error(error_msg)
             return (json.dumps({"success": False, "error": error_msg}), 404, headers)
 
@@ -277,8 +313,11 @@ def analyze_substack(request):
 
         # Perform the analysis
         try:
-            analysis_result = fetch_substack_content(
-                platform_username, current_bio, content_to_analyze
+            analysis_result = fetch_content(
+                platform,
+                platform_username,
+                current_bio,
+                content_to_analyze,
             )
 
             # Update database with results
@@ -287,22 +326,24 @@ def analyze_substack(request):
                     supabase,
                     user_id,
                     analysis_result,
+                    platform,
                 )
             )
 
-            logger.info(f"Successfully completed Substack analysis for user {user_id}")
+            logger.info(
+                f"Successfully completed {platform} analysis for user {user_id}"
+            )
 
             return (
                 json.dumps(
                     {
                         "success": True,
                         "message": "Analysis completed successfully",
+                        "content_to_analyze": content_to_analyze,
                         "analysis_summary": {
                             "topics_count": len(analysis_result.get("topics", [])),
-                            "websites": analysis_result.get("websites", []),
-                            "posts_analyzed": analysis_result.get(
-                                "writing_content_count", 0
-                            ),
+                            "websites_count": len(analysis_result.get("websites", [])),
+                            "bio": len(analysis_result.get("bio", "")),
                             "writing_style": analysis_result.get("writing_style", ""),
                         },
                     }
@@ -321,6 +362,7 @@ def analyze_substack(request):
                     user_id,
                     str(analysis_error),
                     connection.get("connection_data", {}),
+                    platform,
                 )
             )
 

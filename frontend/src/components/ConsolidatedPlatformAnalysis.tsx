@@ -172,7 +172,11 @@ export const ConsolidatedPlatformAnalysis: React.FC = () => {
                     ) : (
                       <Play className="w-4 h-4" />
                     )}
-                    {analyzing ? "Analyzing..." : "Analyze"}
+                    {analyzing
+                      ? "Analyzing..."
+                      : analysisData?.analysis_data
+                      ? "Re-analyze"
+                      : "Analyze"}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-lg">
