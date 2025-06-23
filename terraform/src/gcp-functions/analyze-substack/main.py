@@ -159,10 +159,11 @@ async def update_analysis_results(
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Upsert writing style analysis using the unique constraint on (user_id, source)
+        # Upsert writing style analysis using the unique constraint on (user_id)
         style_response = (
             supabase.table("writing_style_analysis")
-            .upsert(writing_style_data, on_conflict="user_id,source")
+            .upsert(writing_style_data)
+            .eq("user_id", user_id)
             .execute()
         )
 
