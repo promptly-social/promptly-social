@@ -162,8 +162,7 @@ async def update_analysis_results(
         # Upsert writing style analysis using the unique constraint on (user_id)
         style_response = (
             supabase.table("writing_style_analysis")
-            .upsert(writing_style_data)
-            .eq("user_id", user_id)
+            .upsert(writing_style_data, on_conflict="user_id")
             .execute()
         )
 
