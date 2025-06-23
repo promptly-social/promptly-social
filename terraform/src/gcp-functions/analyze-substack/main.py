@@ -94,63 +94,66 @@ async def update_analysis_results(
         topics = analysis_result.get("topics", [])
         bio = analysis_result.get("bio", "")
 
-        # Fetch user preferences without .single() to avoid error when no records exist
-        user_preferences_result = (
-            supabase.table("user_preferences")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
-
-        # Create a mock object to maintain the same interface
-        user_preferences = type(
-            "obj",
-            (object,),
-            {
-                "data": user_preferences_result.data[0]
-                if user_preferences_result.data
-                else None
-            },
-        )()
-
-        if user_preferences.data:
-            existing_websites = user_preferences.data.get("websites", [])
-            user_preferences.data["websites"] = list(set(existing_websites + websites))
-
-            existing_topics = user_preferences.data.get("topics_of_interest", [])
-            user_preferences.data["topics_of_interest"] = list(
-                set(existing_topics + topics)
-            )
-
-            user_preferences.data["bio"] = (
-                user_preferences.data["bio"] or bio
-            )  # keep the existing bio if it exists
-
-            preferences_response = (
+        if websites or topics or bio:
+            # Fetch user preferences without .single() to avoid error when no records exist
+            user_preferences_result = (
                 supabase.table("user_preferences")
-                .update(user_preferences.data)
+                .select("*")
                 .eq("user_id", user_id)
                 .execute()
             )
 
-        else:
-            preferences_response = (
-                supabase.table("user_preferences")
-                .insert(
-                    {
-                        "user_id": user_id,
-                        "websites": websites,
-                        "topics_of_interest": topics,
-                        "bio": bio,
-                    }
-                )
-                .execute()
-            )
+            # Create a mock object to maintain the same interface
+            user_preferences = type(
+                "obj",
+                (object,),
+                {
+                    "data": user_preferences_result.data[0]
+                    if user_preferences_result.data
+                    else None
+                },
+            )()
 
-        if preferences_response.data:
-            logger.info(f"Created user preferences for user {user_id}")
-        else:
-            logger.error(f"Failed to create user preferences for user {user_id}")
+            if user_preferences.data:
+                existing_websites = user_preferences.data.get("websites", [])
+                user_preferences.data["websites"] = list(
+                    set(existing_websites + websites)
+                )
+
+                existing_topics = user_preferences.data.get("topics_of_interest", [])
+                user_preferences.data["topics_of_interest"] = list(
+                    set(existing_topics + topics)
+                )
+
+                user_preferences.data["bio"] = (
+                    user_preferences.data["bio"] or bio
+                )  # keep the existing bio if it exists
+
+                preferences_response = (
+                    supabase.table("user_preferences")
+                    .update(user_preferences.data)
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+
+            else:
+                preferences_response = (
+                    supabase.table("user_preferences")
+                    .insert(
+                        {
+                            "user_id": user_id,
+                            "websites": websites,
+                            "topics_of_interest": topics,
+                            "bio": bio,
+                        }
+                    )
+                    .execute()
+                )
+
+            if preferences_response.data:
+                logger.info(f"Created user preferences for user {user_id}")
+            else:
+                logger.error(f"Failed to create user preferences for user {user_id}")
 
         # Store writing style analysis
         writing_style_data = {
