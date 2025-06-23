@@ -59,10 +59,11 @@ const OAuthCallback = () => {
         // If we have a code, exchange it for tokens via backend
         else if (code) {
           try {
+            const frontendUrl = `${window.location.protocol}//${window.location.host}`;
             const response = await fetch(
               `${
                 import.meta.env.VITE_API_URL || "http://localhost:8000"
-              }/api/v1/auth/callback/google?code=${code}&redirect_to=http://localhost:8080/new-content`,
+              }/api/v1/auth/callback/google?code=${code}&redirect_to=${frontendUrl}/new-content`,
               {
                 method: "GET",
                 headers: {
