@@ -10,6 +10,7 @@ import functions_framework
 from supabase import create_client, Client
 from substack_analyzer import SubstackAnalyzer
 from linkedin_analyzer import LinkedInAnalyzer
+from import_sample_analyzer import ImportSampleAnalyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,7 @@ def fetch_content(
     platform_identifier: str,
     current_bio: str,
     content_to_analyze: List[str],
+    text_sample: str = None,
 ) -> Dict[str, Any]:
     """
     Fetch and analyze content using the appropriate analyzer based on platform.
@@ -66,6 +68,15 @@ def fetch_content(
             platform_identifier, current_bio, content_to_analyze
         )
 
+    elif platform == "import":
+        if not text_sample:
+            raise ValueError("text_sample is required for import platform analysis")
+
+        analyzer = ImportSampleAnalyzer(openrouter_api_key=openrouter_api_key)
+        return analyzer.analyze_import_sample(
+            text_sample, current_bio, content_to_analyze
+        )
+
     else:
         raise ValueError(f"Unsupported platform: {platform}")
 
@@ -74,7 +85,7 @@ async def update_analysis_results(
     supabase: Client,
     user_id: str,
     analysis_result: Dict[str, Any],
-    platform: str = "substack",
+    platform: str,
 ) -> None:
     """Update the social connection with analysis results."""
     try:
@@ -142,37 +153,40 @@ async def update_analysis_results(
         # Store writing style analysis
         writing_style_data = {
             "user_id": user_id,
-            "source": "substack",
+            "source": platform,  # Use the actual platform (substack, linkedin, or import)
             "analysis_data": analysis_result["writing_style"],
             "last_analyzed_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Upsert writing style analysis using the unique constraint on (user_id, )
+        # Upsert writing style analysis using the unique constraint on (user_id, source)
         style_response = (
             supabase.table("writing_style_analysis")
-            .upsert(writing_style_data, on_conflict="user_id")
+            .upsert(writing_style_data, on_conflict="user_id,source")
             .execute()
         )
 
-        # Update social connection with results and completion timestamp
-        response = (
-            supabase.table("social_connections")
-            .update(
-                {
-                    "analysis_completed_at": datetime.now(timezone.utc).isoformat(),
-                    "analysis_status": "completed",
-                }
+        # Update social connection with results and completion timestamp (only for platforms that use connections)
+        if platform != "import":
+            response = (
+                supabase.table("social_connections")
+                .update(
+                    {
+                        "analysis_completed_at": datetime.now(timezone.utc).isoformat(),
+                        "analysis_status": "completed",
+                    }
+                )
+                .eq("user_id", user_id)
+                .eq("platform", platform)
+                .execute()
             )
-            .eq("user_id", user_id)
-            .eq("platform", platform)
-            .execute()
-        )
 
-        if response.data:
-            logger.info(f"Updated social connection for user {user_id}")
+            if response.data:
+                logger.info(f"Updated social connection for user {user_id}")
+            else:
+                logger.error(f"Failed to update social connection for user {user_id}")
         else:
-            logger.error(f"Failed to update social connection for user {user_id}")
+            logger.info("Skipped social connection update for import platform")
 
         if style_response.data:
             logger.info(f"Updated writing style analysis for user {user_id}")
@@ -225,7 +239,7 @@ def analyze_substack(request):
     Expected request body:
     {
         "user_id": "uuid",
-        "platform": "substack" | "linkedin",
+        "platform": "substack" | "linkedin" | "import",
         "platform_username": "username" (for Substack) or "account_id" (for LinkedIn),
         "content_to_analyze": ["bio", "interests", "writing_style"]
     }
@@ -259,46 +273,76 @@ def analyze_substack(request):
         )  # Default to substack for backward compatibility
         platform_username = request_json.get("platform_username")
         content_to_analyze = request_json.get("content_to_analyze", [])
+        text_sample = request_json.get("text_sample")  # For import platform
 
-        if not user_id or not platform_username or not content_to_analyze:
-            return (
-                json.dumps(
-                    {
-                        "success": False,
-                        "error": "user_id, platform_username and content_to_analyze are required",
-                    }
-                ),
-                400,
-                headers,
+        # Validation based on platform
+        if platform == "import":
+            if not user_id or not text_sample or not content_to_analyze:
+                return (
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": "user_id, text_sample and content_to_analyze are required for import platform",
+                        }
+                    ),
+                    400,
+                    headers,
+                )
+        else:
+            if not user_id or not platform_username or not content_to_analyze:
+                return (
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": "user_id, platform_username and content_to_analyze are required",
+                        }
+                    ),
+                    400,
+                    headers,
+                )
+
+        if platform == "import":
+            logger.info(
+                f"Starting {platform} analysis for user {user_id} with text sample"
             )
-
-        logger.info(
-            f"Starting {platform} analysis for user {user_id} with identifier {platform_username}"
-        )
+        else:
+            logger.info(
+                f"Starting {platform} analysis for user {user_id} with identifier {platform_username}"
+            )
 
         # Initialize Supabase client
         supabase = get_supabase_client()
 
-        # Verify the social connection exists and is being analyzed
-        connection_response = (
-            supabase.table("social_connections")
-            .select("*")
-            .eq("user_id", user_id)
-            .eq("platform", platform)
-            .execute()
-        )
+        # For import platform, we don't need to check social connections
+        if platform != "import":
+            # Verify the social connection exists and is being analyzed
+            connection_response = (
+                supabase.table("social_connections")
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("platform", platform)
+                .execute()
+            )
 
-        if not connection_response.data:
-            error_msg = f"{platform} connection not found for user {user_id}"
-            logger.error(error_msg)
-            return (json.dumps({"success": False, "error": error_msg}), 404, headers)
+            if not connection_response.data:
+                error_msg = f"{platform} connection not found for user {user_id}"
+                logger.error(error_msg)
+                return (
+                    json.dumps({"success": False, "error": error_msg}),
+                    404,
+                    headers,
+                )
 
-        connection = connection_response.data[0]
+            connection = connection_response.data[0]
 
-        if not connection.get("analysis_started_at"):
-            error_msg = f"Analysis not started for user {user_id}"
-            logger.error(error_msg)
-            return (json.dumps({"success": False, "error": error_msg}), 400, headers)
+            if not connection.get("analysis_started_at"):
+                error_msg = f"Analysis not started for user {user_id}"
+                logger.error(error_msg)
+                return (
+                    json.dumps({"success": False, "error": error_msg}),
+                    400,
+                    headers,
+                )
 
         user_preferences_response = (
             supabase.table("user_preferences")
@@ -318,6 +362,7 @@ def analyze_substack(request):
                 platform_username,
                 current_bio,
                 content_to_analyze,
+                text_sample,
             )
 
             # Update database with results
@@ -355,16 +400,21 @@ def analyze_substack(request):
         except Exception as analysis_error:
             logger.error(f"Error during analysis: {analysis_error}")
 
-            # Mark analysis as failed
-            asyncio.run(
-                mark_analysis_failed(
-                    supabase,
-                    user_id,
-                    str(analysis_error),
-                    connection.get("connection_data", {}),
-                    platform,
+            # Mark analysis as failed (only for platforms with social connections)
+            if platform != "import":
+                asyncio.run(
+                    mark_analysis_failed(
+                        supabase,
+                        user_id,
+                        str(analysis_error),
+                        connection.get("connection_data", {}),
+                        platform,
+                    )
                 )
-            )
+            else:
+                logger.error(
+                    f"Import analysis failed for user {user_id}: {analysis_error}"
+                )
 
             return (
                 json.dumps(

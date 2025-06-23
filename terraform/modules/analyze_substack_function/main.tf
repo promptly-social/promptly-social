@@ -59,6 +59,7 @@ data "archive_file" "source" {
     "test_analyzer_local.py",
     "test_linkedin_analyzer_local.py",
     "test_db_transcation_local.py",
+    "test_import_sample_analyzer_local.py",
     "test-output.json",
     "venv/**",
     "__pycache__/**",
