@@ -1,5 +1,8 @@
 # Ignore test files
 test_local.py
+test_analyzer_local.py
+test_linkedin_analyzer_local.py
+test_db_transcation_local.py
 env.example
 
 # Ignore documentation

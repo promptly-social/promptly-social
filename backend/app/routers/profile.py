@@ -501,6 +501,52 @@ async def run_substack_analysis(
         )
 
 
+@router.post(
+    "/analyze-linkedin", response_model=SubstackAnalysisResponse
+)  # Using SubstackAnalysisResponse for now, TODO: Create LinkedInAnalysisResponse
+async def run_linkedin_analysis(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Run LinkedIn analysis for the user to analyze their bio and writing style."""
+    try:
+        profile_service = ProfileService(db)
+        connection = await profile_service.analyze_linkedin(
+            current_user.id, ["bio", "writing_style"]
+        )
+
+        if not connection:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="LinkedIn connection not found or not configured for analysis",
+            )
+
+        # Return analysis status - TODO: Implement proper LinkedIn analysis response
+        return SubstackAnalysisResponse(
+            is_connected=True,
+            analyzed_at=None,
+            analysis_started_at=connection.analysis_started_at.isoformat()
+            if connection.analysis_started_at
+            else None,
+            analysis_completed_at=connection.analysis_completed_at.isoformat()
+            if connection.analysis_completed_at
+            else None,
+            is_analyzing=True,
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error running LinkedIn analysis: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error running LinkedIn analysis: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to run LinkedIn analysis: {e}",
+        )
+
+
 # Writing Style Analysis Endpoints
 @router.post("/writing-analysis/{source}", response_model=PlatformAnalysisResponse)
 async def run_writing_style_analysis(
@@ -554,19 +600,19 @@ async def run_writing_style_analysis(
             return analysis_data
 
         elif source == "linkedin":
-            # For linked platforms (linkedin, substack) ensure connection exists
-            connection = await profile_service.get_social_connection(
-                current_user.id, "linkedin"
+            # Run LinkedIn writing style analysis
+            connection = await profile_service.analyze_linkedin(
+                current_user.id, ["writing_style"]
             )
 
             if not connection:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Social connection for {source} not found",
+                    detail="LinkedIn connection not found or not configured for analysis",
                 )
 
-            # TODO: Implement LinkedIn writing style analysis
-            # For now, return a placeholder response indicating connection exists
+            # TODO: Create a LinkedIn analysis response similar to Substack
+            # For now, return a placeholder response indicating analysis started
             return PlatformAnalysisResponse(
                 analysis_data=None,
                 last_analyzed=None,

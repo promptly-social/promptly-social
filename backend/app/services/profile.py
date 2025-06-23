@@ -661,23 +661,65 @@ class ProfileService:
         Returns:
             Updated SocialConnection with analysis_started_at set
         """
+        return await self._analyze_platform(user_id, "substack", content_to_analyze)
+
+    async def analyze_linkedin(
+        self, user_id: UUID, content_to_analyze: List[str]
+    ) -> Optional[SocialConnection]:
+        """
+        Analyze LinkedIn content for a user.
+
+        This method:
+        1. Sets analysis_started_at timestamp
+        2. Triggers async edge function for analysis
+        3. Edge function will set analysis_completed_at when done
+
+        Args:
+            user_id: UUID of the user to analyze
+
+        Returns:
+            Updated SocialConnection with analysis_started_at set
+        """
+        return await self._analyze_platform(user_id, "linkedin", content_to_analyze)
+
+    async def _analyze_platform(
+        self, user_id: UUID, platform: str, content_to_analyze: List[str]
+    ) -> Optional[SocialConnection]:
+        """
+        Generic method to analyze content for any supported platform.
+
+        Args:
+            user_id: UUID of the user to analyze
+            platform: Platform to analyze (substack, linkedin)
+            content_to_analyze: List of content types to analyze
+
+        Returns:
+            Updated SocialConnection with analysis_started_at set
+        """
         try:
-            # Get the Substack connection
+            # Get the platform connection
             connection = await self.get_social_connection_for_analysis(
-                user_id, "substack"
+                user_id, platform
             )
 
             if not connection:
-                logger.warning(f"No Substack connection found for user {user_id}")
+                logger.warning(f"No {platform} connection found for user {user_id}")
                 return None
 
-            # if connection.analysis_completed_at:
-            #     raise ValueError("Substack analysis has already been completed")
-
-            if not connection.platform_username:
+            # Validate connection has required data
+            if platform == "substack" and not connection.platform_username:
                 raise ValueError(
-                    "Substack connection has no platform_username configured"
+                    f"{platform} connection has no platform_username configured"
                 )
+            elif platform == "linkedin":
+                # For LinkedIn, we need the account_id from connection_data
+                if (
+                    not connection.connection_data
+                    or not connection.connection_data.get("account_id")
+                ):
+                    raise ValueError(
+                        f"{platform} connection has no account_id configured"
+                    )
 
             # Set analysis_started_at timestamp
             connection.analysis_started_at = datetime.now(timezone.utc)
@@ -686,30 +728,34 @@ class ProfileService:
 
             await self.db.commit()
 
-            logger.info(f"Started substack analysis for user {user_id}")
+            logger.info(f"Started {platform} analysis for user {user_id}")
 
             # Trigger async edge function
-            await self._trigger_substack_analysis(
-                user_id, connection.platform_username, content_to_analyze
+            await self._trigger_platform_analysis(
+                user_id, platform, connection, content_to_analyze
             )
 
             return connection
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error starting substack analysis for {user_id}: {e}")
+            logger.error(f"Error starting {platform} analysis for {user_id}: {e}")
             logger.error(traceback.format_exc())
             raise
 
-    async def _trigger_substack_analysis(
-        self, user_id: UUID, platform_username: str, content_to_analyze: List[str]
+    async def _trigger_platform_analysis(
+        self,
+        user_id: UUID,
+        platform: str,
+        connection: SocialConnection,
+        content_to_analyze: List[str],
     ) -> None:
-        """Trigger the Substack analysis via GCP Cloud Run or Edge Function."""
+        """Trigger the platform analysis via GCP Cloud Run or Edge Function."""
         try:
             # Prefer Cloud Run if configured
             if settings.gcp_analysis_function_url:
                 await self._trigger_gcp_cloud_run(
-                    user_id, platform_username, content_to_analyze
+                    user_id, platform, connection, content_to_analyze
                 )
             else:
                 # Fallback to Supabase Edge Function (if you have one)
@@ -720,7 +766,11 @@ class ProfileService:
             raise
 
     async def _trigger_gcp_cloud_run(
-        self, user_id: UUID, platform_username: str, content_to_analyze: List[str]
+        self,
+        user_id: UUID,
+        platform: str,
+        connection: SocialConnection,
+        content_to_analyze: List[str],
     ) -> None:
         """Trigger GCP Cloud Run function for analysis."""
         try:
@@ -762,9 +812,25 @@ class ProfileService:
 
             headers = {"Authorization": f"Bearer {id_token}"}
 
+            # Get the platform identifier based on platform type
+            if platform == "substack":
+                platform_identifier = connection.platform_username
+            elif platform == "linkedin":
+                platform_identifier = (
+                    connection.connection_data.get("account_id")
+                    if connection.connection_data
+                    else None
+                )
+            else:
+                raise ValueError(f"Unsupported platform: {platform}")
+
+            if not platform_identifier:
+                raise ValueError(f"Missing platform identifier for {platform}")
+
             payload = {
                 "user_id": str(user_id),
-                "platform_username": platform_username,
+                "platform": platform,
+                "platform_username": platform_identifier,
                 "content_to_analyze": content_to_analyze,
             }
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { SocialConnections } from "@/components/SocialConnections";
-import { ConsolidatedPlatformAnalysis } from "@/components/ConsolidatedPlatformAnalysis";
+import { WritingAnalysis } from "@/components/WritingAnalysis";
 import { UserPreferences } from "@/components/UserPreferences";
 import { UserBio } from "@/components/UserBio";
 import AppLayout from "@/components/AppLayout";
@@ -28,7 +28,7 @@ const Profile: React.FC = () => {
             <SocialConnections />
 
             {/* Consolidated Platform Analysis */}
-            <ConsolidatedPlatformAnalysis />
+            <WritingAnalysis />
           </div>
         </div>
       </main>
