@@ -122,7 +122,9 @@ async def update_analysis_results(
                 set(existing_topics + topics)
             )
 
-            user_preferences.data["bio"] = bio
+            user_preferences.data["bio"] = (
+                user_preferences.data["bio"] or bio
+            )  # keep the existing bio if it exists
 
             preferences_response = (
                 supabase.table("user_preferences")
