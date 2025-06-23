@@ -226,9 +226,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers[
-        "Strict-Transport-Security"
-    ] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
     return response
@@ -257,12 +257,27 @@ async def root():
 @app.options("/{path:path}")
 async def options_handler(request: Request):
     """Handle OPTIONS requests for CORS preflight."""
+    # Get the request origin
+    origin = request.headers.get("origin", "")
+
+    # Determine allowed origin
+    if settings.environment == "development":
+        allowed_origin = "*"
+    else:
+        # Check if the origin is in our allowed CORS origins
+        cors_origins = settings.get_cors_origins()
+        if origin in cors_origins:
+            allowed_origin = origin
+        elif cors_origins:
+            # Use the first allowed origin as fallback (don't use "*" in non-dev)
+            allowed_origin = cors_origins[0]
+        else:
+            allowed_origin = origin or "*"
+
     return JSONResponse(
         content={},
         headers={
-            "Access-Control-Allow-Origin": "*"
-            if settings.environment == "development"
-            else request.headers.get("origin", "*"),
+            "Access-Control-Allow-Origin": allowed_origin,
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Allow-Credentials": "true",
