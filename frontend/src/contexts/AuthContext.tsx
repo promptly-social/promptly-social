@@ -13,6 +13,7 @@ import {
   clearTokens,
   isTokenExpired,
 } from "@/lib/api-interceptor";
+import { getFrontendBaseUrl } from "@/lib/utils";
 import type { User } from "@/types/auth";
 
 interface AuthContextType {
@@ -169,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signInWithGoogle = async () => {
     try {
-      const redirectUrl = `${window.location.origin}/new-content`;
+      const redirectUrl = `${getFrontendBaseUrl()}/new-content`;
       const response = await apiClient.signInWithGoogle(redirectUrl);
 
       // Redirect to Google OAuth URL

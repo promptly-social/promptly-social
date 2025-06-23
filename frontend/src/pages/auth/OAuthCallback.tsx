@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { setTokens } from "@/lib/api-interceptor";
+import { getFrontendBaseUrl } from "@/lib/utils";
 
 const OAuthCallback = () => {
   const [searchParams] = useSearchParams();
@@ -59,7 +60,7 @@ const OAuthCallback = () => {
         // If we have a code, exchange it for tokens via backend
         else if (code) {
           try {
-            const frontendUrl = `${window.location.protocol}//${window.location.host}`;
+            const frontendUrl = getFrontendBaseUrl();
             const response = await fetch(
               `${
                 import.meta.env.VITE_API_URL || "http://localhost:8000"
