@@ -33,9 +33,10 @@ class SupabaseClient:
             from gotrue import SyncMemoryStorage
             from supabase.lib.client_options import ClientOptions
 
-            # Configure client for OAuth
+            # Configure client with PKCE flow for OAuth
             options = ClientOptions(
                 storage=SyncMemoryStorage(),
+                flow_type="pkce",
                 auto_refresh_token=False,
                 persist_session=False,
             )
@@ -304,7 +305,9 @@ class SupabaseClient:
             # Try to exchange code for session using the standard method
             try:
                 logger.info("Attempting standard exchange_code_for_session")
-                response = self.client.auth.exchange_code_for_session({"code": code})
+                response = self.client.auth.exchange_code_for_session(
+                    {"auth_code": code}
+                )
                 logger.info(f"Standard exchange response type: {type(response)}")
 
                 if hasattr(response, "user") and hasattr(response, "session"):
@@ -332,7 +335,7 @@ class SupabaseClient:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "code": code,
+                        "auth_code": code,
                         "grant_type": "authorization_code",
                     },
                 )
