@@ -650,17 +650,17 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# 8. DNS A record for the API
-resource "google_dns_record_set" "api_a_record" {
-  count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
+  # 8. DNS A record for the API (points to Load Balancer IP)
+  resource "google_dns_record_set" "api_a_record" {
+    count = var.manage_cloud_run_service && var.manage_backend_load_balancer ? 1 : 0
 
-  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
-  name         = "${local.backend_domain}."
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_compute_global_address.api_ip[0].address]
-  project      = local.is_production ? var.project_id : var.production_project_id
-}
+    managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
+    name         = "${local.backend_domain}."
+    type         = "A"
+    ttl          = 300
+    rrdatas      = [google_compute_global_address.api_ip[0].address]
+    project      = local.is_production ? var.project_id : var.production_project_id
+  }
 
 # Grant read-only access to the Terraform state bucket for specified service accounts
 # This is typically used to allow staging environments to read production state.
