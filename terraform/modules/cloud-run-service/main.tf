@@ -17,6 +17,7 @@ resource "google_cloud_run_service" "backend" {
         "autoscaling.knative.dev/minScale"         = var.cloud_run_min_instances
         "autoscaling.knative.dev/maxScale"         = var.cloud_run_max_instances
         "run.googleapis.com/execution-environment" = "gen2"
+        "terraform.io/last-applied" = timestamp()
       }
     }
 
