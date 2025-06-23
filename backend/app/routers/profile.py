@@ -569,18 +569,30 @@ async def run_writing_style_analysis(
                     detail="`text` field is required when source is 'import'",
                 )
 
-            # TODO: Implement real analysis logic for free-form text
-            mock_analysis_data = text  # For now just echo back
-
-            analysis = await profile_service.upsert_writing_style_analysis(
-                current_user.id, source, mock_analysis_data
+            # Call the cloud function for import analysis
+            await profile_service.analyze_import_sample(
+                current_user.id, text, ["writing_style"]
             )
 
-            return PlatformAnalysisResponse(
-                analysis_data=analysis.analysis_data,
-                last_analyzed=analysis.last_analyzed_at.isoformat(),
-                is_connected=True,
+            # Return the updated analysis
+            analysis = await profile_service.get_latest_writing_style_analysis(
+                current_user.id
             )
+
+            if analysis:
+                return PlatformAnalysisResponse(
+                    analysis_data=analysis.analysis_data,
+                    last_analyzed=analysis.last_analyzed_at.isoformat()
+                    if analysis.last_analyzed_at
+                    else analysis.updated_at.isoformat(),
+                    is_connected=True,
+                )
+            else:
+                return PlatformAnalysisResponse(
+                    analysis_data=None,
+                    last_analyzed=None,
+                    is_connected=True,
+                )
 
         elif source == "substack":
             profile_service = ProfileService(db)
@@ -611,8 +623,6 @@ async def run_writing_style_analysis(
                     detail="LinkedIn connection not found or not configured for analysis",
                 )
 
-            # TODO: Create a LinkedIn analysis response similar to Substack
-            # For now, return a placeholder response indicating analysis started
             return PlatformAnalysisResponse(
                 analysis_data=None,
                 last_analyzed=None,

@@ -148,7 +148,17 @@ class SubstackAnalyzer:
         You are an expert at analyzing writing style of a list of posts of an author.
         You are given a list of URLs to posts.
         Your task is to analyze the writing style of the posts using gender neutral descriptions.
-        Return the writing style analysis in plain text format. Each sentence should be on a new line.
+        Consider elements like:
+        - Tone (formal, casual, conversational, etc.)
+        - Voice (authoritative, friendly, analytical, etc.)
+        - Sentence structure and length
+        - Use of humor, metaphors, or storytelling
+        - Technical vs. accessible language
+        - Persuasive techniques
+        - Overall personality that comes through in the writing
+        Return the writing style analysis in plain text format. Each observation should be on a new line.
+        Be specific and provide actionable insights that could help someone write in a similar style.
+        
         URLs: {urls}
         """
 

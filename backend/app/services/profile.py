@@ -682,6 +682,33 @@ class ProfileService:
         """
         return await self._analyze_platform(user_id, "linkedin", content_to_analyze)
 
+    async def analyze_import_sample(
+        self, user_id: UUID, text_sample: str, content_to_analyze: List[str]
+    ) -> None:
+        """
+        Analyze imported text sample for a user.
+
+        This method directly calls the GCP Cloud Function for import analysis
+        without needing a social connection.
+
+        Args:
+            user_id: UUID of the user to analyze
+            text_sample: The text sample to analyze
+            content_to_analyze: List of content types to analyze
+        """
+        try:
+            logger.info(f"Starting import sample analysis for user {user_id}")
+
+            # Trigger the cloud function for import analysis
+            await self._trigger_import_analysis(
+                user_id, text_sample, content_to_analyze
+            )
+
+        except Exception as e:
+            logger.error(f"Error starting import sample analysis for {user_id}: {e}")
+            logger.error(traceback.format_exc())
+            raise
+
     async def _analyze_platform(
         self, user_id: UUID, platform: str, content_to_analyze: List[str]
     ) -> Optional[SocialConnection]:
@@ -860,6 +887,93 @@ class ProfileService:
             raise
         except Exception as e:
             logger.error(f"Error triggering GCP Cloud Run function: {e}")
+            logger.error(traceback.format_exc())
+            raise
+
+    async def _trigger_import_analysis(
+        self,
+        user_id: UUID,
+        text_sample: str,
+        content_to_analyze: List[str],
+    ) -> None:
+        """Trigger GCP Cloud Run function for import sample analysis."""
+        try:
+            if not settings.gcp_analysis_function_url:
+                logger.error("Missing GCP Cloud Run function URL")
+                return
+
+            id_token = None
+            auth_req = google.auth.transport.requests.Request()
+
+            if (
+                settings.environment == "development"
+                and settings.gcp_service_account_key_path
+            ):
+                # Local development: Use service account key file
+                logger.debug("Using service account key for GCP authentication.")
+                try:
+                    creds = google.oauth2.service_account.IDTokenCredentials.from_service_account_file(
+                        settings.gcp_service_account_key_path,
+                        target_audience=settings.gcp_analysis_function_url,
+                    )
+                    creds.refresh(auth_req)
+                    id_token = creds.token
+                except FileNotFoundError:
+                    logger.error(
+                        f"Service account key file not found at: {settings.gcp_service_account_key_path}"
+                    )
+                    raise
+            else:
+                # Deployed environment: Use default credentials (metadata server)
+                logger.debug("Using default credentials for GCP authentication.")
+                id_token = google.oauth2.id_token.fetch_id_token(
+                    auth_req, settings.gcp_analysis_function_url
+                )
+
+            if not id_token:
+                logger.error("Could not obtain GCP ID token.")
+                return
+
+            headers = {"Authorization": f"Bearer {id_token}"}
+
+            payload = {
+                "user_id": str(user_id),
+                "platform": "import",
+                "platform_username": "import_sample",  # Placeholder value
+                "content_to_analyze": content_to_analyze,
+                "text_sample": text_sample,
+            }
+
+            logger.info(
+                f"Triggering GCP Cloud Run for import analysis for user {user_id}"
+            )
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    settings.gcp_analysis_function_url,
+                    json=payload,
+                    headers=headers,
+                    timeout=60.0,  # Import analysis should be faster
+                )
+                response.raise_for_status()
+            logger.info(
+                f"Successfully triggered GCP Cloud Run for import analysis for user {user_id}"
+            )
+        except httpx.ReadTimeout:
+            logger.error(
+                "Timeout triggering GCP Cloud Run function for import analysis."
+            )
+            logger.error(traceback.format_exc())
+            raise
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"HTTP error triggering GCP Cloud Run function for import analysis: {e.response.status_code} - {e.response.text}"
+            )
+            logger.error(traceback.format_exc())
+            raise
+        except Exception as e:
+            logger.error(
+                f"Error triggering GCP Cloud Run function for import analysis: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 

@@ -11,7 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileApi, PlatformAnalysisResponse } from "@/lib/profile-api";
-import { BarChart3, Edit3, Check, X, Loader2, Play, Link2 } from "lucide-react";
+import {
+  BarChart3,
+  Edit3,
+  Check,
+  X,
+  Loader2,
+  Play,
+  Link2,
+  AlertTriangle,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +31,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const WritingAnalysis: React.FC = () => {
   const { user } = useAuth();
@@ -133,7 +143,7 @@ export const WritingAnalysis: React.FC = () => {
       setImportText("");
 
       // Refresh analysis data
-      fetchAnalysisData();
+      await fetchAnalysisData();
     } catch (error) {
       console.error("Error running analysis:", error);
       const apiError = error as { response?: { data?: { detail?: string } } };
@@ -156,6 +166,10 @@ export const WritingAnalysis: React.FC = () => {
     }
   }, [user]);
 
+  // Check if there's existing analysis data to show warning
+  const hasExistingAnalysis =
+    analysisData?.analysis_data && analysisData.analysis_data.trim() !== "";
+
   return (
     <div className="space-y-6">
       <Card>
@@ -163,7 +177,7 @@ export const WritingAnalysis: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              Writing Styles
+              Writing Style
             </div>
             <div className="flex items-center gap-2">
               {!isEditing && analysisData?.analysis_data && (
@@ -206,6 +220,18 @@ export const WritingAnalysis: React.FC = () => {
                     <DialogTitle>Select Writing Sample Source</DialogTitle>
                   </DialogHeader>
 
+                  {/* Warning about overwriting existing analysis */}
+                  {hasExistingAnalysis && (
+                    <Alert className="border-yellow-200 bg-yellow-50">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                      <AlertDescription className="text-yellow-800">
+                        <strong>Warning:</strong> You already have a writing
+                        style analysis. Running a new analysis will overwrite
+                        your existing analysis.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Source Selection */}
                   <Select
                     value={selectedSource}
@@ -221,18 +247,26 @@ export const WritingAnalysis: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="linkedin">LinkedIn</SelectItem>
                       <SelectItem value="substack">Substack</SelectItem>
-                      <SelectItem value="import">Import</SelectItem>
+                      <SelectItem value="import">
+                        Import Writing Sample
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
                   {/* Conditional UI based on source */}
                   {selectedSource === "import" && (
-                    <Textarea
-                      value={importText}
-                      onChange={(e) => setImportText(e.target.value)}
-                      placeholder="Paste your writing sample here..."
-                      className="mt-4 min-h-[180px] resize-none"
-                    />
+                    <div className="space-y-3">
+                      <Textarea
+                        value={importText}
+                        onChange={(e) => setImportText(e.target.value)}
+                        placeholder="Paste your writing sample here... (e.g., blog posts, articles, social media posts)"
+                        className="min-h-[180px] resize-none"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Tip: Include 2-3 substantial pieces of your writing for
+                        the best analysis results.
+                      </p>
+                    </div>
                   )}
 
                   {(selectedSource === "linkedin" ||

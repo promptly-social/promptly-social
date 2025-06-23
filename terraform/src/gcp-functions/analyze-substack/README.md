@@ -25,6 +25,7 @@ Supported Platforms:
 - `env.example` - Environment variables template
 - `test_analyzer_local.py` - Substack analyzer local test script
 - `test_linkedin_analyzer_local.py` - LinkedIn analyzer local test script
+- `test_import_sample_analyzer_local.py` - Import sample analyzer local test script
 - `README.md` - This file
 
 ## 🚀 Deployment
@@ -129,6 +130,9 @@ GCP_ANALYSIS_FUNCTION_URL=https://us-central1-your-project.cloudfunctions.net/an
    ```bash
    export SUPABASE_URL="your_supabase_url"
    export SUPABASE_SERVICE_ROLE_KEY="your_service_key"
+   export OPENROUTER_API_KEY="your_openrouter_api_key"
+   export UNIPILE_DSN="your_unipile_dsn"
+   export UNIPILE_ACCESS_TOKEN="your_unipile_token"
    ```
 
 3. **Run locally**:
@@ -155,7 +159,13 @@ GCP_ANALYSIS_FUNCTION_URL=https://us-central1-your-project.cloudfunctions.net/an
      -d '{"user_id": "test-uuid", "platform": "linkedin", "platform_username": "unipile-account-id", "content_to_analyze": ["bio", "writing_style"]}'
    ```
 
-5. **Test analyzers directly**:
+5. **Test import sample analyzer**:
+
+   ```bash
+   python test_import_sample_analyzer_local.py
+   ```
+
+6. **Test analyzers directly**:
 
    ```bash
    # Test Substack analyzer
