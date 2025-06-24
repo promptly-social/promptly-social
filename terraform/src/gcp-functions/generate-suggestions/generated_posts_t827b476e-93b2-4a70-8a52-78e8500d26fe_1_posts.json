@@ -1,0 +1,31 @@
+{
+  "posts": [
+    {
+      "linkedin_post": "Is the 'Lean Startup' model dead?\n\nFor over a decade, entrepreneurs have lived by the mantra: build an MVP, test, pivot, and iterate. It was the gospel for building efficiently and finding product-market fit.\n\nBut in today's AI-first world, is a 'minimum' viable product enough to compete?\n\nWhen startups can leverage powerful AI to launch with incredibly sophisticated features from day one, the game changes. The barrier to entry might be lower, but the barrier to success feels higher than ever.\n\nAs someone building in this space, I'm constantly questioning if 'failing fast' is still the right approach, or if we need to shift towards 'building smart and strong' from the get-go.\n\nThis piece from VC from Scratch really made me think about how the playbook is evolving for the new generation of founders.\n\nWhat are your thoughts? Is the Lean Startup methodology still your guide, or do we need a new manifesto for the AI age?\n\n#StartupStrategy #Entrepreneurship #LeanStartup",
+      "substack_url": "https://vcfromscratch.substack.com/p/the-lean-startup-is-no-longer-enough",
+      "topics": [
+        "startups",
+        "entrepreneurship",
+        "technology"
+      ]
+    },
+    {
+      "linkedin_post": "Meta's open-source AI strategy is one of the boldest chess moves in tech right now.\n\nBy releasing Llama and other models for broad use, they're not just giving away technology. They're executing a masterclass in ecosystem building.\n\nThink about it:\n→ They accelerate industry-wide innovation, which ultimately benefits their own platforms.\n→ They commoditize a layer of the AI stack where competitors like OpenAI and Google are trying to build moats.\n→ They position themselves as champions of a more open, collaborative AI future, attracting talent and partners.\n\nIt's a textbook example of leveraging digital transformation to reshape a market. For any tech entrepreneur, watching this strategy unfold is like a free MBA in platform economics.\n\nThis article from Generative Value provides a fantastic deep-dive into the 'why' behind Meta's moves.\n\nWhat's your take on their open-source approach? A brilliant long-term play or a risky gamble?\n\n#AIStrategy #DigitalTransformation #OpenSource",
+      "substack_url": "https://www.generativevalue.com/p/metas-ai-strategy",
+      "topics": [
+        "artificial intelligence",
+        "digital transformation",
+        "technology"
+      ]
+    },
+    {
+      "linkedin_post": "The AI revolution is powered by massive, complex data centers. But are we paying enough attention to securing them?\n\nWe're mesmerized by the magic of generative AI, but the physical and digital infrastructure behind it is becoming one of the most critical assets on the planet.\n\nSecuring these AI data centers goes beyond traditional cybersecurity. We need to consider:\n\n- Physical security against new threats.\n- Supply chain integrity for specialized hardware.\n- Defending the models themselves from manipulation and theft.\n\nAs we're all 'building the future one line of code at a time,' we have to ensure the foundation is rock-solid. A security vulnerability in our AI infrastructure could be catastrophic.\n\nThis post from Gruve AI thoughtfully outlines the unique challenges we face in this new domain.\n\nWhat do you believe is the most overlooked security risk as we scale up AI globally?\n\n#ArtificialIntelligence #Cybersecurity #TechInfrastructure",
+      "substack_url": "https://gruveai.substack.com/p/securing-ai-data-centers-overcoming",
+      "topics": [
+        "artificial intelligence",
+        "technology",
+        "digital transformation"
+      ]
+    }
+  ]
+}
