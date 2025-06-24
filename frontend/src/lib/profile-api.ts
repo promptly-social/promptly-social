@@ -6,6 +6,7 @@ export interface UserPreferences {
   user_id: string;
   topics_of_interest: string[];
   websites: string[];
+  substacks: string[];
   bio: string;
   created_at: string;
   updated_at: string;
@@ -14,6 +15,7 @@ export interface UserPreferences {
 export interface UserPreferencesUpdate {
   topics_of_interest?: string[];
   websites?: string[];
+  substacks?: string[];
   bio?: string;
 }
 

@@ -42,10 +42,14 @@ async def get_user_preferences(
                 user_id=current_user.id,
                 topics_of_interest=[],
                 websites=[],
+                substacks=[],
                 created_at=current_user.created_at,
                 updated_at=current_user.created_at,
             )
 
+        # Handle None values for new fields added via migration
+        if preferences.substacks is None:
+            preferences.substacks = []
         return UserPreferencesResponse.model_validate(preferences)
     except Exception as e:
         logger.error(f"Error getting user preferences: {e}")
@@ -67,6 +71,9 @@ async def update_user_preferences(
         preferences = await profile_service.upsert_user_preferences(
             current_user.id, preferences_data
         )
+        # Handle None values for new fields added via migration
+        if preferences.substacks is None:
+            preferences.substacks = []
         return UserPreferencesResponse.model_validate(preferences)
     except Exception as e:
         logger.error(f"Error updating user preferences: {e}")

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface UserPreference {
   topics: string[];
   websites: string[];
+  substacks: string[];
 }
 
 export const UserPreferences: React.FC = () => {
@@ -20,9 +21,11 @@ export const UserPreferences: React.FC = () => {
   const [preferences, setPreferences] = useState<UserPreference>({
     topics: [],
     websites: [],
+    substacks: [],
   });
   const [newTopic, setNewTopic] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
+  const [newSubstack, setNewSubstack] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -41,6 +44,7 @@ export const UserPreferences: React.FC = () => {
       setPreferences({
         topics: data.topics_of_interest || [],
         websites: data.websites || [],
+        substacks: data.substacks || [],
       });
     } catch (error) {
       console.error("Error loading preferences:", error);
@@ -60,6 +64,7 @@ export const UserPreferences: React.FC = () => {
       await profileApi.updateUserPreferences({
         topics_of_interest: newPreferences.topics,
         websites: newPreferences.websites,
+        substacks: newPreferences.substacks,
       });
 
       toast({
@@ -140,6 +145,41 @@ export const UserPreferences: React.FC = () => {
     if (e.key === "Enter") {
       e.preventDefault();
       addWebsite();
+    }
+  };
+
+  const addSubstack = async () => {
+    if (
+      newSubstack.trim() &&
+      !preferences.substacks.includes(newSubstack.trim())
+    ) {
+      const newPreferences = {
+        ...preferences,
+        substacks: [...preferences.substacks, newSubstack.trim()],
+      };
+
+      setPreferences(newPreferences);
+      setNewSubstack("");
+      await savePreferencesToBackend(newPreferences);
+    }
+  };
+
+  const removeSubstack = async (substackToRemove: string) => {
+    const newPreferences = {
+      ...preferences,
+      substacks: preferences.substacks.filter(
+        (substack) => substack !== substackToRemove
+      ),
+    };
+
+    setPreferences(newPreferences);
+    await savePreferencesToBackend(newPreferences);
+  };
+
+  const handleSubstackKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSubstack();
     }
   };
 
@@ -279,6 +319,68 @@ export const UserPreferences: React.FC = () => {
             <p className="text-xs sm:text-sm text-gray-500 italic">
               No websites added yet. Add your favorite content sources for
               better recommendations.
+            </p>
+          )}
+        </div>
+
+        {/* Substacks Section */}
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-orange-500" />
+            <h3 className="font-medium text-sm sm:text-base">
+              Favorite Substack Newsletters
+            </h3>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              placeholder="Add a Substack newsletter (e.g., platformer.news, stratechery.com)"
+              value={newSubstack}
+              onChange={(e) => setNewSubstack(e.target.value)}
+              onKeyDown={handleSubstackKeyPress}
+              className="flex-1 text-sm sm:text-base"
+              disabled={isSaving}
+            />
+            <Button
+              onClick={addSubstack}
+              size="sm"
+              className="w-full sm:w-auto"
+              disabled={isSaving || !newSubstack.trim()}
+            >
+              <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="text-sm">Add</span>
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {isLoading ? (
+              <Skeleton className="w-full h-8" />
+            ) : (
+              preferences.substacks.map((substack, index) => (
+                <Badge
+                  key={index}
+                  variant="outline"
+                  className="text-xs sm:text-sm border-orange-200 text-orange-700"
+                >
+                  {substack}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSubstack(substack)}
+                    className="ml-2 h-auto p-0 hover:bg-transparent"
+                    disabled={isSaving}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </Badge>
+              ))
+            )}
+          </div>
+
+          {preferences.substacks.length === 0 && (
+            <p className="text-xs sm:text-sm text-gray-500 italic">
+              No Substack newsletters added yet. Add your favorite newsletters
+              for personalized content inspiration.
             </p>
           )}
         </div>

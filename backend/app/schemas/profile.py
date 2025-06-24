@@ -10,6 +10,7 @@ class UserPreferencesBase(BaseModel):
 
     topics_of_interest: List[str] = Field(default_factory=list)
     websites: List[str] = Field(default_factory=list)
+    substacks: List[str] = Field(default_factory=list)
     bio: str = Field(default="")
 
 

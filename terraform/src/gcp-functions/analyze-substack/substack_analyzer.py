@@ -56,21 +56,21 @@ class SubstackAnalyzer:
                 return self._create_empty_analysis(platform_username)
 
             topics = []
-            websites = []
+            substacks = []
 
             if "interests" in content_to_analyze:
                 # Step 1: get a list of subscriptions, and persist them to the database
                 subscriptions = self.user.get_subscriptions()
-                websites = [
+                substacks = [
                     f"https://{subscription['domain']}"
                     for subscription in subscriptions
                 ]
-                logger.debug(f"Substack subscriptions fetched: {len(websites)}")
+                logger.debug(f"Substack subscriptions fetched: {len(substacks)}")
 
                 # Step 2: get a list of post URLs from user's subscriptions
                 subscription_posts = []
-                for website in websites:
-                    subscription_posts.extend(self._fetch_substack_posts(website))
+                for substack in substacks:
+                    subscription_posts.extend(self._fetch_substack_posts(substack))
 
                 # randomly sample 100 posts at most from the list of posts to avoid rate limiting and costs
                 # this should be enough to get a good analysis of the user's content preferences
@@ -106,7 +106,7 @@ class SubstackAnalyzer:
             analysis_result = {
                 "writing_style": writing_style,
                 "topics": topics,
-                "websites": websites,
+                "substacks": substacks,
                 "bio": bio,
             }
 
@@ -215,9 +215,9 @@ class SubstackAnalyzer:
         """Extract main topics from a batch of posts."""
         urls = "\n".join(posts)
         prompt = f"""
-        You are an expert at analyzing topics from a list of posts and websites.
-        You are given a list of URLs to posts and websites.
-        Your task is to extract the main topics from the posts and websites.
+        You are an expert at analyzing topics from a list of posts and substacks.
+        You are given a list of URLs to posts and substacks.
+        Your task is to extract the main topics from the posts and substacks.
         Return a list of short topics without descriptions, such as AI, startups, technology, etc in a JSON format like this : {{"topics": [], "error": ""}}
         If you cannot extract the topics, return an empty list.
         URLs: {urls}
@@ -288,7 +288,7 @@ class SubstackAnalyzer:
         return {
             "writing_style": "",
             "topics": [],
-            "websites": [],
+            "substacks": [],
             "bio": "",
         }
 

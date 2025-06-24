@@ -89,12 +89,13 @@ async def update_analysis_results(
 ) -> None:
     """Update the social connection with analysis results."""
     try:
-        # Store websites, topics, and bio
+        # Store websites, substacks, topics, and bio
         websites = analysis_result.get("websites", [])
+        substacks = analysis_result.get("substacks", [])
         topics = analysis_result.get("topics", [])
         bio = analysis_result.get("bio", "")
 
-        if websites or topics or bio:
+        if websites or substacks or topics or bio:
             # Fetch user preferences without .single() to avoid error when no records exist
             user_preferences_result = (
                 supabase.table("user_preferences")
@@ -120,6 +121,11 @@ async def update_analysis_results(
                     set(existing_websites + websites)
                 )
 
+                existing_substacks = user_preferences.data.get("substacks", [])
+                user_preferences.data["substacks"] = list(
+                    set(existing_substacks + substacks)
+                )
+
                 existing_topics = user_preferences.data.get("topics_of_interest", [])
                 user_preferences.data["topics_of_interest"] = list(
                     set(existing_topics + topics)
@@ -143,6 +149,7 @@ async def update_analysis_results(
                         {
                             "user_id": user_id,
                             "websites": websites,
+                            "substacks": substacks,
                             "topics_of_interest": topics,
                             "bio": bio,
                         }
@@ -393,6 +400,9 @@ def analyze_substack(request):
                         "analysis_summary": {
                             "topics_count": len(analysis_result.get("topics", [])),
                             "websites_count": len(analysis_result.get("websites", [])),
+                            "substacks_count": len(
+                                analysis_result.get("substacks", [])
+                            ),
                             "bio": len(analysis_result.get("bio", "")),
                             "writing_style": analysis_result.get("writing_style", ""),
                         },
