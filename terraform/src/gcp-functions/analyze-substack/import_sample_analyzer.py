@@ -147,7 +147,7 @@ class ImportSampleAnalyzer:
         - Persuasive techniques
         - Overall personality that comes through in the writing
         
-        Return the writing style analysis in plain text format. Each observation should be on a new line.
+        Return the writing style analysis in plain text format without any markdown. Each observation should be on a new line.
         Be specific and provide actionable insights that could help someone write in a similar style.
         
         Writing Sample:
@@ -195,6 +195,7 @@ class ImportSampleAnalyzer:
         If there's no current bio, create one based entirely on the writing sample.
         Keep the bio concise but informative (2-4 sentences).
         This will be used as a persona for LLM to generate content in their style, preferences, and point of view.
+        You should return the bio in plain text format without any markdown.
         
         Writing Sample:
         {text_sample}

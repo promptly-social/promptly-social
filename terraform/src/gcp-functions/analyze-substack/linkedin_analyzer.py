@@ -622,7 +622,7 @@ class LinkedInAnalyzer:
         - Persuasive techniques
         - Overall personality that comes through in the writing
         
-        Return the writing style analysis in plain text format. Each observation should be on a new line.
+        Return the writing style analysis in plain text format without any markdown. Each observation should be on a new line.
         Be specific and provide actionable insights that could help someone write in a similar style.
         
         LinkedIn Posts:
@@ -667,7 +667,7 @@ class LinkedInAnalyzer:
         You are an expert at creating a user bio from LinkedIn posts, their LinkedIn profile, and a current bio.
         You are given LinkedIn post content and profile information.
         Your task is to create a user bio from the posts and the current bio, please use the first person perspective and gender neutral descriptions.
-        Return the user bio in plain text format. The LinkedIn profile and current bio might be empty or incomplete.
+        Return the user bio in plain text format without any markdown. The LinkedIn profile and current bio might be empty or incomplete.
         If the LinkedIn profile and/or the current bio are given, update them based on your analysis.
         The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.
         This will be used as a persona for LLM to generate content in their style, preferences, and point of view.

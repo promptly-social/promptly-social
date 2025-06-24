@@ -37,7 +37,7 @@ class PostsGenerator:
         You are given a list of post URLs.
         Do not include special characters in the posts that people suspect that you are using AI to generate, such as em-dash, arrows, etc.
         You are to generate {number_of_posts_to_generate} posts for the user to pick from and post on LinkedIn.
-        The posts should be linkedin appropriate and gain the most engagement. 
+        The posts should be linkedin appropriate and gain the most engagement, and it should be plain text without any markdown.
         Make sure to cite the substack post or include a link to the substack post in the linkedin posts.
         Generate a recommendation score for the post between 0 and 100, where 100 is the most recommended and 0 is the least recommended.
         The user's bio is: {bio}
