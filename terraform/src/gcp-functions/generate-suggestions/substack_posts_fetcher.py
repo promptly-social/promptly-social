@@ -273,8 +273,9 @@ class SubstackPostsFetcher:
             You are an expert at selecting posts by user topics of interest and bio for the user to post content on LinkedIn to get engagement.
             You are given a post and a list of user topics of interest and a bio.
             Your task is to select the post by the user topics of interest and bio.
+            If the post is a match, determine if the topic is time sensitive or evergreen. If it's time sensitive, then the time_sensitive field should be true.
             Return a json object with the following format:
-            {{"match": true/false, "error": ""}}
+            {{"match": true/false, "error": "", "time_sensitive": true/false}}
             The post is in the following format:
             {post}
             The user topics of interest are:

@@ -13,7 +13,14 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { PenTool, FileText, User, Settings, List } from "lucide-react";
+import {
+  PenTool,
+  FileText,
+  User,
+  Settings,
+  List,
+  Lightbulb,
+} from "lucide-react";
 
 const menuItems = [
   {
@@ -25,6 +32,11 @@ const menuItems = [
     title: "My Content",
     url: "/my-content",
     icon: List,
+  },
+  {
+    title: "Idea Bank",
+    url: "/idea-bank",
+    icon: Lightbulb,
   },
   {
     title: "Profile",

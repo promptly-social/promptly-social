@@ -39,6 +39,7 @@ class PostsGenerator:
         You are to generate {number_of_posts_to_generate} posts for the user to pick from and post on LinkedIn.
         The posts should be linkedin appropriate and gain the most engagement. 
         Make sure to cite the substack post or include a link to the substack post in the linkedin posts.
+        Generate a recommendation score for the post between 0 and 100, where 100 is the most recommended and 0 is the least recommended.
         The user's bio is: {bio}
         The user's writing style is: {writing_style}
         The user's topics of interest are: {topics_of_interest}
@@ -46,7 +47,7 @@ class PostsGenerator:
         The linkedin post strategy for gettting the most engagement is: {linkedin_post_strategy}
         Today's date is: {today}
         Return the posts in a JSON format with the following fields: 
-        {{"linkedin_post": "your generated post", "substack_url": "the substack post URL that you used to generate the post", "topics": ["topic1", "topic2", "topic3"]}}
+        {{"linkedin_post": "your generated post", "post_id": "the substack post ID that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
         """
         response = self.openrouter_client.chat.completions.create(
             model="google/gemini-2.5-pro",

@@ -2,7 +2,8 @@ import json
 import logging
 import os
 import traceback
-from typing import Any, Dict
+from typing import Any, Dict, List
+from datetime import datetime
 
 import functions_framework
 from supabase import create_client, Client
@@ -92,6 +93,70 @@ def get_writing_style(supabase_client: Client, user_id: str) -> str:
     except Exception as e:
         logger.error(f"Error fetching user writing style for user {user_id}: {e}")
         raise
+
+
+def save_candidate_posts_to_idea_banks(
+    supabase_client: Client, user_id: str, candidate_posts: List[Dict[str, Any]]
+):
+    """
+    Save candidate posts to idea banks.
+    """
+    for i, post in enumerate(candidate_posts):
+        data = {
+            "type": "substack",
+            "value": post.get("url"),
+            "title": post.get("title", ""),
+            "time_sensitive": post.get("time_sensitive", False),
+            "ai_suggested": True,
+        }
+        response = (
+            supabase_client.table("idea_banks")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "data": data,
+                }
+            )
+            .execute()
+        )
+        if response.error:
+            logger.error(f"Error saving candidate post to idea banks: {response.error}")
+            raise response.error
+        logger.info(
+            f"Saved candidate post to idea banks for user {user_id}: {response.data}"
+        )
+        candidate_posts[i]["id"] = response.data[0].get("id")
+    return candidate_posts
+
+
+def save_suggested_posts_to_contents(
+    supabase_client: Client, user_id: str, suggested_posts: List[Dict[str, Any]]
+):
+    """
+    Save suggested posts to contents.
+    """
+    for i, post in enumerate(suggested_posts):
+        data = {
+            "user_id": user_id,
+            "title": post.get("title", None),
+            "content": post.get("linkedin_post", ""),
+            "platform": "linkedin",
+            "status": "suggested",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "recommendation_score": post.get("recommendation_score", 50),
+            "idea_bank_id": post.get("post_id", None),
+            "topics": post.get("topics", []),
+        }
+        response = supabase_client.table("contents").insert(data).execute()
+        if response.error:
+            logger.error(f"Error saving suggested post to contents: {response.error}")
+            raise response.error
+        logger.debug(
+            f"Saved suggested post to contents for user {user_id}: {response.data}"
+        )
+        suggested_posts[i]["post_id"] = response.data[0].get("id")
+    return suggested_posts
 
 
 @functions_framework.http
@@ -199,6 +264,11 @@ def generate_suggestions(request):
 
         candidate_posts = substack_data.get("latest_posts", [])
 
+        # Save candidate posts to idea banks
+        candidate_posts = save_candidate_posts_to_idea_banks(
+            supabase, user_id, candidate_posts
+        )
+
         posts_generator = PostsGenerator(
             supabase_client=supabase, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
         )
@@ -229,8 +299,13 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
             linkedin_post_strategy,
         )
 
+        # save the generated posts to the contents table
+        saved_posts = save_suggested_posts_to_contents(
+            supabase, user_id, generated_posts
+        )
+
         return (
-            json.dumps(substack_data, indent=2),
+            json.dumps(saved_posts, indent=2),
             200,
             headers,
         )

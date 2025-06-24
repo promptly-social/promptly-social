@@ -13,6 +13,7 @@ import { Login /* , Signup */ } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
 import MyContent from "./pages/MyContent/MyContent";
+import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/auth/OAuthCallback";
@@ -134,6 +135,19 @@ const App = () => (
                     <div className="min-h-screen flex w-full">
                       <AppSidebar />
                       <MyContent />
+                    </div>
+                  </SidebarProvider>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/idea-bank"
+              element={
+                <ProtectedRoute>
+                  <SidebarProvider>
+                    <div className="min-h-screen flex w-full">
+                      <AppSidebar />
+                      <IdeaBank />
                     </div>
                   </SidebarProvider>
                 </ProtectedRoute>

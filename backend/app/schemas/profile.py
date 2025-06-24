@@ -111,34 +111,6 @@ class WritingStyleAnalysisResponse(WritingStyleAnalysisBase):
     updated_at: datetime
 
 
-class SuggestedPostBase(BaseModel):
-    """Base schema for suggested posts."""
-
-    title: str
-    content: str
-    platform: str
-    topics: List[str] = Field(default_factory=list)
-    confidence_score: int = 0
-
-
-class SuggestedPostCreate(SuggestedPostBase):
-    """Schema for creating suggested posts."""
-
-    content_id: Optional[UUID] = None
-
-
-class SuggestedPostResponse(SuggestedPostBase):
-    """Schema for suggested post responses."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    user_id: UUID
-    content_id: Optional[UUID] = None
-    generated_at: datetime
-    created_at: datetime
-
-
 class SubstackAnalysisResponse(BaseModel):
     """Schema for Substack analysis response."""
 
