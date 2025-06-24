@@ -159,9 +159,9 @@ class TestSuggestedPosts:
 
             # All should return 401 (unauthorized) not 404 (not found)
             # This proves the endpoints are properly registered
-            assert response.status_code == status.HTTP_401_UNAUTHORIZED, (
-                f"Endpoint {method} {endpoint} not found"
-            )
+            assert (
+                response.status_code == status.HTTP_401_UNAUTHORIZED
+            ), f"Endpoint {method} {endpoint} not found"
 
     def test_invalid_feedback_validation(self, test_client: TestClient):
         """Test that invalid feedback types are rejected."""
