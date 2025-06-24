@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+from datetime import datetime
 
 from openai import OpenAI
 from supabase import Client
@@ -29,17 +30,21 @@ class PostsGenerator:
 
         urls = [post["url"] for post in candidate_posts if post.get("url")]
 
+        today = datetime.now().strftime("%Y-%m-%d")
+
         prompt = f"""
         You are an expert at generating posts for LinkedIn to gain the most engagement using the user's bio, writing style, and topics of interest.
         You are given a list of post URLs.
+        Do not include special characters in the posts that people suspect that you are using AI to generate, such as em-dash, arrows, etc.
         You are to generate {number_of_posts_to_generate} posts for the user to pick from and post on LinkedIn.
         The posts should be linkedin appropriate and gain the most engagement. 
-        Make sure to cite the substack post or include a link to the substack post in the post.
+        Make sure to cite the substack post or include a link to the substack post in the linkedin posts.
         The user's bio is: {bio}
         The user's writing style is: {writing_style}
         The user's topics of interest are: {topics_of_interest}
         The post URLs are: {urls}
         The linkedin post strategy for gettting the most engagement is: {linkedin_post_strategy}
+        Today's date is: {today}
         Return the posts in a JSON format with the following fields: 
         {{"linkedin_post": "your generated post", "substack_url": "the substack post URL that you used to generate the post", "topics": ["topic1", "topic2", "topic3"]}}
         """

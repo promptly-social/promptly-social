@@ -8,15 +8,44 @@ with sample user data.
 
 import json
 import os
-import glob
 from typing import List, Dict, Any
 
 from posts_generator import PostsGenerator
 
 # Test variables - modify these as needed
 USER_ID = "t827b476e-93b2-4a70-8a52-78e8500d26fe"
-BIO = "Tech entrepreneur passionate about AI, startups, and digital transformation. Building the future one line of code at a time."
-WRITING_STYLE = "Professional yet approachable, uses storytelling, asks engaging questions, includes relevant hashtags"
+BIO = """
+I'm a founder and CTO, currently building my third AI-native company. My journey has taken me from being a consultant at McKinsey to the founding team of ZestyAI and co-founding Paxton AI. I'm passionate about the practical side of building a business, and my writing explores the intersection of AI, product-led growth (PLG), and founder psychology.
+
+In my 'field notes,' I delve into go-to-market strategies, product development philosophies, and the technical realities of implementing AI. I also reflect on the human side of the startup journey—the tough decisions, the psychological drivers, and how technology shapes our lives. When I'm not working on my next venture, I'm usually exploring the trails around Bend, Oregon with my partner and our two dogs.
+"""
+WRITING_STYLE = """
+The writing style is conversational and analytical, blending personal experience with strategic business and technology insights.
+
+The author grounds complex concepts in a single, powerful, and relatable metaphor that serves as the central theme for the entire post (e.g., "The Bowling Alley" for market entry, "The Chef's Knife vs. The Swiss Army Knife" for product focus).
+*   To write like this: Frame your article around a core analogy. Introduce it early and refer back to it to simplify complex points.
+
+The tone is consistently conversational and approachable, often using "I" and directly addressing the reader with "you." This creates the feeling of a knowledgeable peer sharing insights rather than a distant expert lecturing.
+*   To write like this: Write as if you are explaining a concept to a smart colleague over coffee. Use personal pronouns and ask rhetorical questions to engage the reader.
+
+Personal anecdotes and stories are used to make abstract topics tangible and relatable. The author connects high-level ideas about AI, business strategy, and psychology to their own life (e.g., getting a tattoo, reflecting on a past company, managing phone use).
+*   To write like this: Don't just explain a theory; show how it applies to a real-life situation, preferably one you have personally experienced. This builds credibility and makes the lesson stick.
+
+The voice is authoritative without being arrogant. The author presents well-reasoned arguments and clear opinions, establishing expertise through the quality of the analysis itself.
+*   To write like this: State your conclusions clearly and back them up with logical steps or illustrative examples. Avoid hedging language and present your perspective with confidence.
+
+Sentence structure is varied to maintain a dynamic reading pace. Shorter, punchier sentences are often used for emphasis after longer, more explanatory ones.
+*   To write like this: Read your work aloud. If it sounds monotonous, break up long sentences and combine short, choppy ones to create a better rhythm.
+
+The author excels at making highly technical or strategic topics (like AI context windows or market segmentation) accessible to a broader audience. This is achieved by avoiding jargon and using simple, clear language.
+*   To write like this: Before publishing, have someone outside your field read your draft. If they don't understand a concept, find a simpler way to explain it, often by using an analogy.
+
+Posts are well-structured, often starting with a strong hook or question, developing the idea with clear paragraphs or sections, and ending with a concise summary, a key takeaway, or a forward-looking question.
+*   To write like this: Outline your post before you write. Have a clear beginning (the hook), middle (the argument), and end (the conclusion/takeaway). Use subheadings to guide the reader.
+
+The overall personality that emerges is that of a curious and reflective builder. The writing shows a mind that is constantly learning, experimenting, and connecting ideas across different domains like technology, business, and human behavior.
+*   To write like this: Share your learning process. Write about your failures and reflections as much as your successes. Connect seemingly unrelated topics to reveal deeper insights.
+"""
 TOPICS_OF_INTEREST = [
     "artificial intelligence",
     "startups",
