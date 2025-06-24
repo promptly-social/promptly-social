@@ -12,6 +12,14 @@ from .content import (
     PublicationResponse,
     PublicationUpdate,
 )
+from .idea_bank import (
+    IdeaBankBase,
+    IdeaBankCreate,
+    IdeaBankData,
+    IdeaBankListResponse,
+    IdeaBankResponse,
+    IdeaBankUpdate,
+)
 from .profile import (
     EngagementInsights,
     PlatformAnalysisResponse,
@@ -21,9 +29,6 @@ from .profile import (
     SocialConnectionResponse,
     SocialConnectionUpdate,
     SubstackAnalysisResponse,
-    SuggestedPostBase,
-    SuggestedPostCreate,
-    SuggestedPostResponse,
     UserPreferencesBase,
     UserPreferencesCreate,
     UserPreferencesResponse,
@@ -33,6 +38,13 @@ from .profile import (
     WritingStyleAnalysisResponse,
     WritingStyleAnalysisUpdate,
     WritingStyleData,
+)
+from .suggested_posts import (
+    SuggestedPostBase,
+    SuggestedPostCreate,
+    SuggestedPostListResponse,
+    SuggestedPostResponse,
+    SuggestedPostUpdate,
 )
 
 __all__ = [
@@ -52,6 +64,13 @@ __all__ = [
     "PublicationCreate",
     "PublicationUpdate",
     "PublicationResponse",
+    # Idea bank schemas
+    "IdeaBankBase",
+    "IdeaBankCreate",
+    "IdeaBankUpdate",
+    "IdeaBankResponse",
+    "IdeaBankListResponse",
+    "IdeaBankData",
     # User preferences schemas
     "UserPreferencesBase",
     "UserPreferencesCreate",
@@ -70,7 +89,9 @@ __all__ = [
     # Suggested post schemas
     "SuggestedPostBase",
     "SuggestedPostCreate",
+    "SuggestedPostUpdate",
     "SuggestedPostResponse",
+    "SuggestedPostListResponse",
     # Platform analysis schemas
     "SubstackAnalysisResponse",
     "WritingStyleData",

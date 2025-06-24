@@ -67,26 +67,3 @@ class Publication(Base):
 
     # Relationship to content
     content = relationship("Content", back_populates="publications")
-
-
-class SuggestedPost(Base):
-    """Model for suggested_posts table."""
-
-    __tablename__ = "suggested_posts"
-
-    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(get_uuid_column(), nullable=False)
-    content_id = Column(
-        get_uuid_column(), ForeignKey("contents.id")
-    )  # Updated foreign key
-    title = Column(Text, nullable=False)
-    content = Column(Text, nullable=False)
-    platform = Column(String, nullable=False)
-    topics = Column(get_array_column(String), default=[])
-    confidence_score = Column(Integer, default=0)
-    generated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )

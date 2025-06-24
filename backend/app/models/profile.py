@@ -14,6 +14,7 @@ class UserPreferences(Base):
     user_id = Column(get_uuid_column(), nullable=False, unique=True)
     topics_of_interest = Column(get_array_column(String), default=[])
     websites = Column(get_array_column(String), default=[])
+    substacks = Column(get_array_column(String), default=[])
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

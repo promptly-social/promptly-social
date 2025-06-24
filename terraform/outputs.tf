@@ -47,7 +47,8 @@ output "secret_manager_secrets" {
     google_secret_manager_secret.supabase_service_key.secret_id,
     google_secret_manager_secret.google_client_id.secret_id,
     google_secret_manager_secret.google_client_secret.secret_id,
-    google_secret_manager_secret.gcp_analysis_function_url.secret_id
+    google_secret_manager_secret.gcp_analysis_function_url.secret_id,
+    google_secret_manager_secret.gcp_generate_suggestions_function_url.secret_id
   ]
 }
 

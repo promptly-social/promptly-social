@@ -1,0 +1,31 @@
+{
+  "posts": [
+    {
+      "linkedin_post": "Is your customer retention a 'situationship'?\n\nIt’s a pattern I've seen building multiple companies. A user signs up, loves the initial experience, but never fully commits. They get just enough value to stick around, but they aren't truly invested. They could churn at any moment.\n\nThis is the SaaS 'situationship'. It's a huge blind spot for many product-led growth companies. We obsess over acquisition—the first date—but forget to build a real, committed relationship.\n\nMoving a user from casual to committed isn't about more features. It's about becoming an indispensable part of their workflow, a trusted partner. It requires a different way of thinking about the entire user journey.\n\nThis brilliant post by Elena Verna perfectly captures this dynamic. It’s a must-read for anyone in SaaS.\n\nRead the full post here: https://www.elenaverna.com/p/retention-the-situationship-of-saas\n\nWhat’s one tactic you’ve used to turn a user 'situationship' into a long-term customer?\n\n#ProductLedGrowth #SaaS #CustomerRetention",
+      "substack_url": "https://www.elenaverna.com/p/retention-the-situationship-of-saas",
+      "topics": [
+        "startups",
+        "technology",
+        "digital transformation"
+      ]
+    },
+    {
+      "linkedin_post": "Hot take: The 'Lean Startup' playbook is no longer enough.\n\nWhen Eric Ries published the book, it was revolutionary. The MVP concept changed how we build. But the landscape in 2025 is vastly different.\n\nToday, a 'Minimum Viable Product' is often interpreted as a 'Minimum Ugly Product.' And in a market saturated with polished, user-friendly tools, a clunky MVP can be a death sentence.\n\nYour first impression is your only impression.\n\nBuilding my third AI-native company, I've learned this lesson the hard way. Early on, 'viable' isn't enough. You need to be lovable. The goal shouldn’t be a Minimum Viable Product, but a Minimum *Lovable* Product—an experience so good on its core function that users can't help but talk about it.\n\nThis doesn't mean building everything. It means focusing your resources maniacally on making one thing exceptional.\n\nThis post from VC From Scratch frames the argument well: https://vcfromscratch.substack.com/p/the-lean-startup-is-no-longer-enough\n\nDo you think the classic MVP concept still works, or is it time for an update?\n\n#Startups #Entrepreneurship #ProductManagement",
+      "substack_url": "https://vcfromscratch.substack.com/p/the-lean-startup-is-no-longer-enough",
+      "topics": [
+        "startups",
+        "entrepreneurship",
+        "technology"
+      ]
+    },
+    {
+      "linkedin_post": "I treat most meetings as a bug in our company's operating system.\n\nThink about it:\n→ They interrupt deep work (context switching).\n→ They consume massive resources (people's time + focus).\n→ The output could often have been a well-written async doc.\n\nAs a founder and CTO, protecting my team's focus is my most important job. A culture of endless meetings is the biggest killer of engineering and product velocity I've ever seen.\n\nWe've worked hard to debug our calendars. My default answer to a meeting invite is 'no,' unless the organizer can clearly define the problem we're solving and why it must be synchronous.\n\nWe've replaced most recurring meetings with:\n• Thoughtful write-ups for feedback.\n• Focused async discussions.\n• Short, 15-minute huddles ONLY when a decision is blocked.\n\nThis isn't about avoiding collaboration. It's about making it more meaningful.\n\nThis post from Carolina Polling has some great tactical advice on this front: https://carolinapoll.substack.com/p/why-your-team-needs-fewer-meetingsand\n\nWhat's your #1 rule for running effective meetings (or getting rid of them)?\n\n#StartupLife #Leadership #Productivity",
+      "substack_url": "https://carolinapoll.substack.com/p/why-your-team-needs-fewer-meetingsand",
+      "topics": [
+        "startups",
+        "entrepreneurship",
+        "technology"
+      ]
+    }
+  ]
+}

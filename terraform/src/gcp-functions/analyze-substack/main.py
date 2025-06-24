@@ -89,66 +89,77 @@ async def update_analysis_results(
 ) -> None:
     """Update the social connection with analysis results."""
     try:
-        # Store websites, topics, and bio
+        # Store websites, substacks, topics, and bio
         websites = analysis_result.get("websites", [])
+        substacks = analysis_result.get("substacks", [])
         topics = analysis_result.get("topics", [])
         bio = analysis_result.get("bio", "")
 
-        # Fetch user preferences without .single() to avoid error when no records exist
-        user_preferences_result = (
-            supabase.table("user_preferences")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
-
-        # Create a mock object to maintain the same interface
-        user_preferences = type(
-            "obj",
-            (object,),
-            {
-                "data": user_preferences_result.data[0]
-                if user_preferences_result.data
-                else None
-            },
-        )()
-
-        if user_preferences.data:
-            existing_websites = user_preferences.data.get("websites", [])
-            user_preferences.data["websites"] = list(set(existing_websites + websites))
-
-            existing_topics = user_preferences.data.get("topics_of_interest", [])
-            user_preferences.data["topics_of_interest"] = list(
-                set(existing_topics + topics)
-            )
-
-            user_preferences.data["bio"] = bio
-
-            preferences_response = (
+        if websites or substacks or topics or bio:
+            # Fetch user preferences without .single() to avoid error when no records exist
+            user_preferences_result = (
                 supabase.table("user_preferences")
-                .update(user_preferences.data)
+                .select("*")
                 .eq("user_id", user_id)
                 .execute()
             )
 
-        else:
-            preferences_response = (
-                supabase.table("user_preferences")
-                .insert(
-                    {
-                        "user_id": user_id,
-                        "websites": websites,
-                        "topics_of_interest": topics,
-                        "bio": bio,
-                    }
-                )
-                .execute()
-            )
+            # Create a mock object to maintain the same interface
+            user_preferences = type(
+                "obj",
+                (object,),
+                {
+                    "data": user_preferences_result.data[0]
+                    if user_preferences_result.data
+                    else None
+                },
+            )()
 
-        if preferences_response.data:
-            logger.info(f"Created user preferences for user {user_id}")
-        else:
-            logger.error(f"Failed to create user preferences for user {user_id}")
+            if user_preferences.data:
+                existing_websites = user_preferences.data.get("websites", [])
+                user_preferences.data["websites"] = list(
+                    set(existing_websites + websites)
+                )
+
+                existing_substacks = user_preferences.data.get("substacks", [])
+                user_preferences.data["substacks"] = list(
+                    set(existing_substacks + substacks)
+                )
+
+                existing_topics = user_preferences.data.get("topics_of_interest", [])
+                user_preferences.data["topics_of_interest"] = list(
+                    set(existing_topics + topics)
+                )
+
+                if bio:
+                    user_preferences.data["bio"] = bio
+
+                preferences_response = (
+                    supabase.table("user_preferences")
+                    .update(user_preferences.data)
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+
+            else:
+                preferences_response = (
+                    supabase.table("user_preferences")
+                    .insert(
+                        {
+                            "user_id": user_id,
+                            "websites": websites,
+                            "substacks": substacks,
+                            "topics_of_interest": topics,
+                            "bio": bio,
+                        }
+                    )
+                    .execute()
+                )
+
+            if preferences_response.data:
+                logger.info(f"Created user preferences for user {user_id}")
+            else:
+                logger.error(f"Failed to create user preferences for user {user_id}")
 
         # Store writing style analysis
         writing_style_data = {
@@ -388,6 +399,9 @@ def analyze_substack(request):
                         "analysis_summary": {
                             "topics_count": len(analysis_result.get("topics", [])),
                             "websites_count": len(analysis_result.get("websites", [])),
+                            "substacks_count": len(
+                                analysis_result.get("substacks", [])
+                            ),
                             "bio": len(analysis_result.get("bio", "")),
                             "writing_style": analysis_result.get("writing_style", ""),
                         },

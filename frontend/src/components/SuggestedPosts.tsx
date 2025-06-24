@@ -6,13 +6,21 @@ import {
   Clock,
   RefreshCw,
   Calendar,
-  X,
   TrendingUp,
   User,
   Globe,
   Share2,
+  ThumbsUp,
+  ThumbsDown,
+  Edit3,
+  Check,
 } from "lucide-react";
 import { profileApi, SocialConnection } from "@/lib/profile-api";
+import {
+  suggestedPostsApi,
+  SuggestedPost,
+  PostFeedback,
+} from "@/lib/suggested-posts-api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -20,119 +28,81 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-interface SuggestedPost {
-  id: string;
-  content: string;
-  topic: string;
-  engagementScore: number;
-  trendingKeywords: string[];
-  estimatedReach: string;
-  bestTimeToPost: string;
-  source: "preferences" | "substack" | "connections";
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export const SuggestedPosts: React.FC = () => {
-  const [posts, setPosts] = useState<SuggestedPost[]>([
-    {
-      id: "1",
-      content:
-        "The future of AI in content creation is here. As we embrace these new tools, the key is finding the balance between automation and authentic human storytelling. What's your take on AI-assisted writing?",
-      topic: "AI & Technology",
-      engagementScore: 8.5,
-      trendingKeywords: ["AI", "Content Creation", "Automation"],
-      estimatedReach: "2.5K - 5K",
-      bestTimeToPost: "Today, 2:00 PM",
-      source: "preferences",
-    },
-    {
-      id: "2",
-      content:
-        "Remote work has fundamentally changed how we think about productivity. It's not about the hours you put in, but the value you create. Here are 3 strategies that have transformed my remote work experience...",
-      topic: "Remote Work",
-      engagementScore: 9.2,
-      trendingKeywords: ["Remote Work", "Productivity", "Work-Life Balance"],
-      estimatedReach: "3K - 7K",
-      bestTimeToPost: "Tomorrow, 9:00 AM",
-      source: "substack",
-    },
-    {
-      id: "3",
-      content:
-        "Personal branding isn't about creating a fake persona—it's about amplifying your authentic self. The most successful professionals are those who aren't afraid to show their personality alongside their expertise.",
-      topic: "Personal Branding",
-      engagementScore: 7.8,
-      trendingKeywords: [
-        "Personal Branding",
-        "Authenticity",
-        "Professional Growth",
-      ],
-      estimatedReach: "1.8K - 4K",
-      bestTimeToPost: "Today, 6:00 PM",
-      source: "connections",
-    },
-    {
-      id: "4",
-      content:
-        "The startup ecosystem is evolving rapidly. What worked 5 years ago might not work today. Here's what I've learned about building resilient startups in an uncertain market...",
-      topic: "Entrepreneurship",
-      engagementScore: 8.9,
-      trendingKeywords: ["Startups", "Entrepreneurship", "Market Trends"],
-      estimatedReach: "4K - 8K",
-      bestTimeToPost: "Tomorrow, 11:00 AM",
-      source: "preferences",
-    },
-    {
-      id: "5",
-      content:
-        "Data-driven decision making is crucial, but don't let analytics paralyze you. Sometimes the best insights come from customer conversations, not spreadsheets. Balance is key.",
-      topic: "Data & Analytics",
-      engagementScore: 7.5,
-      trendingKeywords: [
-        "Data Analytics",
-        "Decision Making",
-        "Customer Insights",
-      ],
-      estimatedReach: "2K - 4.5K",
-      bestTimeToPost: "Today, 4:00 PM",
-      source: "substack",
-    },
-  ]);
-
+  const [posts, setPosts] = useState<SuggestedPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState<string | null>(null);
   const [linkedinConnection, setLinkedinConnection] =
     useState<SocialConnection | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState<string>("");
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    postId: string | null;
+  }>({ isOpen: false, postId: null });
+  const [feedbackComment, setFeedbackComment] = useState<string>("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
-    const fetchConnections = async () => {
+    const fetchData = async () => {
+      if (!user) return;
+
       try {
-        const connections = await profileApi.getSocialConnections();
+        // Fetch both suggested posts and social connections in parallel
+        const [postsResponse, connections] = await Promise.all([
+          suggestedPostsApi.getSuggestedPosts({
+            status: ["suggested"],
+            platform: "linkedin",
+            order_by: "recommendation_score",
+            order_direction: "desc",
+          }),
+          profileApi.getSocialConnections(),
+        ]);
+
+        setPosts(postsResponse.items);
+
         const linkedIn =
           connections.find((c) => c.platform === "linkedin" && c.is_active) ||
           null;
         setLinkedinConnection(linkedIn);
       } catch (error) {
-        console.error("Error fetching social connections:", error);
-        // Do not bother user with a toast for this, as it's a background check
+        console.error("Error fetching data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch suggested posts. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    if (user) {
-      fetchConnections();
-    }
-  }, [user]);
-
-  const dismissPost = (postId: string) => {
-    setPosts(posts.filter((post) => post.id !== postId));
-  };
+    fetchData();
+  }, [user, toast]);
 
   const shareOnLinkedIn = async (post: SuggestedPost) => {
     setIsSharing(post.id);
     try {
       await profileApi.shareOnLinkedIn(post.content);
+      // Mark as posted
+      await suggestedPostsApi.markAsPosted(post.id);
+      // Update local state
+      setPosts(
+        posts.map((p) => (p.id === post.id ? { ...p, status: "posted" } : p))
+      );
       toast({
         title: "Post Shared",
         description: "Your post has been successfully shared on LinkedIn.",
@@ -153,49 +123,208 @@ export const SuggestedPosts: React.FC = () => {
   const schedulePost = (postId: string) => {
     console.log("Scheduling post:", postId);
     // TODO: Implement scheduling logic
+    toast({
+      title: "Coming Soon",
+      description: "Post scheduling will be available soon!",
+    });
   };
 
   const generateNewPosts = async () => {
     setIsGenerating(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // TODO: Implement actual post generation API call
+      // For now, just refresh the existing posts
+      const postsResponse = await suggestedPostsApi.getSuggestedPosts({
+        status: ["suggested"],
+        platform: "linkedin",
+        order_by: "recommendation_score",
+        order_direction: "desc",
+      });
+      setPosts(postsResponse.items);
+
+      toast({
+        title: "Posts Refreshed",
+        description: "Your suggested posts have been updated.",
+      });
+    } catch (error) {
+      console.error("Error generating posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate new posts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsGenerating(false);
-      // TODO: Implement actual post generation
-    }, 2000);
+    }
   };
 
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case "preferences":
-        return <User className="w-3 h-3" />;
+  const startEditing = (post: SuggestedPost) => {
+    setEditingPostId(post.id);
+    setEditedContent(post.content);
+  };
+
+  const saveEdit = async (postId: string) => {
+    try {
+      const updatedPost = await suggestedPostsApi.updateSuggestedPost(postId, {
+        content: editedContent,
+      });
+
+      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+      setEditingPostId(null);
+      setEditedContent("");
+
+      toast({
+        title: "Post Updated",
+        description: "Your changes have been saved.",
+      });
+    } catch (error) {
+      console.error("Error updating post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update the post. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingPostId(null);
+    setEditedContent("");
+  };
+
+  const submitPositiveFeedback = async (postId: string) => {
+    try {
+      const updatedPost = await suggestedPostsApi.submitFeedback(postId, {
+        feedback_type: "positive",
+      });
+
+      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+
+      toast({
+        title: "Feedback Submitted",
+        description: "Thank you for your positive feedback!",
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openNegativeFeedbackModal = (postId: string) => {
+    setFeedbackModal({ isOpen: true, postId });
+    setFeedbackComment("");
+  };
+
+  const submitNegativeFeedback = async () => {
+    if (!feedbackModal.postId) return;
+
+    setIsSubmittingFeedback(true);
+    try {
+      const updatedPost = await suggestedPostsApi.submitFeedback(
+        feedbackModal.postId,
+        {
+          feedback_type: "negative",
+          comment: feedbackComment || undefined,
+        }
+      );
+
+      setPosts(
+        posts.map((p) => (p.id === feedbackModal.postId ? updatedPost : p))
+      );
+
+      setFeedbackModal({ isOpen: false, postId: null });
+      setFeedbackComment("");
+
+      toast({
+        title: "Feedback Submitted",
+        description:
+          "Thank you for your feedback! We'll use it to improve suggestions.",
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const getSourceIcon = (platform: string) => {
+    switch (platform) {
+      case "linkedin":
+        return <Share2 className="w-3 h-3" />;
       case "substack":
         return <Globe className="w-3 h-3" />;
-      case "connections":
-        return <TrendingUp className="w-3 h-3" />;
       default:
         return <User className="w-3 h-3" />;
     }
   };
 
-  const getSourceLabel = (source: string) => {
-    switch (source) {
-      case "preferences":
-        return "Your Topics";
+  const getSourceLabel = (platform: string) => {
+    switch (platform) {
+      case "linkedin":
+        return "LinkedIn";
       case "substack":
-        return "Substack Insights";
-      case "connections":
-        return "Network Trends";
+        return "Substack";
       default:
-        return "Unknown";
+        return "General";
     }
   };
+
+  const renderContentWithNewlines = (content: string) => {
+    return content.split("\n").map((line, index) => (
+      <React.Fragment key={index}>
+        {line}
+        {index < content.split("\n").length - 1 && <br />}
+      </React.Fragment>
+    ));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+              Suggested Posts
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              AI-curated content based on your writing style and interests
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            Suggested LinkedIn Posts
+            Suggested Posts
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             AI-curated content based on your writing style and interests
@@ -231,69 +360,137 @@ export const SuggestedPosts: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="secondary" className="text-xs">
-                      {getSourceIcon(post.source)}
+                      {getSourceIcon(post.platform)}
                       <span className="ml-1">
-                        {getSourceLabel(post.source)}
+                        {getSourceLabel(post.platform)}
                       </span>
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {post.topic}
-                    </Badge>
+                    {post.user_feedback && (
+                      <Badge
+                        variant={
+                          post.user_feedback === "positive"
+                            ? "default"
+                            : "destructive"
+                        }
+                        className="text-xs"
+                      >
+                        {post.user_feedback === "positive" ? (
+                          <>
+                            <ThumbsUp className="w-3 h-3 mr-1" />
+                            Liked
+                          </>
+                        ) : (
+                          <>
+                            <ThumbsDown className="w-3 h-3 mr-1" />
+                            Disliked
+                          </>
+                        )}
+                      </Badge>
+                    )}
                   </div>
                   <CardTitle className="text-base sm:text-lg font-semibold text-gray-900">
-                    Post #{index + 1}
+                    {post.title || `Post #${index + 1}`}
                   </CardTitle>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => dismissPost(post.id)}
-                  className="text-gray-400 hover:text-gray-600 absolute top-2 right-2 sm:relative sm:top-0 sm:right-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-                <p className="text-sm sm:text-base text-gray-800 leading-relaxed">
-                  {post.content}
-                </p>
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg relative">
+                {editingPostId === post.id ? (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      className="min-h-[300px] max-h-[400px] resize-y"
+                      placeholder="Edit your post content..."
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => saveEdit(post.id)}>
+                        <Check className="w-4 h-4 mr-1" />
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap">
+                      {renderContentWithNewlines(post.content)}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute top-2 right-2 p-1 h-6 w-6"
+                      onClick={() => startEditing(post)}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </Button>
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
                   <TrendingUp className="w-4 h-4 text-green-500" />
                   <span>
-                    Engagement Score: <strong>{post.engagementScore}/10</strong>
+                    Recommendation score:{" "}
+                    <strong>{post.recommendation_score}/100</strong>
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Clock className="w-4 h-4 text-blue-500" />
                   <span>
-                    Best time: <strong>{post.bestTimeToPost}</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <User className="w-4 h-4 text-purple-500" />
-                  <span>
-                    Est. Reach: <strong>{post.estimatedReach}</strong>
+                    Created:{" "}
+                    <strong>
+                      {new Date(post.created_at).toLocaleDateString()}
+                    </strong>
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs sm:text-sm font-medium text-gray-700">
-                  Trending Keywords:
-                </p>
-                <div className="flex flex-wrap gap-1 sm:gap-2">
-                  {post.trendingKeywords.map((keyword, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
-                      {keyword}
-                    </Badge>
-                  ))}
+              {post.topics.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs sm:text-sm font-medium text-gray-700">
+                    Topics:
+                  </p>
+                  <div className="flex flex-wrap gap-1 sm:gap-2">
+                    {post.topics.map((topic, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {topic}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Feedback Section */}
+              {!post.user_feedback && (
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm text-gray-600">
+                    How is this suggestion?
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => submitPositiveFeedback(post.id)}
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openNegativeFeedbackModal(post.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
                 <Tooltip>
@@ -301,13 +498,22 @@ export const SuggestedPosts: React.FC = () => {
                     <div className="flex-1">
                       <Button
                         onClick={() => shareOnLinkedIn(post)}
-                        disabled={!linkedinConnection || isSharing === post.id}
+                        disabled={
+                          !linkedinConnection ||
+                          isSharing === post.id ||
+                          post.status === "posted"
+                        }
                         className="bg-blue-600 hover:bg-blue-700 w-full"
                       >
                         {isSharing === post.id ? (
                           <>
                             <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                             Sharing...
+                          </>
+                        ) : post.status === "posted" ? (
+                          <>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Posted
                           </>
                         ) : (
                           <>
@@ -330,6 +536,7 @@ export const SuggestedPosts: React.FC = () => {
                 <Button
                   onClick={() => schedulePost(post.id)}
                   className="bg-green-600 hover:bg-green-700 flex-1"
+                  disabled={post.status === "posted"}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   Schedule Post
@@ -355,8 +562,8 @@ export const SuggestedPosts: React.FC = () => {
               No posts available
             </h3>
             <p className="text-gray-600 mb-4 text-sm sm:text-base">
-              All posts have been dismissed. Generate new content suggestions to
-              continue.
+              No suggested posts found. Generate new content suggestions to get
+              started.
             </p>
             <Button onClick={generateNewPosts} disabled={isGenerating}>
               {isGenerating ? (
@@ -374,6 +581,44 @@ export const SuggestedPosts: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Negative Feedback Modal */}
+      <Dialog
+        open={feedbackModal.isOpen}
+        onOpenChange={(open) =>
+          !open && setFeedbackModal({ isOpen: false, postId: null })
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Help us improve</DialogTitle>
+            <DialogDescription>
+              We'd appreciate your feedback on why this suggestion wasn't
+              helpful. This is optional but helps us improve future suggestions.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Tell us what was wrong with this suggestion... (optional)"
+            value={feedbackComment}
+            onChange={(e) => setFeedbackComment(e.target.value)}
+            className="min-h-[100px] resize-none"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFeedbackModal({ isOpen: false, postId: null })}
+            >
+              Skip
+            </Button>
+            <Button
+              onClick={submitNegativeFeedback}
+              disabled={isSubmittingFeedback}
+            >
+              {isSubmittingFeedback ? "Submitting..." : "Submit Feedback"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
