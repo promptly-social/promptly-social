@@ -259,6 +259,19 @@ resource "google_secret_manager_secret_version" "gcp_analysis_function_url_initi
   secret_data = "https://placeholder.url/update-me"
 }
 
+resource "google_secret_manager_secret" "gcp_generate_suggestions_function_url" {
+  secret_id = "GCP_GENERATE_SUGGESTIONS_FUNCTION_URL"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "gcp_generate_suggestions_function_url_initial_version" {
+  secret      = google_secret_manager_secret.gcp_generate_suggestions_function_url.id
+  secret_data = "https://placeholder.url/update-me"
+}
+
 resource "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
 
@@ -366,6 +379,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     google_client_id      = google_secret_manager_secret.google_client_id
     google_client_secret  = google_secret_manager_secret.google_client_secret
     gcp_analysis_function_url = google_secret_manager_secret.gcp_analysis_function_url
+    gcp_generate_suggestions_function_url = google_secret_manager_secret.gcp_generate_suggestions_function_url
     openrouter_api_key    = google_secret_manager_secret.openrouter_api_key
     linkedin_client_id    = google_secret_manager_secret.linkedin_client_id
     linkedin_client_secret = google_secret_manager_secret.linkedin_client_secret
