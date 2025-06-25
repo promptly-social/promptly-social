@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List
 from datetime import datetime
 
@@ -13,6 +14,17 @@ class PostsGenerator:
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_api_key,
         )
+        # Get model configuration from environment variables
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+        )
+        self.models_fallback = [
+            model.strip() for model in models_fallback_str.split(",")
+        ]
+        self.temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.0"))
 
     def generate_posts(
         self,
@@ -50,11 +62,12 @@ class PostsGenerator:
         {{"linkedin_post": "your generated post", "post_url": "the url of the substack post that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
         """
         response = self.openrouter_client.chat.completions.create(
-            model="google/gemini-2.5-pro",
+            model=self.model_primary,
             extra_body={
-                "models": ["openai/gpt-4o"],
+                "models": self.models_fallback,
             },
             messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
         )
 
         return extract_json_from_llm_response(response.choices[0].message.content)

@@ -127,6 +127,9 @@ resource "google_cloudfunctions2_function" "function" {
 
     environment_variables = {
       NUMBER_OF_POSTS_TO_GENERATE = var.number_of_posts_to_generate
+      OPENROUTER_MODEL_PRIMARY = var.openrouter_model_primary
+      OPENROUTER_MODELS_FALLBACK = join(",", var.openrouter_models_fallback)
+      OPENROUTER_TEMPERATURE = var.openrouter_temperature
     }
 
     secret_environment_variables {

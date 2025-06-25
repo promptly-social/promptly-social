@@ -22,12 +22,15 @@ provider "google" {
 }
 
 module "analyze_substack_function" {
-  source                = "../../../modules/analyze_substack_function"
-  project_id            = var.project_id
-  region                = var.region
-  environment           = "production"
-  function_source_dir   = "../../../src/gcp-functions/analyze-substack"
-  max_posts_to_analyze  = 10
+  source                        = "../../../modules/analyze_substack_function"
+  project_id                    = var.project_id
+  region                        = var.region
+  environment                   = "production"
+  function_source_dir           = "../../../src/gcp-functions/analyze-substack"
+  max_posts_to_analyze          = 10
+  openrouter_model_primary      = "google/gemini-2.5-flash-preview-05-20"
+  openrouter_models_fallback    = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
+  openrouter_temperature        = 0.0
 }
 
 output "function_uri" {

@@ -28,6 +28,9 @@ module "generate_suggestions_function" {
   environment                 = "production"
   function_source_dir         = "../../../src/gcp-functions/generate-suggestions"
   number_of_posts_to_generate = 5
+  openrouter_model_primary    = "google/gemini-2.5-flash-preview-05-20"
+  openrouter_models_fallback  = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
+  openrouter_temperature      = 0.0
 }
 
 output "function_uri" {

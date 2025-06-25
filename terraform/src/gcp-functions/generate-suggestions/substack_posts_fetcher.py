@@ -6,6 +6,7 @@ It handles multiple newsletters in parallel and filters posts by date.
 """
 
 import logging
+import os
 import concurrent.futures
 import time
 from datetime import datetime, timezone, timedelta
@@ -36,6 +37,17 @@ class SubstackPostsFetcher:
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_api_key,
         )
+        # Get model configuration from environment variables
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+        )
+        self.models_fallback = [
+            model.strip() for model in models_fallback_str.split(",")
+        ]
+        self.temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.0"))
 
     def get_latest_posts_from_substack(self, substack_url: str) -> List[Dict[str, Any]]:
         """
@@ -276,12 +288,12 @@ class SubstackPostsFetcher:
             {bio}
             """
             response = self.openrouter_client.chat.completions.create(
-                model="google/gemini-2.5-pro",
+                model=self.model_primary,
                 extra_body={
-                    "models": ["openai/gpt-4o"],
+                    "models": self.models_fallback,
                 },
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
+                temperature=self.temperature,
             )
             if extract_json_from_llm_response(response.choices[0].message.content).get(
                 "match", False

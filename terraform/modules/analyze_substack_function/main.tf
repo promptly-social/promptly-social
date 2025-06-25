@@ -146,6 +146,9 @@ resource "google_cloudfunctions2_function" "function" {
     environment_variables = {
       MAX_POSTS_TO_ANALYZE = var.max_posts_to_analyze
       MAX_POSTS_TO_ANALYZE_LINKEDIN = var.max_posts_to_analyze_linkedin
+      OPENROUTER_MODEL_PRIMARY = var.openrouter_model_primary
+      OPENROUTER_MODELS_FALLBACK = join(",", var.openrouter_models_fallback)
+      OPENROUTER_TEMPERATURE = var.openrouter_temperature
     }
 
     secret_environment_variables {
