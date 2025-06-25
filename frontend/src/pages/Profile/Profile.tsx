@@ -19,18 +19,15 @@ const Profile: React.FC = () => {
           </div>
 
           <div className="space-y-6 sm:space-y-8">
-            {/* Social Connections */}
             <UnipileLinkedInConnection />
+
             <SocialConnections />
 
-            {/* User Bio */}
             <UserBio />
 
-            {/* User Preferences */}
-            <UserPreferences />
-
-            {/* Consolidated Platform Analysis */}
             <WritingAnalysis />
+
+            <UserPreferences />
           </div>
         </div>
       </main>
