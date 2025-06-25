@@ -50,7 +50,7 @@ class ProfileService:
 
             if existing:
                 # Update existing preferences
-                update_dict = preferences_data.model_dump()
+                update_dict = preferences_data.model_dump(exclude_unset=True)
                 update_dict["updated_at"] = datetime.now(timezone.utc)
 
                 for key, value in update_dict.items():

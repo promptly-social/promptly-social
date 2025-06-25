@@ -20,10 +20,13 @@ class UserPreferencesCreate(UserPreferencesBase):
     pass
 
 
-class UserPreferencesUpdate(UserPreferencesBase):
+class UserPreferencesUpdate(BaseModel):
     """Schema for updating user preferences."""
 
-    pass
+    topics_of_interest: Optional[List[str]] = None
+    websites: Optional[List[str]] = None
+    substacks: Optional[List[str]] = None
+    bio: Optional[str] = None
 
 
 class UserPreferencesResponse(UserPreferencesBase):

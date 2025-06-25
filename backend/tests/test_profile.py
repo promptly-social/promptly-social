@@ -98,7 +98,7 @@ class TestProfileService:
         assert preferences.websites == ["example.com", "test.com"]
         assert preferences.bio == "this is the user's bio"
 
-        # Update preferences
+        # Update preferences (partial update should preserve bio)
         update_data = UserPreferencesUpdate(
             topics_of_interest=["AI", "Technology", "Business"]
         )
@@ -108,6 +108,8 @@ class TestProfileService:
 
         assert len(updated.topics_of_interest) == 3
         assert "Business" in updated.topics_of_interest
+        # Bio should be preserved from the original creation
+        assert updated.bio == "this is the user's bio"
 
     @pytest.mark.asyncio
     async def test_social_connections_operations(self, profile_service, test_user):
