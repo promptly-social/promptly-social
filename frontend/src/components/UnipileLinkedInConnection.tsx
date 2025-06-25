@@ -61,6 +61,7 @@ export const UnipileLinkedInConnection: React.FC<
   useEffect(() => {
     loadAuthInfo();
     loadExistingConnection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAuthInfo = async () => {

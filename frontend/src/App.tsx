@@ -13,6 +13,7 @@ import { Login /* , Signup */ } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
 import MyContent from "./pages/MyContent/MyContent";
+import PostingSchedule from "./pages/PostingSchedule/PostingSchedule";
 import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
@@ -135,6 +136,19 @@ const App = () => (
                     <div className="min-h-screen flex w-full">
                       <AppSidebar />
                       <MyContent />
+                    </div>
+                  </SidebarProvider>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/posting-schedule"
+              element={
+                <ProtectedRoute>
+                  <SidebarProvider>
+                    <div className="min-h-screen flex w-full">
+                      <AppSidebar />
+                      <PostingSchedule />
                     </div>
                   </SidebarProvider>
                 </ProtectedRoute>

@@ -15,6 +15,7 @@ import {
   Edit3,
   Check,
   X,
+  Bookmark,
 } from "lucide-react";
 import { suggestedPostsApi, SuggestedPost } from "@/lib/suggested-posts-api";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,7 @@ export const SuggestedPosts: React.FC = () => {
   const [feedbackComment, setFeedbackComment] = useState<string>("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [dismissingPostId, setDismissingPostId] = useState<string | null>(null);
+  const [savingPostId, setSavingPostId] = useState<string | null>(null);
   const [undoTimeouts, setUndoTimeouts] = useState<Map<string, NodeJS.Timeout>>(
     new Map()
   );
@@ -55,7 +57,6 @@ export const SuggestedPosts: React.FC = () => {
       try {
         const postsResponse = await suggestedPostsApi.getSuggestedPosts({
           status: ["suggested"],
-          platform: "linkedin",
           order_by: "recommendation_score",
           order_direction: "desc",
         });
@@ -170,6 +171,62 @@ export const SuggestedPosts: React.FC = () => {
     });
   };
 
+  const removeFromSchedule = async (post: SuggestedPost) => {
+    try {
+      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
+        status: "saved",
+      });
+
+      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
+
+      toast({
+        title: "Removed from Schedule",
+        description: "Post has been removed from schedule and saved for later.",
+      });
+    } catch (error) {
+      console.error("Error removing from schedule:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove from schedule. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const reschedulePost = (postId: string) => {
+    console.log("Rescheduling post:", postId);
+    // TODO: Implement rescheduling logic
+    toast({
+      title: "Coming Soon",
+      description: "Post rescheduling will be available soon!",
+    });
+  };
+
+  const saveForLater = async (post: SuggestedPost) => {
+    setSavingPostId(post.id);
+    try {
+      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
+        status: "saved",
+      });
+
+      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
+
+      toast({
+        title: "Post Saved",
+        description: "Post has been saved for later.",
+      });
+    } catch (error) {
+      console.error("Error saving post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPostId(null);
+    }
+  };
+
   const generateNewPosts = async () => {
     setIsGenerating(true);
     try {
@@ -177,11 +234,24 @@ export const SuggestedPosts: React.FC = () => {
       // For now, just refresh the existing posts
       const postsResponse = await suggestedPostsApi.getSuggestedPosts({
         status: ["suggested"],
-        platform: "linkedin",
-        order_by: "recommendation_score",
+        order_by: "created_at",
         order_direction: "desc",
       });
-      setPosts(postsResponse.items);
+
+      // Sort by created_at (desc) first, then by recommendation_score (desc) for items with same created_at
+      const sortedPosts = postsResponse.items.sort((a, b) => {
+        // First sort by created_at (desc)
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        if (dateB !== dateA) {
+          return dateB - dateA;
+        }
+
+        // If created_at is the same, sort by recommendation_score (desc)
+        return b.recommendation_score - a.recommendation_score;
+      });
+
+      setPosts(sortedPosts);
 
       toast({
         title: "Posts Refreshed",
@@ -366,7 +436,7 @@ export const SuggestedPosts: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            Suggested Posts
+            Suggested Posts ({posts.length})
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             AI-suggested posts based on your writing style, interests, and
@@ -396,7 +466,7 @@ export const SuggestedPosts: React.FC = () => {
         {posts.map((post, index) => (
           <Card
             key={post.id}
-            className="relative hover:shadow-md transition-shadow"
+            className="relative hover:shadow-md transition-shadow flex flex-col h-full"
           >
             <CardHeader className="pb-3 sm:pb-4">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -437,7 +507,7 @@ export const SuggestedPosts: React.FC = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 flex-grow flex flex-col">
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg relative">
                 {editingPostId === post.id ? (
                   <div className="space-y-3">
@@ -535,34 +605,79 @@ export const SuggestedPosts: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
-                <Button
-                  onClick={() => schedulePost(post.id)}
-                  className="bg-green-600 hover:bg-green-700 flex-1"
-                  disabled={post.status === "posted"}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Schedule Post
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => dismissPost(post)}
-                  disabled={dismissingPostId === post.id}
-                >
-                  {dismissingPostId === post.id ? (
+              <div className="flex-grow"></div>
+
+              {post.status !== "posted" && (
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
+                  {post.status === "scheduled" ? (
                     <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Dismissing...
+                      <Button
+                        onClick={() => removeFromSchedule(post)}
+                        variant="outline"
+                        className="flex-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Remove from Schedule
+                      </Button>
+                      <Button
+                        onClick={() => reschedulePost(post.id)}
+                        className="bg-blue-600 hover:bg-blue-700 flex-1"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Reschedule
+                      </Button>
                     </>
                   ) : (
                     <>
-                      <X className="w-4 h-4 mr-2" />
-                      Dismiss
+                      <Button
+                        onClick={() => schedulePost(post.id)}
+                        className="bg-green-600 hover:bg-green-700 flex-1"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Schedule Post
+                      </Button>
+                      {post.status === "suggested" && (
+                        <Button
+                          onClick={() => saveForLater(post)}
+                          variant="outline"
+                          className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                          disabled={savingPostId === post.id}
+                        >
+                          {savingPostId === post.id ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Bookmark className="w-4 h-4 mr-2" />
+                              Save for Later
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </>
                   )}
-                </Button>
-              </div>
+                  <Button
+                    variant="outline"
+                    className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => dismissPost(post)}
+                    disabled={dismissingPostId === post.id}
+                  >
+                    {dismissingPostId === post.id ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Dismissing...
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-4 h-4 mr-2" />
+                        Dismiss
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

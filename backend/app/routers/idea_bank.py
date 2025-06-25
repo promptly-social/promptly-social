@@ -2,7 +2,7 @@
 Idea Bank router with endpoints for idea bank management.
 """
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -30,6 +30,18 @@ async def get_idea_bank_list(
     size: int = Query(20, ge=1, le=100),
     order_by: str = Query("updated_at"),
     order_direction: str = Query("desc", pattern="^(asc|desc)$"),
+    ai_suggested: Optional[bool] = Query(
+        None, description="Filter by AI suggested ideas"
+    ),
+    evergreen: Optional[bool] = Query(
+        None, description="Filter by evergreen (non-time-sensitive) ideas"
+    ),
+    has_post: Optional[bool] = Query(
+        None, description="Filter by whether the idea has associated posts"
+    ),
+    post_status: Optional[List[str]] = Query(
+        None, description="Filter by status of associated posts"
+    ),
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -42,6 +54,10 @@ async def get_idea_bank_list(
             size=size,
             order_by=order_by,
             order_direction=order_direction,
+            ai_suggested=ai_suggested,
+            evergreen=evergreen,
+            has_post=has_post,
+            post_status=post_status,
         )
         return IdeaBankListResponse(**result)
     except Exception as e:
@@ -49,6 +65,50 @@ async def get_idea_bank_list(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch idea banks",
+        )
+
+
+@router.get("/with-posts")
+async def get_idea_banks_with_latest_posts(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    order_by: str = Query("updated_at"),
+    order_direction: str = Query("desc", pattern="^(asc|desc)$"),
+    ai_suggested: Optional[bool] = Query(
+        None, description="Filter by AI suggested ideas"
+    ),
+    evergreen: Optional[bool] = Query(
+        None, description="Filter by evergreen (non-time-sensitive) ideas"
+    ),
+    has_post: Optional[bool] = Query(
+        None, description="Filter by whether the idea has associated posts"
+    ),
+    post_status: Optional[List[str]] = Query(
+        None, description="Filter by status of associated posts"
+    ),
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Get idea banks with their latest suggested posts."""
+    try:
+        idea_bank_service = IdeaBankService(db)
+        result = await idea_bank_service.get_idea_banks_with_latest_posts(
+            user_id=current_user.id,
+            page=page,
+            size=size,
+            order_by=order_by,
+            order_direction=order_direction,
+            ai_suggested=ai_suggested,
+            evergreen=evergreen,
+            has_post=has_post,
+            post_status=post_status,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error getting idea banks with latest posts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch idea banks with posts",
         )
 
 
@@ -76,6 +136,35 @@ async def get_idea_bank(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch idea bank",
+        )
+
+
+@router.get("/{idea_bank_id}/with-post")
+async def get_idea_bank_with_latest_post(
+    idea_bank_id: UUID,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Get a specific idea bank item with its latest suggested post."""
+    try:
+        idea_bank_service = IdeaBankService(db)
+        result = await idea_bank_service.get_idea_bank_with_latest_post(
+            current_user.id, idea_bank_id
+        )
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Idea bank not found"
+            )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting idea bank with latest post {idea_bank_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch idea bank with post",
         )
 
 
