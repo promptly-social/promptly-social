@@ -13,7 +13,7 @@ from typing import List, Dict, Any
 from posts_generator import PostsGenerator
 
 # Test variables - modify these as needed
-USER_ID = "t827b476e-93b2-4a70-8a52-78e8500d26fe"
+USER_ID = "827b476e-93b2-4a70-8a52-78e8500d26fe"
 BIO = """
 I'm a founder and CTO, currently building my third AI-native company. My journey has taken me from being a consultant at McKinsey to the founding team of ZestyAI and co-founding Paxton AI. I'm passionate about the practical side of building a business, and my writing explores the intersection of AI, product-led growth (PLG), and founder psychology.
 

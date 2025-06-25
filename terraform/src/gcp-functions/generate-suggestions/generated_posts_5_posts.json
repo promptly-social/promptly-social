@@ -1,0 +1,52 @@
+[
+  {
+    "linkedin_post": "Is your SaaS product in a 'situationship' with your users?\n\nYou know the type. They use your product, but they aren't truly committed. They get some value, but they could churn at any moment without a second thought. It's a casual arrangement, not a long-term partnership.\n\nThis is one of the biggest challenges in SaaS. We often mistake usage for loyalty.\n\nMoving a customer from a situationship to a committed relationship requires more than just features. It's about deeply embedding your product into their core workflow and consistently delivering on your core value promise.\n\nIt's the difference between a tool they use and the tool they can't live without.\n\nThis fantastic post by Elena Verna breaks down the concept perfectly. A must-read for anyone in product or growth.\n\nHow do you measure real customer commitment versus just casual usage?\n\nRead more here: https://www.elenaverna.com/p/retention-the-situationship-of-saas\n\n#SaaS #ProductLedGrowth #Retention",
+    "post_url": "https://www.elenaverna.com/p/retention-the-situationship-of-saas",
+    "topics": [
+      "SaaS",
+      "Product Management",
+      "Growth"
+    ],
+    "recommendation_score": 100
+  },
+  {
+    "linkedin_post": "Why is it so hard to change our habits, even when we desperately want to?\n\nOur mind works a bit like a well-worn path in a forest. The more we walk it (our default habits), the deeper and easier that path becomes. Trying to build a new habit is like forging a new path through dense woods. It requires conscious effort and repetition.\n\nYour brain is wired for efficiency. It defaults to the easy path, the status quo, to conserve energy.\n\nSo when we try to change, we're not just fighting a bad habit. We're fighting our own brain's fundamental wiring. Understanding this is the first step to making real, lasting change.\n\nInstead of fighting the old path, focus on making the new one just a little bit easier to walk each day.\n\nThis article has a great breakdown of the psychology behind it.\n\nWhat's one small change you've made that stuck? What was the trick that worked for you?\n\nFull post: https://mindfulagile.substack.com/p/rewiring-the-mind-the-psychology\n\n#PersonalGrowth #Psychology #Habits",
+    "post_url": "https://mindfulagile.substack.com/p/rewiring-the-mind-the-psychology",
+    "topics": [
+      "Personal Development",
+      "Psychology",
+      "Mindfulness"
+    ],
+    "recommendation_score": 95
+  },
+  {
+    "linkedin_post": "Meta is giving away its multi-billion dollar AI models for free. This seems insane.\n\nBut it's not. It's a classic business strategy we've seen before.\n\nThink of it like this: they aren't selling the AI model, they're selling everything *around* it. By open-sourcing Llama, Meta is trying to commoditize the AI model layer itself. If the core models are free and everywhere, nobody can build a defensible business just by having a slightly better model.\n\nTheir goal is to make the model the cheap, replaceable part.\n\nThe real money is in the platform, the tools, the data, and the hardware that runs these models. By making the models themselves a commodity, Meta positions itself to win on the ecosystem.\n\nIt's a bold, long-term play to reshape the entire AI landscape.\n\nWhat do you think of this open-source strategy? Brilliant move or a desperate gamble?\n\nGreat analysis on it here: https://www.generativevalue.com/p/metas-ai-strategy\n\n#AIStrategy #Meta #BusinessStrategy",
+    "post_url": "https://www.generativevalue.com/p/metas-ai-strategy",
+    "topics": [
+      "AI",
+      "Business Strategy",
+      "Big Tech"
+    ],
+    "recommendation_score": 90
+  },
+  {
+    "linkedin_post": "Want to break into Venture Capital? Stop sending your resume through the front door.\n\nThe VC world isn't like other industries. It's less about your credentials and more about your ability to demonstrate insight. Think of it like auditioning for a play. A resume tells the director you studied acting; a great audition shows them you can act.\n\nApplying for a job is the resume. Building a public track record of your thinking is the audition.\n\nHow do you audition?\n\n1. Write online about trends and companies you find interesting.\n2. Build a community around a niche you care about.\n3. Create your own 'proof of work' that shows you have a unique perspective.\n\nYour goal is to have VCs know who you are and what you think before you ever ask for a job.\n\nThis post has some great, practical advice on how to get started.\n\nFor those already in VC, what's one piece of advice you'd give to someone trying to break in?\n\nRead the guide: https://luisllorens.substack.com/p/how-to-break-into-venture-capital\n\n#VentureCapital #CareerDevelopment #Startups",
+    "post_url": "https://luisllorens.substack.com/p/how-to-break-into-venture-capital",
+    "topics": [
+      "Venture Capital",
+      "Career Development",
+      "Startups"
+    ],
+    "recommendation_score": 85
+  },
+  {
+    "linkedin_post": "I've launched a lot of small products. Most of them failed to get any real traction.\n\nBut these 'failures' taught me far more than any success ever could.\n\nLooking back, a few key lessons stand out:\n\n1. Start marketing on day one. Marketing isn't something you do after you build. It's the entire process of understanding and reaching your customer. You should have a waitlist before you have a product.\n\n2. Solve your own problem. The easiest person to build for is yourself. You understand the pain point intimately, and you are your own first customer.\n\n3. Perfectionism is a trap. Shipping something that's 80% good is infinitely better than never shipping something that's 100% perfect.\n\nBuilding things, especially on your own, is a journey of a thousand paper cuts and a few big wins.\n\nWhich lesson resonates most with you? Or what would you add to this list?\n\nThis great post goes through 10 lessons learned: https://writebuildscale.substack.com/p/10-lessons-from-creating-10-digital\n\n#Entrepreneurship #CreatorEconomy #Startups",
+    "post_url": "https://writebuildscale.substack.com/p/10-lessons-from-creating-10-digital",
+    "topics": [
+      "Entrepreneurship",
+      "Creator Economy",
+      "Productivity"
+    ],
+    "recommendation_score": 80
+  }
+]

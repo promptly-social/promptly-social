@@ -14,20 +14,11 @@ import {
   ThumbsDown,
   Edit3,
   Check,
+  X,
 } from "lucide-react";
-import { profileApi, SocialConnection } from "@/lib/profile-api";
-import {
-  suggestedPostsApi,
-  SuggestedPost,
-  PostFeedback,
-} from "@/lib/suggested-posts-api";
+import { suggestedPostsApi, SuggestedPost } from "@/lib/suggested-posts-api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -42,9 +33,6 @@ export const SuggestedPosts: React.FC = () => {
   const [posts, setPosts] = useState<SuggestedPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSharing, setIsSharing] = useState<string | null>(null);
-  const [linkedinConnection, setLinkedinConnection] =
-    useState<SocialConnection | null>(null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>("");
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -53,6 +41,10 @@ export const SuggestedPosts: React.FC = () => {
   }>({ isOpen: false, postId: null });
   const [feedbackComment, setFeedbackComment] = useState<string>("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [dismissingPostId, setDismissingPostId] = useState<string | null>(null);
+  const [undoTimeouts, setUndoTimeouts] = useState<Map<string, NodeJS.Timeout>>(
+    new Map()
+  );
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -61,23 +53,14 @@ export const SuggestedPosts: React.FC = () => {
       if (!user) return;
 
       try {
-        // Fetch both suggested posts and social connections in parallel
-        const [postsResponse, connections] = await Promise.all([
-          suggestedPostsApi.getSuggestedPosts({
-            status: ["suggested"],
-            platform: "linkedin",
-            order_by: "recommendation_score",
-            order_direction: "desc",
-          }),
-          profileApi.getSocialConnections(),
-        ]);
+        const postsResponse = await suggestedPostsApi.getSuggestedPosts({
+          status: ["suggested"],
+          platform: "linkedin",
+          order_by: "recommendation_score",
+          order_direction: "desc",
+        });
 
         setPosts(postsResponse.items);
-
-        const linkedIn =
-          connections.find((c) => c.platform === "linkedin" && c.is_active) ||
-          null;
-        setLinkedinConnection(linkedIn);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
@@ -93,31 +76,89 @@ export const SuggestedPosts: React.FC = () => {
     fetchData();
   }, [user, toast]);
 
-  const shareOnLinkedIn = async (post: SuggestedPost) => {
-    setIsSharing(post.id);
-    try {
-      await profileApi.shareOnLinkedIn(post.content);
-      // Mark as posted
-      await suggestedPostsApi.markAsPosted(post.id);
-      // Update local state
-      setPosts(
-        posts.map((p) => (p.id === post.id ? { ...p, status: "posted" } : p))
-      );
-      toast({
-        title: "Post Shared",
-        description: "Your post has been successfully shared on LinkedIn.",
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      undoTimeouts.forEach((timeoutId) => {
+        clearTimeout(timeoutId);
       });
-    } catch (error) {
-      console.error("Error sharing on LinkedIn:", error);
-      toast({
-        title: "Sharing Failed",
-        description:
-          "Could not share the post on LinkedIn. Please check your connection and try again.",
-        variant: "destructive",
+    };
+  }, [undoTimeouts]);
+
+  const dismissPost = async (post: SuggestedPost) => {
+    setDismissingPostId(post.id);
+
+    // Create undo timeout
+    const timeoutId = setTimeout(async () => {
+      try {
+        await suggestedPostsApi.dismissSuggestedPost(post.id);
+        setPosts(posts.filter((p) => p.id !== post.id));
+        setUndoTimeouts((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(post.id);
+          return newMap;
+        });
+      } catch (error) {
+        console.error("Error dismissing post:", error);
+        toast({
+          title: "Error",
+          description: "Failed to dismiss post. Please try again.",
+          variant: "destructive",
+        });
+      }
+      setDismissingPostId(null);
+    }, 3000);
+
+    // Store timeout for potential undo
+    setUndoTimeouts((prev) => new Map(prev).set(post.id, timeoutId));
+
+    // Show toast with undo option
+    const { dismiss: dismissToast } = toast({
+      title: "Post dismissed",
+      description: (
+        <div className="space-y-2">
+          <p>Post will be removed in 3 seconds</p>
+          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-red-600 h-2 rounded-full"
+              style={{
+                width: "100%",
+                animation: "shrink-width 3s linear forwards",
+              }}
+            />
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              undoDismiss(post.id);
+              dismissToast();
+            }}
+            className="w-full"
+          >
+            Undo
+          </Button>
+        </div>
+      ),
+      duration: 3100,
+    });
+  };
+
+  const undoDismiss = (postId: string) => {
+    const timeoutId = undoTimeouts.get(postId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      setUndoTimeouts((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(postId);
+        return newMap;
       });
-    } finally {
-      setIsSharing(null);
     }
+    setDismissingPostId(null);
+    toast({
+      title: "Dismiss cancelled",
+      description: "Post has been restored.",
+    });
   };
 
   const schedulePost = (postId: string) => {
@@ -495,46 +536,6 @@ export const SuggestedPosts: React.FC = () => {
               )}
 
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex-1">
-                      <Button
-                        onClick={() => shareOnLinkedIn(post)}
-                        disabled={
-                          !linkedinConnection ||
-                          isSharing === post.id ||
-                          post.status === "posted"
-                        }
-                        className="bg-blue-600 hover:bg-blue-700 w-full"
-                      >
-                        {isSharing === post.id ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Sharing...
-                          </>
-                        ) : post.status === "posted" ? (
-                          <>
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Posted
-                          </>
-                        ) : (
-                          <>
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Share on LinkedIn
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  {!linkedinConnection && (
-                    <TooltipContent>
-                      <p>
-                        Connect your LinkedIn account in Settings to share
-                        posts.
-                      </p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
                 <Button
                   onClick={() => schedulePost(post.id)}
                   className="bg-green-600 hover:bg-green-700 flex-1"
@@ -545,10 +546,21 @@ export const SuggestedPosts: React.FC = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1"
-                  onClick={() => navigator.clipboard.writeText(post.content)}
+                  className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => dismissPost(post)}
+                  disabled={dismissingPostId === post.id}
                 >
-                  Copy Content
+                  {dismissingPostId === post.id ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Dismissing...
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-4 h-4 mr-2" />
+                      Dismiss
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>

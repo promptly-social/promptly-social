@@ -4,3 +4,4 @@ substack-api==1.1.1
 httpx==0.27.*
 requests==2.* 
 openai==1.88.0
+python-dotenv==1.*

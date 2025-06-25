@@ -1,6 +1,6 @@
 ---
 description: 
-globs: backend/**/*
+globs: backend/**/*,terraform/src/**/*
 alwaysApply: false
 ---
 * follow the best practices and conventions in Python 

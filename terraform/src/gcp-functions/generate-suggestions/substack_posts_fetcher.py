@@ -7,7 +7,6 @@ It handles multiple newsletters in parallel and filters posts by date.
 
 import logging
 import concurrent.futures
-import json
 import time
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
@@ -239,14 +238,6 @@ class SubstackPostsFetcher:
             bio,
         )
 
-        # Write filtered posts to local JSON file for testing
-        with open(
-            f"filtered_posts_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            "w",
-        ) as f:
-            json.dump(filtered_posts, f, indent=2, ensure_ascii=False)
-        logger.info(f"Filtered posts written to local JSON file for user {user_id}")
-
         # Prepare complete response
         response_data = {
             "success": True,
@@ -272,8 +263,9 @@ class SubstackPostsFetcher:
             prompt = f"""
             You are an expert at selecting posts by user topics of interest and bio for the user to post content on LinkedIn to get engagement.
             You are given a post and a list of user topics of interest and a bio.
-            Your task is to select the post by the user topics of interest and bio.
-            If the post is a match, determine if the topic is time sensitive or evergreen. If it's time sensitive, then the time_sensitive field should be true.
+            Your task is to select the post by the user topics of interest and bio, and the post should be LinkedIn appropriate.
+            If the post is a match, determine if the topic is time sensitive or evergreen. 
+            If it's time sensitive, for example a post about a new product launch or a new event, then the time_sensitive field should be true.
             Return a json object with the following format:
             {{"match": true/false, "error": "", "time_sensitive": true/false}}
             The post is in the following format:

@@ -36,7 +36,7 @@ class PostsGenerator:
         You are an expert at generating posts for LinkedIn to gain the most engagement using the user's bio, writing style, and topics of interest.
         You are given a list of post URLs.
         Do not include special characters in the posts that people suspect that you are using AI to generate, such as em-dash, arrows, etc.
-        You are to generate {number_of_posts_to_generate} posts for the user to pick from and post on LinkedIn.
+        You are to generate {number_of_posts_to_generate} LinkedIn appropriate posts for the user to pick from and post on LinkedIn.
         The posts should be linkedin appropriate and gain the most engagement, and it should be plain text without any markdown.
         Make sure to cite the substack post or include a link to the substack post in the linkedin posts.
         Generate a recommendation score for the post between 0 and 100, where 100 is the most recommended and 0 is the least recommended.
@@ -47,7 +47,7 @@ class PostsGenerator:
         The linkedin post strategy for gettting the most engagement is: {linkedin_post_strategy}
         Today's date is: {today}
         Return the posts in a JSON format with the following fields: 
-        {{"linkedin_post": "your generated post", "post_id": "the substack post ID that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
+        {{"linkedin_post": "your generated post", "post_url": "the url of the substack post that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
         """
         response = self.openrouter_client.chat.completions.create(
             model="google/gemini-2.5-pro",

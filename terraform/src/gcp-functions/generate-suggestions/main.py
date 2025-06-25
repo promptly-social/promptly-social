@@ -3,7 +3,7 @@ import logging
 import os
 import traceback
 from typing import Any, Dict, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import functions_framework
 from supabase import create_client, Client
@@ -84,48 +84,119 @@ def get_writing_style(supabase_client: Client, user_id: str) -> str:
 
     try:
         response = (
-            supabase_client.table("user_preferences")
-            .select("writing_style")
+            supabase_client.table("writing_style_analysis")
+            .select("analysis_data")
             .eq("user_id", user_id)
             .execute()
         )
-        return response.data[0].get("writing_style", "")
+        if response.data and len(response.data) > 0:
+            return response.data[0].get("analysis_data", "")
+        else:
+            logger.info(f"No writing style analysis found for user {user_id}")
+            return ""
     except Exception as e:
         logger.error(f"Error fetching user writing style for user {user_id}: {e}")
-        raise
+        # Return empty string instead of raising to allow function to continue
+        return ""
+
+
+def get_latest_linkedin_posts_from_idea_banks(
+    supabase_client: Client, user_id: str
+) -> List[Dict[str, Any]]:
+    """
+    Get the latest LinkedIn posts from the idea banks created in the last 12 hours.
+    """
+    try:
+        # Calculate 12 hours ago
+        twelve_hours_ago = (datetime.now() - timedelta(hours=12)).isoformat()
+
+        response = (
+            supabase_client.table("idea_banks")
+            .select("id, data, created_at")
+            .eq("user_id", user_id)
+            .eq("data->>type", "substack")
+            .gte("created_at", twelve_hours_ago)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if response.data:
+            logger.info(
+                f"Found {len(response.data)} idea bank posts from last 12 hours for user {user_id}"
+            )
+            return [
+                {
+                    "id": post["id"],
+                    "url": post["data"]["value"],
+                    "title": post["data"]["title"],
+                }
+                for post in response.data
+            ]
+        else:
+            logger.info(
+                f"No LinkedIn posts found in idea banks for user {user_id} in the last 12 hours"
+            )
+            return []
+    except Exception as e:
+        logger.error(
+            f"Error fetching latest LinkedIn posts from idea banks for user {user_id}: {e}"
+        )
+        return []
 
 
 def save_candidate_posts_to_idea_banks(
     supabase_client: Client, user_id: str, candidate_posts: List[Dict[str, Any]]
 ):
     """
-    Save candidate posts to idea banks.
+    Save candidate posts to idea banks, or get existing ID if URL already exists.
     """
     for i, post in enumerate(candidate_posts):
-        data = {
-            "type": "substack",
-            "value": post.get("url"),
-            "title": post.get("title", ""),
-            "time_sensitive": post.get("time_sensitive", False),
-            "ai_suggested": True,
-        }
-        response = (
+        post_url = post.get("url")
+
+        # Check if this URL already exists for the user
+        existing_response = (
             supabase_client.table("idea_banks")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "data": data,
-                }
-            )
+            .select("id")
+            .eq("user_id", user_id)
+            .like("data->>value", post_url)
             .execute()
         )
-        if response.error:
-            logger.error(f"Error saving candidate post to idea banks: {response.error}")
-            raise response.error
-        logger.info(
-            f"Saved candidate post to idea banks for user {user_id}: {response.data}"
-        )
-        candidate_posts[i]["id"] = response.data[0].get("id")
+
+        if existing_response.data:
+            # URL already exists, use the existing ID
+            existing_id = existing_response.data[0]["id"]
+            candidate_posts[i]["id"] = existing_id
+            logger.info(
+                f"Found existing idea bank entry for user {user_id}, URL {post_url}: {existing_id}"
+            )
+        else:
+            # URL doesn't exist, create new entry
+            data = {
+                "type": "substack",
+                "value": post_url,
+                "title": post.get("title", ""),
+                "time_sensitive": post.get("time_sensitive", False),
+                "ai_suggested": True,
+            }
+            response = (
+                supabase_client.table("idea_banks")
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "data": data,
+                    }
+                )
+                .execute()
+            )
+
+            if not response.data:
+                logger.error(
+                    "No data returned when saving candidate post to idea banks"
+                )
+                raise Exception("No data returned from idea banks insert")
+            logger.info(
+                f"Saved new candidate post to idea banks for user {user_id}: {response.data}"
+            )
+            candidate_posts[i]["id"] = response.data[0].get("id")
     return candidate_posts
 
 
@@ -143,15 +214,14 @@ def save_suggested_posts_to_contents(
             "platform": "linkedin",
             "status": "suggested",
             "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
             "recommendation_score": post.get("recommendation_score", 50),
             "idea_bank_id": post.get("post_id", None),
             "topics": post.get("topics", []),
         }
-        response = supabase_client.table("contents").insert(data).execute()
-        if response.error:
-            logger.error(f"Error saving suggested post to contents: {response.error}")
-            raise response.error
+        response = supabase_client.table("suggested_posts").insert(data).execute()
+        if not response.data:
+            logger.error(f"Error saving suggested post to contents: {response.data}")
+            raise Exception(f"Failed to save suggested post: {response.data}")
         logger.debug(
             f"Saved suggested post to contents for user {user_id}: {response.data}"
         )
@@ -249,34 +319,49 @@ def generate_suggestions(request):
         # Get writing style
         writing_style = get_writing_style(supabase, user_id)
 
-        # Initialize Substack posts fetcher with Supabase client
-        posts_fetcher = SubstackPostsFetcher(
-            openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+        # Get latest LinkedIn posts from idea banks
+        latest_linkedin_posts = get_latest_linkedin_posts_from_idea_banks(
+            supabase, user_id
         )
 
-        # Generate complete suggestions using the fetcher
-        substack_data = posts_fetcher.generate_suggestions_for_user(
-            user_id,
-            substacks,
-            topics_of_interest,
-            bio,
-        )
+        if len(latest_linkedin_posts) > 0:
+            logger.debug(
+                f"Found {len(latest_linkedin_posts)} latest LinkedIn posts from idea banks for user {user_id} fetched in the last 12 hours"
+            )
+            logger.debug("Therefore, skipping Substack posts fetcher")
+            candidate_posts = latest_linkedin_posts
+        else:
+            logger.debug(
+                "No latest LinkedIn posts found from idea banks for user {user_id} fetched in the last 12 hours"
+            )
+            logger.debug("Therefore, using Substack posts fetcher")
+            # Initialize Substack posts fetcher with Supabase client
+            posts_fetcher = SubstackPostsFetcher(
+                openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+            )
 
-        candidate_posts = substack_data.get("latest_posts", [])
+            # Generate complete suggestions using the fetcher
+            substack_data = posts_fetcher.generate_suggestions_for_user(
+                user_id,
+                substacks,
+                topics_of_interest,
+                bio,
+            )
+            candidate_posts = substack_data.get("latest_posts", [])
 
-        # Save candidate posts to idea banks
-        candidate_posts = save_candidate_posts_to_idea_banks(
-            supabase, user_id, candidate_posts
-        )
+            # Save candidate posts to idea banks
+            candidate_posts = save_candidate_posts_to_idea_banks(
+                supabase, user_id, candidate_posts
+            )
 
         posts_generator = PostsGenerator(
             supabase_client=supabase, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
         )
 
-        number_of_posts_to_generate = os.getenv("NUMBER_OF_POSTS_TO_GENERATE")
+        number_of_posts_to_generate = int(os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "3"))
 
         if len(candidate_posts) < number_of_posts_to_generate:
-            # TODO:  get more content from websites
+            # TODO:  get more content from websites or the evergreen topics
             pass
 
         linkedin_post_strategy = """
@@ -298,6 +383,18 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
             number_of_posts_to_generate,
             linkedin_post_strategy,
         )
+
+        # Save generated posts to file
+        output_file = f"generated_posts_{len(generated_posts)}_posts.json"
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(generated_posts, f, indent=2, ensure_ascii=False)
+
+        # Add the post_id to the generated posts
+        for post in generated_posts:
+            for candidate_post in candidate_posts:
+                if candidate_post.get("url") == post.get("post_url"):
+                    post["post_id"] = candidate_post.get("id")
+                    break
 
         # save the generated posts to the contents table
         saved_posts = save_suggested_posts_to_contents(
