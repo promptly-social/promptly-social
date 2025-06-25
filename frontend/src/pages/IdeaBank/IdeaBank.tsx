@@ -38,7 +38,6 @@ import {
   Edit,
   RefreshCw,
   Filter,
-  X,
 } from "lucide-react";
 import {
   Tooltip,
@@ -86,6 +85,10 @@ const IdeaBankPage: React.FC = () => {
     // By default, show suggested and saved posts
     post_status: ["suggested", "saved"],
   });
+  const [pendingFilters, setPendingFilters] = useState<Filters>({
+    // By default, show suggested and saved posts
+    post_status: ["suggested", "saved"],
+  });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingIdeaBank, setEditingIdeaBank] =
@@ -102,6 +105,7 @@ const IdeaBankPage: React.FC = () => {
 
   useEffect(() => {
     loadIdeaBanks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortConfig, filters]);
 
   const loadIdeaBanks = async () => {
@@ -136,15 +140,29 @@ const IdeaBankPage: React.FC = () => {
     }));
   };
 
-  const handleFilterChange = (newFilters: Partial<Filters>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+  const handlePendingFilterChange = (newFilters: Partial<Filters>) => {
+    setPendingFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  const clearFilters = () => {
-    setFilters({
+  const applyFilters = () => {
+    setFilters(pendingFilters);
+  };
+
+  const clearPendingFilters = () => {
+    const defaultFilters: Filters = {
       // Reset to default: show suggested and saved posts
       post_status: ["suggested", "saved"],
-    });
+    };
+    setPendingFilters(defaultFilters);
+  };
+
+  const clearAllFilters = () => {
+    const defaultFilters: Filters = {
+      // Reset to default: show suggested and saved posts
+      post_status: ["suggested", "saved"],
+    };
+    setPendingFilters(defaultFilters);
+    setFilters(defaultFilters);
   };
 
   const getActiveFilterCount = () => {
@@ -388,8 +406,8 @@ const IdeaBankPage: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Filters</h4>
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              Clear all
+            <Button variant="ghost" size="sm" onClick={clearPendingFilters}>
+              Clear
             </Button>
           </div>
 
@@ -398,12 +416,12 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="ai-filter">AI Suggested</Label>
               <Select
                 value={
-                  filters.ai_suggested === undefined
+                  pendingFilters.ai_suggested === undefined
                     ? "all"
-                    : filters.ai_suggested.toString()
+                    : pendingFilters.ai_suggested.toString()
                 }
                 onValueChange={(value) =>
-                  handleFilterChange({
+                  handlePendingFilterChange({
                     ai_suggested:
                       value === "all" ? undefined : value === "true",
                   })
@@ -424,12 +442,12 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="evergreen-filter">Evergreen Topic</Label>
               <Select
                 value={
-                  filters.evergreen === undefined
+                  pendingFilters.evergreen === undefined
                     ? "all"
-                    : filters.evergreen.toString()
+                    : pendingFilters.evergreen.toString()
                 }
                 onValueChange={(value) =>
-                  handleFilterChange({
+                  handlePendingFilterChange({
                     evergreen: value === "all" ? undefined : value === "true",
                   })
                 }
@@ -449,12 +467,12 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="has-post-filter">Has Post</Label>
               <Select
                 value={
-                  filters.has_post === undefined
+                  pendingFilters.has_post === undefined
                     ? "all"
-                    : filters.has_post.toString()
+                    : pendingFilters.has_post.toString()
                 }
                 onValueChange={(value) =>
-                  handleFilterChange({
+                  handlePendingFilterChange({
                     has_post: value === "all" ? undefined : value === "true",
                   })
                 }
@@ -485,15 +503,18 @@ const IdeaBankPage: React.FC = () => {
                     <input
                       type="checkbox"
                       id={`status-${status}`}
-                      checked={filters.post_status?.includes(status) || false}
+                      checked={
+                        pendingFilters.post_status?.includes(status) || false
+                      }
                       onChange={(e) => {
-                        const currentStatuses = filters.post_status || [];
+                        const currentStatuses =
+                          pendingFilters.post_status || [];
                         if (e.target.checked) {
-                          handleFilterChange({
+                          handlePendingFilterChange({
                             post_status: [...currentStatuses, status],
                           });
                         } else {
-                          handleFilterChange({
+                          handlePendingFilterChange({
                             post_status: currentStatuses.filter(
                               (s) => s !== status
                             ),
@@ -509,6 +530,20 @@ const IdeaBankPage: React.FC = () => {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="flex gap-2 pt-3 border-t">
+            <Button onClick={applyFilters} size="sm" className="flex-1">
+              Apply Filters
+            </Button>
+            <Button
+              onClick={clearAllFilters}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              Clear All
+            </Button>
           </div>
         </div>
       </PopoverContent>
@@ -656,7 +691,7 @@ const IdeaBankPage: React.FC = () => {
                 Manage your content ideas and inspirations
               </p>
             </div>
-            <div className="flex items-center justify-center sm:justify-end gap-2">
+            <div className="flex items-center justify-end sm:justify-end gap-2">
               {refreshButton}
               {filterButton}
               {addButton}

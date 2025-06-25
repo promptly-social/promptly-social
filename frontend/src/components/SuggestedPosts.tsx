@@ -47,6 +47,9 @@ export const SuggestedPosts: React.FC = () => {
   const [undoTimeouts, setUndoTimeouts] = useState<Map<string, NodeJS.Timeout>>(
     new Map()
   );
+  const [toastDismissers, setToastDismissers] = useState<
+    Map<string, () => void>
+  >(new Map());
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -89,31 +92,7 @@ export const SuggestedPosts: React.FC = () => {
   const dismissPost = async (post: SuggestedPost) => {
     setDismissingPostId(post.id);
 
-    // Create undo timeout
-    const timeoutId = setTimeout(async () => {
-      try {
-        await suggestedPostsApi.dismissSuggestedPost(post.id);
-        setPosts(posts.filter((p) => p.id !== post.id));
-        setUndoTimeouts((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(post.id);
-          return newMap;
-        });
-      } catch (error) {
-        console.error("Error dismissing post:", error);
-        toast({
-          title: "Error",
-          description: "Failed to dismiss post. Please try again.",
-          variant: "destructive",
-        });
-      }
-      setDismissingPostId(null);
-    }, 3000);
-
-    // Store timeout for potential undo
-    setUndoTimeouts((prev) => new Map(prev).set(post.id, timeoutId));
-
-    // Show toast with undo option
+    // Show toast with undo option first to get the dismiss function
     const { dismiss: dismissToast } = toast({
       title: "Post dismissed",
       description: (
@@ -143,6 +122,42 @@ export const SuggestedPosts: React.FC = () => {
       ),
       duration: 3100,
     });
+
+    // Store toast dismisser for potential undo and cleanup
+    setToastDismissers((prev) => new Map(prev).set(post.id, dismissToast));
+
+    // Create undo timeout
+    const timeoutId = setTimeout(async () => {
+      try {
+        await suggestedPostsApi.dismissSuggestedPost(post.id);
+        setPosts(posts.filter((p) => p.id !== post.id));
+        setUndoTimeouts((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(post.id);
+          return newMap;
+        });
+        setToastDismissers((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(post.id);
+          return newMap;
+        });
+        // Dismiss the toast when the timeout completes
+        dismissToast();
+      } catch (error) {
+        console.error("Error dismissing post:", error);
+        toast({
+          title: "Error",
+          description: "Failed to dismiss post. Please try again.",
+          variant: "destructive",
+        });
+        // Dismiss the original toast on error as well
+        dismissToast();
+      }
+      setDismissingPostId(null);
+    }, 3000);
+
+    // Store timeout for potential undo
+    setUndoTimeouts((prev) => new Map(prev).set(post.id, timeoutId));
   };
 
   const undoDismiss = (postId: string) => {
@@ -155,6 +170,14 @@ export const SuggestedPosts: React.FC = () => {
         return newMap;
       });
     }
+
+    // Clean up toast dismisser
+    setToastDismissers((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(postId);
+      return newMap;
+    });
+
     setDismissingPostId(null);
     toast({
       title: "Dismiss cancelled",
@@ -658,24 +681,45 @@ export const SuggestedPosts: React.FC = () => {
                       )}
                     </>
                   )}
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => dismissPost(post)}
-                    disabled={dismissingPostId === post.id}
-                  >
-                    {dismissingPostId === post.id ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Dismissing...
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-4 h-4 mr-2" />
-                        Dismiss
-                      </>
-                    )}
-                  </Button>
+                  {post.status === "dismissed" ? (
+                    <Button
+                      onClick={() => saveForLater(post)}
+                      variant="outline"
+                      className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                      disabled={savingPostId === post.id}
+                    >
+                      {savingPostId === post.id ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark className="w-4 h-4 mr-2" />
+                          Save for Later
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => dismissPost(post)}
+                      disabled={dismissingPostId === post.id}
+                    >
+                      {dismissingPostId === post.id ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Dismissing...
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-4 h-4 mr-2" />
+                          Dismiss
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>

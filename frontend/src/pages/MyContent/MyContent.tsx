@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/components/AppLayout";
@@ -75,6 +75,12 @@ const MyContent: React.FC = () => {
     order_by: "created_at",
     order_direction: "desc",
   });
+  const [pendingFilters, setPendingFilters] = useState<Filters>({
+    status: ["suggested", "saved"], // Show suggested and saved by default
+    platform: undefined,
+    order_by: "created_at",
+    order_direction: "desc",
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,17 +122,33 @@ const MyContent: React.FC = () => {
     };
   }, [undoTimeouts]);
 
-  const handleFilterChange = (newFilters: Partial<Filters>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+  const handlePendingFilterChange = (newFilters: Partial<Filters>) => {
+    setPendingFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  const clearFilters = () => {
-    setFilters({
+  const applyFilters = () => {
+    setFilters(pendingFilters);
+  };
+
+  const clearPendingFilters = () => {
+    const defaultFilters: Filters = {
       status: ["suggested", "saved"],
       platform: undefined,
       order_by: "created_at",
       order_direction: "desc",
-    });
+    };
+    setPendingFilters(defaultFilters);
+  };
+
+  const clearAllFilters = () => {
+    const defaultFilters: Filters = {
+      status: ["suggested", "saved"],
+      platform: undefined,
+      order_by: "created_at",
+      order_direction: "desc",
+    };
+    setPendingFilters(defaultFilters);
+    setFilters(defaultFilters);
   };
 
   const getActiveFilterCount = () => {
@@ -603,24 +625,45 @@ const MyContent: React.FC = () => {
                 )}
               </>
             )}
-            <Button
-              variant="outline"
-              className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => dismissPost(post)}
-              disabled={dismissingPostId === post.id}
-            >
-              {dismissingPostId === post.id ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Dismissing...
-                </>
-              ) : (
-                <>
-                  <X className="w-4 h-4 mr-2" />
-                  Dismiss
-                </>
-              )}
-            </Button>
+            {post.status === "dismissed" ? (
+              <Button
+                onClick={() => saveForLater(post)}
+                variant="outline"
+                className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                disabled={savingPostId === post.id}
+              >
+                {savingPostId === post.id ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="w-4 h-4 mr-2" />
+                    Save for Later
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => dismissPost(post)}
+                disabled={dismissingPostId === post.id}
+              >
+                {dismissingPostId === post.id ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Dismissing...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Dismiss
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
@@ -644,8 +687,8 @@ const MyContent: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Filters</h4>
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              Clear all
+            <Button variant="ghost" size="sm" onClick={clearPendingFilters}>
+              Clear
             </Button>
           </div>
 
@@ -665,15 +708,15 @@ const MyContent: React.FC = () => {
                     <input
                       type="checkbox"
                       id={`status-${status}`}
-                      checked={filters.status?.includes(status) || false}
+                      checked={pendingFilters.status?.includes(status) || false}
                       onChange={(e) => {
-                        const currentStatuses = filters.status || [];
+                        const currentStatuses = pendingFilters.status || [];
                         if (e.target.checked) {
-                          handleFilterChange({
+                          handlePendingFilterChange({
                             status: [...currentStatuses, status],
                           });
                         } else {
-                          handleFilterChange({
+                          handlePendingFilterChange({
                             status: currentStatuses.filter((s) => s !== status),
                           });
                         }
@@ -687,6 +730,20 @@ const MyContent: React.FC = () => {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="flex gap-2 pt-3 border-t">
+            <Button onClick={applyFilters} size="sm" className="flex-1">
+              Apply Filters
+            </Button>
+            <Button
+              onClick={clearAllFilters}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              Clear All
+            </Button>
           </div>
         </div>
       </PopoverContent>
