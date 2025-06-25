@@ -380,6 +380,7 @@ class TestProfileEndpoints:
                 response = test_client.post(
                     "/api/v1/profile/analyze-substack",
                     headers={"Authorization": "Bearer test_token"},
+                    json={"content_to_analyze": ["bio", "interests"]},
                 )
 
                 assert response.status_code == status.HTTP_200_OK
@@ -401,6 +402,7 @@ class TestProfileEndpoints:
             response = test_client.post(
                 "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests"]},
             )
 
             assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -434,6 +436,7 @@ class TestProfileEndpoints:
             response = test_client.post(
                 "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests"]},
             )
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
             assert "GCP function failed" in response.json()["detail"]
@@ -467,6 +470,7 @@ class TestProfileEndpoints:
                     response = test_client.post(
                         "/api/v1/profile/analyze-substack",
                         headers={"Authorization": "Bearer test_token"},
+                        json={"content_to_analyze": ["bio", "interests"]},
                     )
 
                     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -518,6 +522,7 @@ class TestProfileEndpoints:
             response = test_client.post(
                 "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests"]},
             )
             assert response.status_code == status.HTTP_400_BAD_REQUEST
             assert (

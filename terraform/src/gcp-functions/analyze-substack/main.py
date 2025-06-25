@@ -253,7 +253,7 @@ def analyze_substack(request):
         "user_id": "uuid",
         "platform": "substack" | "linkedin" | "import",
         "platform_username": "username" (for Substack) or "account_id" (for LinkedIn),
-        "content_to_analyze": ["bio", "interests", "writing_style"]
+        "content_to_analyze": ["bio", "interests", "substacks", "writing_style"]
     }
     """
     # Handle CORS

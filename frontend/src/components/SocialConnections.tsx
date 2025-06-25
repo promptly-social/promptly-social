@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { Link2, Users, FileText } from "lucide-react";
 import { SubstackConnection } from "./SubstackConnection";
+import { AnalysisOptionsModal } from "./AnalysisOptionsModal";
 
 type SocialConnection = ApiSocialConnection;
 
@@ -22,6 +23,10 @@ export const SocialConnections: React.FC = () => {
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<"linkedin" | null>(
+    null
+  );
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -65,52 +70,35 @@ export const SocialConnections: React.FC = () => {
     }
   };
 
-  const disconnectPlatform = async (platform: "linkedin") => {
-    setIsLoading(true);
-    try {
-      await profileApi.updateSocialConnection(platform, {
-        is_active: false,
-      });
-
+  const openAnalysisModal = (platform: "linkedin") => {
+    const connection = getConnection(platform);
+    if (!connection) {
       toast({
-        title: "Disconnected",
-        description: `Successfully disconnected from ${platform}`,
-      });
-
-      fetchConnections();
-    } catch (error) {
-      console.error("Error disconnecting platform:", error);
-      toast({
-        title: "Disconnection Error",
-        description: `Failed to disconnect from ${platform}`,
+        title: "Error",
+        description: `Please connect to ${platform} first`,
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    setSelectedPlatform(platform);
+    setAnalysisModalOpen(true);
   };
 
-  const analyzePlatform = async (platform: "linkedin") => {
+  const analyzePlatform = async (
+    platform: "linkedin",
+    contentToAnalyze: string[]
+  ) => {
     if (platform === "linkedin") {
-      const connection = getConnection("linkedin");
-      if (!connection) {
-        toast({
-          title: "Error",
-          description: "Please connect to LinkedIn first",
-          variant: "destructive",
-        });
-        return;
-      }
-
       setIsAnalyzing(true);
       try {
         // Trigger the analysis
-        const result = await profileApi.runLinkedInAnalysis();
+        const result = await profileApi.runLinkedInAnalysis(contentToAnalyze);
 
         if (result.is_analyzing) {
           toast({
             title: "Analysis Started",
-            description: "Analyzing your LinkedIn bio and interests...",
+            description: "Analyzing your LinkedIn content...",
           });
         } else if (result.analysis_completed_at) {
           toast({
@@ -134,6 +122,12 @@ export const SocialConnections: React.FC = () => {
       } finally {
         setIsAnalyzing(false);
       }
+    }
+  };
+
+  const handleAnalysisModalAnalyze = (selectedOptions: string[]) => {
+    if (selectedPlatform) {
+      analyzePlatform(selectedPlatform, selectedOptions);
     }
   };
 
@@ -207,7 +201,7 @@ export const SocialConnections: React.FC = () => {
               {platform.connection ? (
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => analyzePlatform(platform.key)}
+                    onClick={() => openAnalysisModal(platform.key)}
                     size="sm"
                     disabled={
                       isLoading ||
@@ -240,6 +234,22 @@ export const SocialConnections: React.FC = () => {
           </div>
         ))}
       </CardContent>
+
+      <AnalysisOptionsModal
+        isOpen={analysisModalOpen}
+        onClose={() => setAnalysisModalOpen(false)}
+        onAnalyze={handleAnalysisModalAnalyze}
+        platform={
+          selectedPlatform?.charAt(0).toUpperCase() +
+            selectedPlatform?.slice(1) || ""
+        }
+        isAnalyzing={isAnalyzing}
+        hasExistingAnalysis={
+          selectedPlatform
+            ? getConnection(selectedPlatform)?.analysis_status === "completed"
+            : false
+        }
+      />
     </Card>
   );
 };

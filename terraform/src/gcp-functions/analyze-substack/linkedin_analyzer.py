@@ -84,7 +84,7 @@ class LinkedInAnalyzer:
                 topics = self._analyze_topics(
                     user_linkedin_posts + interaction_post_texts
                 )
-                websites = []  # Empty for LinkedIn as requested
+                websites = []  # Empty for LinkedIn
 
             bio = current_bio
             if "bio" in content_to_analyze:

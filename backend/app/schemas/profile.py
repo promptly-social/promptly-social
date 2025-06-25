@@ -114,6 +114,12 @@ class WritingStyleAnalysisResponse(WritingStyleAnalysisBase):
     updated_at: datetime
 
 
+class AnalysisRequest(BaseModel):
+    """Schema for analysis request."""
+
+    content_to_analyze: List[str] = ["bio", "writing_style"]
+
+
 class SubstackAnalysisResponse(BaseModel):
     """Schema for Substack analysis response."""
 
