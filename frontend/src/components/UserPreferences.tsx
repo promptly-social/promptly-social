@@ -186,7 +186,7 @@ export const UserPreferences: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+        <CardTitle className="flex items-center gap-2 text-2xl">
           <Settings className="w-5 h-5" />
           Content Preferences
         </CardTitle>

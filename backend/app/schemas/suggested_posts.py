@@ -56,6 +56,7 @@ class SuggestedPostResponse(SuggestedPostBase):
     feedback_comment: Optional[str] = None
     feedback_at: Optional[datetime] = None
     created_at: datetime
+    updated_at: datetime
 
 
 class SuggestedPostListResponse(BaseModel):

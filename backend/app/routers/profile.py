@@ -18,6 +18,7 @@ from app.schemas.profile import (
     WritingStyleAnalysisUpdate,
     LinkedInAuthResponse,
     LinkedInShareRequest,
+    AnalysisRequest,
 )
 from app.services.profile import ProfileService
 
@@ -474,6 +475,7 @@ async def get_substack_analysis(
 
 @router.post("/analyze-substack", response_model=SubstackAnalysisResponse)
 async def run_substack_analysis(
+    request: AnalysisRequest,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -481,7 +483,7 @@ async def run_substack_analysis(
     try:
         profile_service = ProfileService(db)
         connection = await profile_service.analyze_substack(
-            current_user.id, ["bio", "interests"]
+            current_user.id, request.content_to_analyze
         )
 
         if not connection:
@@ -512,6 +514,7 @@ async def run_substack_analysis(
     "/analyze-linkedin", response_model=SubstackAnalysisResponse
 )  # Using SubstackAnalysisResponse for now, TODO: Create LinkedInAnalysisResponse
 async def run_linkedin_analysis(
+    request: AnalysisRequest,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -519,7 +522,7 @@ async def run_linkedin_analysis(
     try:
         profile_service = ProfileService(db)
         connection = await profile_service.analyze_linkedin(
-            current_user.id, ["bio", "writing_style"]
+            current_user.id, request.content_to_analyze
         )
 
         if not connection:

@@ -8,6 +8,7 @@ import {
 } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { FileText, Check, X, Edit, Trash2 } from "lucide-react";
+import { AnalysisOptionsModal } from "./AnalysisOptionsModal";
 
 type SocialConnection = ApiSocialConnection;
 
@@ -17,6 +18,7 @@ export const SubstackConnection: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [handle, setHandle] = useState("");
+  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -119,7 +121,7 @@ export const SubstackConnection: React.FC = () => {
     }
   };
 
-  const handleAnalyze = async () => {
+  const openAnalysisModal = () => {
     if (!connection?.platform_username) {
       toast({
         title: "Error",
@@ -129,10 +131,14 @@ export const SubstackConnection: React.FC = () => {
       return;
     }
 
+    setAnalysisModalOpen(true);
+  };
+
+  const handleAnalyze = async (contentToAnalyze: string[]) => {
     setIsAnalyzing(true);
     try {
       // Trigger the analysis
-      const result = await profileApi.runSubstackAnalysis();
+      const result = await profileApi.runSubstackAnalysis(contentToAnalyze);
 
       if (result.is_analyzing) {
         toast({
@@ -174,7 +180,7 @@ export const SubstackConnection: React.FC = () => {
         </div>
 
         <Button
-          onClick={handleAnalyze}
+          onClick={openAnalysisModal}
           size="sm"
           disabled={
             isLoading ||
@@ -280,6 +286,15 @@ export const SubstackConnection: React.FC = () => {
           </>
         )}
       </div>
+
+      <AnalysisOptionsModal
+        isOpen={analysisModalOpen}
+        onClose={() => setAnalysisModalOpen(false)}
+        onAnalyze={handleAnalyze}
+        platform="Substack"
+        isAnalyzing={isAnalyzing}
+        hasExistingAnalysis={connection?.analysis_status === "completed"}
+      />
     </div>
   );
 };

@@ -20,10 +20,13 @@ class UserPreferencesCreate(UserPreferencesBase):
     pass
 
 
-class UserPreferencesUpdate(UserPreferencesBase):
+class UserPreferencesUpdate(BaseModel):
     """Schema for updating user preferences."""
 
-    pass
+    topics_of_interest: Optional[List[str]] = None
+    websites: Optional[List[str]] = None
+    substacks: Optional[List[str]] = None
+    bio: Optional[str] = None
 
 
 class UserPreferencesResponse(UserPreferencesBase):
@@ -109,6 +112,12 @@ class WritingStyleAnalysisResponse(WritingStyleAnalysisBase):
     last_analyzed_at: datetime
     created_at: datetime
     updated_at: datetime
+
+
+class AnalysisRequest(BaseModel):
+    """Schema for analysis request."""
+
+    content_to_analyze: List[str] = ["bio", "writing_style"]
 
 
 class SubstackAnalysisResponse(BaseModel):

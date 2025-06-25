@@ -4,6 +4,7 @@ import { WritingAnalysis } from "@/components/WritingAnalysis";
 import { UserPreferences } from "@/components/UserPreferences";
 import { UserBio } from "@/components/UserBio";
 import AppLayout from "@/components/AppLayout";
+import { UnipileLinkedInConnection } from "@/components/UnipileLinkedInConnection";
 
 const Profile: React.FC = () => {
   return (
@@ -18,17 +19,15 @@ const Profile: React.FC = () => {
           </div>
 
           <div className="space-y-6 sm:space-y-8">
-            {/* User Bio */}
-            <UserBio />
+            <UnipileLinkedInConnection />
 
-            {/* User Preferences */}
-            <UserPreferences />
-
-            {/* Social Connections */}
             <SocialConnections />
 
-            {/* Consolidated Platform Analysis */}
+            <UserBio />
+
             <WritingAnalysis />
+
+            <UserPreferences />
           </div>
         </div>
       </main>

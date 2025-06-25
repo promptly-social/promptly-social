@@ -98,7 +98,7 @@ class TestProfileService:
         assert preferences.websites == ["example.com", "test.com"]
         assert preferences.bio == "this is the user's bio"
 
-        # Update preferences
+        # Update preferences (partial update should preserve bio)
         update_data = UserPreferencesUpdate(
             topics_of_interest=["AI", "Technology", "Business"]
         )
@@ -108,6 +108,8 @@ class TestProfileService:
 
         assert len(updated.topics_of_interest) == 3
         assert "Business" in updated.topics_of_interest
+        # Bio should be preserved from the original creation
+        assert updated.bio == "this is the user's bio"
 
     @pytest.mark.asyncio
     async def test_social_connections_operations(self, profile_service, test_user):
@@ -135,6 +137,70 @@ class TestProfileService:
         # Get all connections
         all_connections = await profile_service.get_social_connections(test_user.id)
         assert len(all_connections) == 1
+
+    @pytest.mark.asyncio
+    async def test_disconnect_social_connection(self, profile_service, test_user):
+        """Test disconnecting a social connection."""
+        # Create a connection first
+        connection_data = SocialConnectionUpdate(
+            platform_username="testuser",
+            is_active=True,
+            connection_data={"access_token": "test_token", "auth_method": "native"},
+        )
+        connection = await profile_service.upsert_social_connection(
+            test_user.id, "linkedin", connection_data
+        )
+        assert connection.is_active is True
+        assert connection.connection_data is not None
+
+        # Disconnect the connection
+        disconnect_data = SocialConnectionUpdate(is_active=False)
+        disconnected = await profile_service.upsert_social_connection(
+            test_user.id, "linkedin", disconnect_data
+        )
+
+        assert disconnected.is_active is False
+        assert disconnected.connection_data is None
+        assert disconnected.platform_username is None
+
+    @pytest.mark.asyncio
+    async def test_disconnect_unipile_connection(self, profile_service, test_user):
+        """Test disconnecting a Unipile connection."""
+        # Create a Unipile connection first
+        connection_data = SocialConnectionUpdate(
+            platform_username="testuser",
+            is_active=True,
+            connection_data={
+                "access_token": "test_token",
+                "auth_method": "unipile",
+                "account_id": "test_account_id",
+            },
+        )
+        connection = await profile_service.upsert_social_connection(
+            test_user.id, "linkedin", connection_data
+        )
+        assert connection.is_active is True
+        assert connection.connection_data is not None
+
+        # Mock the Unipile API call
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = (
+                mock_client.return_value.__aenter__.return_value.delete.return_value
+            )
+            mock_response.raise_for_status.return_value = None
+
+            # Disconnect the connection
+            disconnect_data = SocialConnectionUpdate(is_active=False)
+            disconnected = await profile_service.upsert_social_connection(
+                test_user.id, "linkedin", disconnect_data
+            )
+
+            assert disconnected.is_active is False
+            assert disconnected.connection_data is None
+            assert disconnected.platform_username is None
+
+            # Verify the Unipile API was called
+            mock_client.return_value.__aenter__.return_value.delete.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_writing_style_analysis_operations(self, profile_service, test_user):
@@ -314,6 +380,7 @@ class TestProfileEndpoints:
                 response = test_client.post(
                     "/api/v1/profile/analyze-substack",
                     headers={"Authorization": "Bearer test_token"},
+                    json={"content_to_analyze": ["bio", "interests"]},
                 )
 
                 assert response.status_code == status.HTTP_200_OK
@@ -335,6 +402,7 @@ class TestProfileEndpoints:
             response = test_client.post(
                 "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests"]},
             )
 
             assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -368,6 +436,7 @@ class TestProfileEndpoints:
             response = test_client.post(
                 "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests"]},
             )
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
             assert "GCP function failed" in response.json()["detail"]
@@ -401,6 +470,7 @@ class TestProfileEndpoints:
                     response = test_client.post(
                         "/api/v1/profile/analyze-substack",
                         headers={"Authorization": "Bearer test_token"},
+                        json={"content_to_analyze": ["bio", "interests"]},
                     )
 
                     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -452,12 +522,68 @@ class TestProfileEndpoints:
             response = test_client.post(
                 "/api/v1/profile/analyze-substack",
                 headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests"]},
             )
             assert response.status_code == status.HTTP_400_BAD_REQUEST
             assert (
                 "substack connection has no platform_username configured"
                 in response.json()["detail"]
             )
+
+    def test_run_linkedin_analysis_endpoint(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-linkedin endpoint."""
+        with (
+            patch(
+                "app.services.profile.ProfileService.analyze_linkedin"
+            ) as mock_service,
+            patch("google.oauth2.id_token.fetch_id_token") as mock_fetch_token,
+        ):
+            mock_service.return_value = SocialConnection(
+                id=uuid4(),
+                user_id=mock_current_user.id,
+                platform="linkedin",
+                platform_username="testuser",
+                is_active=True,
+                analysis_status="in_progress",
+                analysis_started_at=datetime.now(timezone.utc),
+            )
+            mock_fetch_token.return_value = "mock_token"
+            with patch("app.core.config.settings") as mock_settings:
+                mock_settings.gcp_analysis_function_url = "test-url"
+
+                response = test_client.post(
+                    "/api/v1/profile/analyze-linkedin",
+                    headers={"Authorization": "Bearer test_token"},
+                    json={"content_to_analyze": ["bio", "interests", "writing_style"]},
+                )
+
+                assert response.status_code == status.HTTP_200_OK
+                data = response.json()
+                assert data["is_analyzing"] is True
+                mock_service.assert_called_once_with(
+                    mock_current_user.id, ["bio", "interests", "writing_style"]
+                )
+
+    def test_run_linkedin_analysis_no_connection(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-linkedin when no LinkedIn connection exists."""
+        with patch(
+            "app.services.profile.ProfileService.analyze_linkedin"
+        ) as mock_service:
+            mock_service.return_value = None
+
+            response = test_client.post(
+                "/api/v1/profile/analyze-linkedin",
+                headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests", "writing_style"]},
+            )
+
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+            data = response.json()
+            assert "LinkedIn connection not found" in data["detail"]
 
     def test_unauthorized_access(self, test_client):
         """Test unauthorized access to protected endpoints."""

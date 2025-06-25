@@ -28,7 +28,7 @@ router = APIRouter(prefix="/suggested-posts", tags=["suggested-posts"])
 @router.get("/", response_model=SuggestedPostListResponse)
 async def get_suggested_posts(
     platform: Optional[str] = Query(None),
-    status: Optional[List[str]] = Query(None),
+    post_status: Optional[List[str]] = Query(None, alias="status"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     order_by: str = Query("created_at"),
@@ -42,7 +42,7 @@ async def get_suggested_posts(
         result = await service.get_suggested_posts_list(
             user_id=current_user.id,
             platform=platform,
-            status=status,
+            status=post_status,
             page=page,
             size=size,
             order_by=order_by,

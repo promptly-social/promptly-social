@@ -170,9 +170,10 @@ export const profileApi = {
     return apiClient.request<SubstackAnalysisResponse>('/profile/substack-analysis');
   },
 
-  async runSubstackAnalysis(): Promise<SubstackAnalysisResponse> {
+  async runSubstackAnalysis(contentToAnalyze: string[]): Promise<SubstackAnalysisResponse> {
     return apiClient.request<SubstackAnalysisResponse>('/profile/analyze-substack', {
       method: 'POST',
+      body: JSON.stringify({ content_to_analyze: contentToAnalyze }),
     });
   },
 
@@ -205,9 +206,10 @@ export const profileApi = {
   },
 
   // LinkedIn Analysis
-  async runLinkedInAnalysis(): Promise<SubstackAnalysisResponse> {
+  async runLinkedInAnalysis(contentToAnalyze: string[]): Promise<SubstackAnalysisResponse> {
     return apiClient.request<SubstackAnalysisResponse>('/profile/analyze-linkedin', {
       method: 'POST',
+      body: JSON.stringify({ content_to_analyze: contentToAnalyze }),
     });
   },
 }; 

@@ -20,6 +20,7 @@ import {
   Settings,
   List,
   Lightbulb,
+  Calendar,
 } from "lucide-react";
 
 const menuItems = [
@@ -32,6 +33,11 @@ const menuItems = [
     title: "My Content",
     url: "/my-content",
     icon: List,
+  },
+  {
+    title: "Posting Schedule",
+    url: "/posting-schedule",
+    icon: Calendar,
   },
   {
     title: "Idea Bank",

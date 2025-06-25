@@ -36,7 +36,7 @@ class SubstackAnalyzer:
         Args:
             platform_username: The Substack username (e.g., 'username' for username.substack.com)
             current_bio: The current bio of the user
-            content_to_analyze: A list of content to analyze, such as bio, interests, writing_style, etc.
+            content_to_analyze: A list of content to analyze, such as bio, topics, substacks, writing_style, etc.
 
         Returns:
             Complete analysis results dictionary
@@ -58,8 +58,8 @@ class SubstackAnalyzer:
             topics = []
             substacks = []
 
-            if "interests" in content_to_analyze:
-                # Step 1: get a list of subscriptions, and persist them to the database
+            if "interests" in content_to_analyze or "substacks" in content_to_analyze:
+                # Step 1: get a list of subscriptions
                 subscriptions = self.user.get_subscriptions()
                 substacks = [
                     f"https://{subscription['domain']}"
@@ -78,7 +78,16 @@ class SubstackAnalyzer:
                     subscription_posts, min(len(subscription_posts), 100)
                 )
 
-                topics = self._analyze_topics(subscription_posts_sample)
+                topics = (
+                    self._analyze_topics(subscription_posts_sample)
+                    if "interests" in content_to_analyze
+                    else []
+                )
+                substacks = (
+                    substacks  # Return the full list of subscribed substacks
+                    if "substacks" in content_to_analyze
+                    else []
+                )
 
             bio = current_bio
             if "bio" in content_to_analyze:
