@@ -530,6 +530,61 @@ class TestProfileEndpoints:
                 in response.json()["detail"]
             )
 
+    def test_run_linkedin_analysis_endpoint(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-linkedin endpoint."""
+        with (
+            patch(
+                "app.services.profile.ProfileService.analyze_linkedin"
+            ) as mock_service,
+            patch("google.oauth2.id_token.fetch_id_token") as mock_fetch_token,
+        ):
+            mock_service.return_value = SocialConnection(
+                id=uuid4(),
+                user_id=mock_current_user.id,
+                platform="linkedin",
+                platform_username="testuser",
+                is_active=True,
+                analysis_status="in_progress",
+                analysis_started_at=datetime.now(timezone.utc),
+            )
+            mock_fetch_token.return_value = "mock_token"
+            with patch("app.core.config.settings") as mock_settings:
+                mock_settings.gcp_analysis_function_url = "test-url"
+
+                response = test_client.post(
+                    "/api/v1/profile/analyze-linkedin",
+                    headers={"Authorization": "Bearer test_token"},
+                    json={"content_to_analyze": ["bio", "interests", "writing_style"]},
+                )
+
+                assert response.status_code == status.HTTP_200_OK
+                data = response.json()
+                assert data["is_analyzing"] is True
+                mock_service.assert_called_once_with(
+                    mock_current_user.id, ["bio", "interests", "writing_style"]
+                )
+
+    def test_run_linkedin_analysis_no_connection(
+        self, test_client, mock_current_user, mock_db
+    ):
+        """Test POST /profile/analyze-linkedin when no LinkedIn connection exists."""
+        with patch(
+            "app.services.profile.ProfileService.analyze_linkedin"
+        ) as mock_service:
+            mock_service.return_value = None
+
+            response = test_client.post(
+                "/api/v1/profile/analyze-linkedin",
+                headers={"Authorization": "Bearer test_token"},
+                json={"content_to_analyze": ["bio", "interests", "writing_style"]},
+            )
+
+            assert response.status_code == status.HTTP_404_NOT_FOUND
+            data = response.json()
+            assert "LinkedIn connection not found" in data["detail"]
+
     def test_unauthorized_access(self, test_client):
         """Test unauthorized access to protected endpoints."""
         response = test_client.get("/api/v1/profile/preferences")
