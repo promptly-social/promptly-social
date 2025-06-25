@@ -161,21 +161,29 @@ async def update_analysis_results(
             else:
                 logger.error(f"Failed to create user preferences for user {user_id}")
 
-        # Store writing style analysis
-        writing_style_data = {
-            "user_id": user_id,
-            "source": platform,  # Use the actual platform (substack, linkedin, or import)
-            "analysis_data": analysis_result["writing_style"],
-            "last_analyzed_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        if analysis_result.get("writing_style"):
+            # Store writing style analysis
+            writing_style_data = {
+                "user_id": user_id,
+                "source": platform,  # Use the actual platform (substack, linkedin, or import)
+                "analysis_data": analysis_result["writing_style"],
+                "last_analyzed_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
 
-        # Upsert writing style analysis using the unique constraint on (user_id)
-        style_response = (
-            supabase.table("writing_style_analysis")
-            .upsert(writing_style_data, on_conflict="user_id")
-            .execute()
-        )
+            # Upsert writing style analysis using the unique constraint on (user_id)
+            style_response = (
+                supabase.table("writing_style_analysis")
+                .upsert(writing_style_data, on_conflict="user_id")
+                .execute()
+            )
+
+            if style_response.data:
+                logger.info(f"Updated writing style analysis for user {user_id}")
+            else:
+                logger.warning(
+                    f"Failed to update writing style analysis for user {user_id}"
+                )
 
         # Update social connection with results and completion timestamp (only for platforms that use connections)
         if platform != "import":
@@ -198,13 +206,6 @@ async def update_analysis_results(
                 logger.error(f"Failed to update social connection for user {user_id}")
         else:
             logger.info("Skipped social connection update for import platform")
-
-        if style_response.data:
-            logger.info(f"Updated writing style analysis for user {user_id}")
-        else:
-            logger.warning(
-                f"Failed to update writing style analysis for user {user_id}"
-            )
 
     except Exception as e:
         logger.error(f"Error updating analysis results: {e}")
