@@ -296,7 +296,8 @@ export const SuggestedPosts: React.FC = () => {
               Suggested Posts
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              AI-curated content based on your writing style and interests
+              AI-suggested posts based on your writing style, interests, and
+              ideas.
             </p>
           </div>
         </div>
@@ -327,7 +328,8 @@ export const SuggestedPosts: React.FC = () => {
             Suggested Posts
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            AI-curated content based on your writing style and interests
+            AI-suggested posts based on your writing style, interests, and
+            ideas.
           </p>
         </div>
         <Button

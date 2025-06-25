@@ -13,7 +13,7 @@ import {
   type SocialConnection as ApiSocialConnection,
 } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link2, Unlink, Users, FileText } from "lucide-react";
+import { Link2, Users, FileText } from "lucide-react";
 import { SubstackConnection } from "./SubstackConnection";
 
 type SocialConnection = ApiSocialConnection;
@@ -224,15 +224,6 @@ export const SocialConnections: React.FC = () => {
                       : platform.connection?.analysis_status === "error"
                       ? "Retry"
                       : "Analyze"}
-                  </Button>
-                  <Button
-                    onClick={() => disconnectPlatform(platform.key)}
-                    variant="outline"
-                    size="sm"
-                    disabled={isLoading}
-                  >
-                    <Unlink className="w-4 h-4 mr-2" />
-                    Disconnect
                   </Button>
                 </div>
               ) : (

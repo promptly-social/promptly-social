@@ -137,6 +137,70 @@ class TestProfileService:
         assert len(all_connections) == 1
 
     @pytest.mark.asyncio
+    async def test_disconnect_social_connection(self, profile_service, test_user):
+        """Test disconnecting a social connection."""
+        # Create a connection first
+        connection_data = SocialConnectionUpdate(
+            platform_username="testuser",
+            is_active=True,
+            connection_data={"access_token": "test_token", "auth_method": "native"},
+        )
+        connection = await profile_service.upsert_social_connection(
+            test_user.id, "linkedin", connection_data
+        )
+        assert connection.is_active is True
+        assert connection.connection_data is not None
+
+        # Disconnect the connection
+        disconnect_data = SocialConnectionUpdate(is_active=False)
+        disconnected = await profile_service.upsert_social_connection(
+            test_user.id, "linkedin", disconnect_data
+        )
+
+        assert disconnected.is_active is False
+        assert disconnected.connection_data is None
+        assert disconnected.platform_username is None
+
+    @pytest.mark.asyncio
+    async def test_disconnect_unipile_connection(self, profile_service, test_user):
+        """Test disconnecting a Unipile connection."""
+        # Create a Unipile connection first
+        connection_data = SocialConnectionUpdate(
+            platform_username="testuser",
+            is_active=True,
+            connection_data={
+                "access_token": "test_token",
+                "auth_method": "unipile",
+                "account_id": "test_account_id",
+            },
+        )
+        connection = await profile_service.upsert_social_connection(
+            test_user.id, "linkedin", connection_data
+        )
+        assert connection.is_active is True
+        assert connection.connection_data is not None
+
+        # Mock the Unipile API call
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = (
+                mock_client.return_value.__aenter__.return_value.delete.return_value
+            )
+            mock_response.raise_for_status.return_value = None
+
+            # Disconnect the connection
+            disconnect_data = SocialConnectionUpdate(is_active=False)
+            disconnected = await profile_service.upsert_social_connection(
+                test_user.id, "linkedin", disconnect_data
+            )
+
+            assert disconnected.is_active is False
+            assert disconnected.connection_data is None
+            assert disconnected.platform_username is None
+
+            # Verify the Unipile API was called
+            mock_client.return_value.__aenter__.return_value.delete.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_writing_style_analysis_operations(self, profile_service, test_user):
         """Test writing style analysis CRUD operations."""
         # Create analysis - updated to match service signature

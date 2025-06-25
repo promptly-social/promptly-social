@@ -39,6 +39,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ideaBankApi,
   type IdeaBank,
   type IdeaBankCreate,
@@ -468,7 +474,7 @@ const IdeaBankPage: React.FC = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(ideaBank)}
-                        className="text-blue-600 hover:text-blue-800 p-2 min-w-[44px] min-h-[44px]"
+                        className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -476,7 +482,7 @@ const IdeaBankPage: React.FC = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(ideaBank.id)}
-                        className="text-red-600 hover:text-red-800 p-2 min-w-[44px] min-h-[44px]"
+                        className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -547,13 +553,28 @@ const IdeaBankPage: React.FC = () => {
                     <SortButton column="type">Type</SortButton>
                   </TableHead>
                   <TableHead className="min-w-[200px]">
-                    <SortButton column="value">Value</SortButton>
+                    <SortButton column="value">Content</SortButton>
                   </TableHead>
                   <TableHead className="w-[150px]">
                     <SortButton column="updated_at">Last Updated</SortButton>
                   </TableHead>
                   <TableHead className="w-[100px]">
-                    <SortButton column="evergreen">Evergreen</SortButton>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <SortButton column="evergreen">
+                              Evergreen Topic
+                            </SortButton>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            Topics that are good anytime and not time-sensitive
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableHead>
                   <TableHead className="w-[120px]">Last Post Used</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
@@ -633,7 +654,7 @@ const IdeaBankPage: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(ideaBank)}
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -641,7 +662,7 @@ const IdeaBankPage: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(ideaBank.id)}
-                            className="text-red-600 hover:text-red-800"
+                            className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

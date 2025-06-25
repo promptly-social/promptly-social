@@ -134,6 +134,12 @@ class ProfileService:
             # Check if connection exists
             existing = await self.get_social_connection_for_analysis(user_id, platform)
 
+            # Handle disconnect case
+            if connection_data.is_active is False and existing:
+                return await self._disconnect_social_connection(
+                    user_id, platform, existing
+                )
+
             if existing:
                 # Update existing connection
                 update_dict = connection_data.model_dump(exclude_unset=True)
@@ -165,6 +171,76 @@ class ProfileService:
                 f"Error upserting social connection {platform} for {user_id}: {e}"
             )
             raise
+
+    async def _disconnect_social_connection(
+        self, user_id: UUID, platform: str, connection: SocialConnection
+    ) -> SocialConnection:
+        """Handle disconnection of a social connection."""
+        try:
+            # Check if this is a Unipile connection and disconnect from Unipile
+            if (
+                connection.connection_data
+                and connection.connection_data.get("auth_method") == "unipile"
+                and platform == "linkedin"
+            ):
+                await self._disconnect_unipile_account(connection)
+
+            # Clear connection data and set inactive
+            connection.is_active = False
+            connection.connection_data = None
+            connection.platform_username = None
+            connection.updated_at = datetime.now(timezone.utc)
+
+            await self.db.commit()
+            await self.db.refresh(connection)
+            logger.info(f"Disconnected social connection {platform} for {user_id}")
+            return connection
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(
+                f"Error disconnecting social connection {platform} for {user_id}: {e}"
+            )
+            raise
+
+    async def _disconnect_unipile_account(self, connection: SocialConnection) -> None:
+        """Disconnect a Unipile account via API."""
+        try:
+            account_id = connection.connection_data.get("account_id")
+            if not account_id:
+                logger.warning(
+                    "No account_id found in connection data, skipping Unipile disconnect"
+                )
+                return
+
+            if not settings.unipile_dsn or not settings.unipile_access_token:
+                logger.warning(
+                    "Unipile credentials not configured, skipping Unipile disconnect"
+                )
+                return
+
+            headers = {
+                "X-API-KEY": settings.unipile_access_token,
+                "Content-Type": "application/json",
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"https://{settings.unipile_dsn}/api/v1/accounts/{account_id}",
+                    headers=headers,
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                logger.info(f"Successfully disconnected Unipile account {account_id}")
+
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Unipile disconnect API error: {e.response.status_code} - {e.response.text}"
+            )
+            # Don't raise here - we still want to disconnect locally even if Unipile fails
+        except Exception as e:
+            logger.error(f"Error disconnecting Unipile account: {e}")
+            # Don't raise here - we still want to disconnect locally even if Unipile fails
 
     # LinkedIn Operations
     def create_linkedin_authorization_url(self, state: str) -> str:
@@ -740,9 +816,8 @@ class ProfileService:
                 )
             elif platform == "linkedin":
                 # For LinkedIn, we need the account_id from connection_data
-                if (
-                    not connection.connection_data
-                    or not connection.connection_data.get("account_id")
+                if not connection.connection_data or not connection.connection_data.get(
+                    "account_id"
                 ):
                     raise ValueError(
                         f"{platform} connection has no account_id configured"

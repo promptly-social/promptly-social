@@ -8,13 +8,29 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Alert, AlertDescription } from "./ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 import { useToast } from "./ui/use-toast";
 import {
   profileApi,
   LinkedInAuthInfo,
   SocialConnection,
 } from "../lib/profile-api";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Linkedin,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 
 interface UnipileLinkedInConnectionProps {
   onConnectionUpdate?: (connection: SocialConnection | null) => void;
@@ -36,6 +52,7 @@ export const UnipileLinkedInConnection: React.FC<
   const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pollingAttempts, setPollingAttempts] = useState(0);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const { toast } = useToast();
 
   const maxPollingAttempts = 30; // Poll for up to 5 minutes (10s intervals)
@@ -197,8 +214,13 @@ export const UnipileLinkedInConnection: React.FC<
     setTimeout(pollForConnection, 2000);
   };
 
-  const handleDisconnect = async () => {
+  const handleDisconnectClick = () => {
+    setShowDisconnectDialog(true);
+  };
+
+  const handleDisconnectConfirm = async () => {
     try {
+      setShowDisconnectDialog(false);
       // Update connection to inactive
       await profileApi.updateSocialConnection("linkedin", { is_active: false });
       setConnection(null);
@@ -238,8 +260,12 @@ export const UnipileLinkedInConnection: React.FC<
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
+          {isConnected ? (
+            <CheckCircle className="h-5 w-5 text-green-500" />
+          ) : (
+            <XCircle className="h-5 w-5" />
+          )}
           LinkedIn Connection
-          {isConnected && <CheckCircle className="h-5 w-5 text-green-500" />}
         </CardTitle>
         <CardDescription>
           Connect your LinkedIn account to enable posting and content analysis.
@@ -283,59 +309,80 @@ export const UnipileLinkedInConnection: React.FC<
         )}
 
         {isConnected ? (
-          <div className="space-y-3">
-            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <span className="text-sm font-medium text-green-800">
-                  LinkedIn Connected
+                  Connected
                 </span>
               </div>
-              {connection?.platform_username && (
-                <p className="text-sm text-green-700 mt-1">
-                  Connected as: {connection.platform_username}
-                </p>
-              )}
-              <p className="text-xs text-green-600 mt-1">
-                Method:{" "}
-                {authInfo.auth_method === "unipile"
-                  ? "Unipile"
-                  : "Direct OAuth"}
-              </p>
+              <Button
+                variant="outline"
+                onClick={handleDisconnectClick}
+                size="sm"
+              >
+                Disconnect
+              </Button>
             </div>
-
-            <Button
-              variant="outline"
-              onClick={handleDisconnect}
-              className="w-full"
-            >
-              Disconnect LinkedIn
-            </Button>
           </div>
         ) : (
-          <Button
-            onClick={handleConnect}
-            disabled={!authInfo.configured || isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {connectionStatus === "connecting"
-                  ? "Opening Authentication..."
-                  : "Connecting..."}
-              </>
-            ) : (
-              "Connect LinkedIn"
-            )}
-          </Button>
+          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm font-medium text-red-800">
+                  Not Connected
+                </span>
+              </div>
+              <Button
+                onClick={handleConnect}
+                disabled={!authInfo.configured || isLoading}
+                size="sm"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {connectionStatus === "connecting"
+                      ? "Opening Authentication..."
+                      : "Connecting..."}
+                  </>
+                ) : (
+                  "Connect"
+                )}
+              </Button>
+            </div>
+          </div>
         )}
-
-        <div className="text-xs text-muted-foreground">
-          <p>Authentication method: {authInfo.provider}</p>
-          <p>Status: {authInfo.configured ? "Configured" : "Not configured"}</p>
-        </div>
       </CardContent>
+
+      {/* Disconnect Confirmation Dialog */}
+      <AlertDialog
+        open={showDisconnectDialog}
+        onOpenChange={setShowDisconnectDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect LinkedIn Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect your LinkedIn account? This
+              will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Remove your LinkedIn connection from this app</li>
+                <li>Stop any scheduled posts to LinkedIn</li>
+                <li>Clear your stored LinkedIn authentication data</li>
+              </ul>
+              You can reconnect at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDisconnectConfirm}>
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
