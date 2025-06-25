@@ -105,7 +105,7 @@ resource "google_storage_bucket_object" "source_archive" {
 
 # Service account for the Cloud Function
 resource "google_service_account" "function_sa" {
-  account_id   = "${var.function_name}-sa-${var.environment}"
+  account_id   = "analyze-sa-${var.environment}"
   display_name = "Service Account for ${var.function_name} function"
 
   depends_on = [google_project_service.project_services]
