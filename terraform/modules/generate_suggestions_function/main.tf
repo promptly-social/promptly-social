@@ -130,6 +130,9 @@ resource "google_cloudfunctions2_function" "function" {
       OPENROUTER_MODEL_PRIMARY = var.openrouter_model_primary
       OPENROUTER_MODELS_FALLBACK = join(",", var.openrouter_models_fallback)
       OPENROUTER_TEMPERATURE = var.openrouter_temperature
+      OPENROUTER_LARGE_MODEL_PRIMARY = var.openrouter_large_model_primary
+      OPENROUTER_LARGE_MODELS_FALLBACK = join(",", var.openrouter_large_models_fallback)
+      OPENROUTER_LARGE_MODEL_TEMPERATURE = var.openrouter_large_model_temperature
     }
 
     secret_environment_variables {

@@ -14,17 +14,17 @@ class PostsGenerator:
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_api_key,
         )
-        # Get model configuration from environment variables
+        # Get large model configuration from environment variables for posts generation
         self.model_primary = os.getenv(
-            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+            "OPENROUTER_LARGE_MODEL_PRIMARY", "google/gemini-2.5-pro"
         )
         models_fallback_str = os.getenv(
-            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+            "OPENROUTER_LARGE_MODELS_FALLBACK", "deepseek/deepseek-r1-0528"
         )
         self.models_fallback = [
             model.strip() for model in models_fallback_str.split(",")
         ]
-        self.temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.0"))
+        self.temperature = float(os.getenv("OPENROUTER_LARGE_MODEL_TEMPERATURE", "0.7"))
 
     def generate_posts(
         self,
@@ -46,7 +46,7 @@ class PostsGenerator:
 
         prompt = f"""
         You are an expert at generating posts for LinkedIn to gain the most engagement using the user's bio, writing style, and topics of interest.
-        You are given a list of post URLs.
+        You are given a list of URLs of the blog posts or news articles.
         Do not include special characters in the posts that people suspect that you are using AI to generate, such as em-dash, arrows, etc.
         You are to generate {number_of_posts_to_generate} LinkedIn appropriate posts for the user to pick from and post on LinkedIn.
         The posts should be linkedin appropriate and gain the most engagement, and it should be plain text without any markdown.
@@ -59,7 +59,7 @@ class PostsGenerator:
         The linkedin post strategy for gettting the most engagement is: {linkedin_post_strategy}
         Today's date is: {today}
         Return the posts in a JSON format with the following fields: 
-        {{"linkedin_post": "your generated post", "post_url": "the url of the substack post that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
+        {{"linkedin_post": "your generated post", "post_url": "the url of the article that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
         """
         response = self.openrouter_client.chat.completions.create(
             model=self.model_primary,

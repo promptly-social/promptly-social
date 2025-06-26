@@ -208,9 +208,16 @@ const IdeaBankPage: React.FC = () => {
   const handleEdit = (ideaBankWithPost: IdeaBankWithPost) => {
     setEditingIdeaBank(ideaBankWithPost);
     const ideaBank = ideaBankWithPost.idea_bank;
+    // Handle migration from old "substack" type to new "article" type
+    const legacyType = ideaBank.data.type as string;
+    const mappedType: "article" | "text" =
+      legacyType === "substack"
+        ? "article"
+        : (legacyType as "article" | "text");
+
     setFormData({
       data: {
-        type: ideaBank.data.type,
+        type: mappedType,
         value: ideaBank.data.value,
         title: ideaBank.data.title || "",
         time_sensitive: ideaBank.data.time_sensitive || false,
@@ -570,7 +577,7 @@ const IdeaBankPage: React.FC = () => {
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.data.type}
-              onValueChange={(value: "substack" | "text") =>
+              onValueChange={(value: "article" | "text") =>
                 setFormData((prev) => ({
                   ...prev,
                   data: {
@@ -585,17 +592,17 @@ const IdeaBankPage: React.FC = () => {
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="substack">Substack</SelectItem>
+                <SelectItem value="article">Article</SelectItem>
                 <SelectItem value="text">Text</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {formData.data.type === "substack" && (
+          {formData.data.type === "article" && (
             <div className="space-y-2">
               <Label htmlFor="title">Title (Optional)</Label>
               <Input
                 id="title"
-                placeholder="Enter a title for this Substack article..."
+                placeholder="Enter a title for this article..."
                 value={formData.data.title || ""}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -608,13 +615,13 @@ const IdeaBankPage: React.FC = () => {
           )}
           <div className="space-y-2">
             <Label htmlFor="value">
-              {formData.data.type === "substack" ? "URL" : "Content"}
+              {formData.data.type === "article" ? "URL" : "Content"}
             </Label>
-            {formData.data.type === "substack" ? (
+            {formData.data.type === "article" ? (
               <Input
                 id="value"
                 type="url"
-                placeholder="https://example.substack.com"
+                placeholder="https://example.com/article"
                 value={formData.data.value}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -1130,7 +1137,7 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={formData.data.type}
-                onValueChange={(value: "substack" | "text") =>
+                onValueChange={(value: "article" | "text") =>
                   setFormData((prev) => ({
                     ...prev,
                     data: {
@@ -1145,17 +1152,17 @@ const IdeaBankPage: React.FC = () => {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="substack">Substack</SelectItem>
+                  <SelectItem value="article">Article</SelectItem>
                   <SelectItem value="text">Text</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {formData.data.type === "substack" && (
+            {formData.data.type === "article" && (
               <div className="space-y-2">
                 <Label htmlFor="edit-title">Title (Optional)</Label>
                 <Input
                   id="edit-title"
-                  placeholder="Enter a title for this Substack article..."
+                  placeholder="Enter a title for this article..."
                   value={formData.data.title || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -1168,13 +1175,13 @@ const IdeaBankPage: React.FC = () => {
             )}
             <div className="space-y-2">
               <Label htmlFor="edit-value">
-                {formData.data.type === "substack" ? "URL" : "Content"}
+                {formData.data.type === "article" ? "URL" : "Content"}
               </Label>
-              {formData.data.type === "substack" ? (
+              {formData.data.type === "article" ? (
                 <Input
                   id="edit-value"
                   type="url"
-                  placeholder="https://example.substack.com"
+                  placeholder="https://example.com/article"
                   value={formData.data.value}
                   onChange={(e) =>
                     setFormData((prev) => ({

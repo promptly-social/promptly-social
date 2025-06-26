@@ -22,15 +22,18 @@ provider "google" {
 }
 
 module "generate_suggestions_function" {
-  source                      = "../../../modules/generate_suggestions_function"
-  project_id                  = var.project_id
-  region                      = var.region
-  environment                 = "staging"
-  function_source_dir         = "../../../src/gcp-functions/generate-suggestions"
-  number_of_posts_to_generate = 3
-  openrouter_model_primary    = "google/gemini-2.5-flash-preview-05-20"
-  openrouter_models_fallback  = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
-  openrouter_temperature      = 0.0
+  source                            = "../../../modules/generate_suggestions_function"
+  project_id                        = var.project_id
+  region                            = var.region
+  environment                       = "staging"
+  function_source_dir               = "../../../src/gcp-functions/generate-suggestions"
+  number_of_posts_to_generate       = 3
+  openrouter_model_primary          = "google/gemini-2.5-flash-preview-05-20"
+  openrouter_models_fallback        = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
+  openrouter_temperature            = 0.0
+  openrouter_large_model_primary    = "google/gemini-2.5-pro"
+  openrouter_large_models_fallback  = ["deepseek/deepseek-r1-0528"]
+  openrouter_large_model_temperature = 0.7
 }
 
 output "function_uri" {

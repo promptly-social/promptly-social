@@ -1,7 +1,7 @@
 import { apiClient } from './api';
 
 export interface IdeaBankData {
-  type: 'substack' | 'text';
+  type: 'article' | 'text';
   value: string;
   title?: string;
   time_sensitive: boolean;

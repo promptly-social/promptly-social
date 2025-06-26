@@ -383,7 +383,7 @@ const MyContent: React.FC = () => {
     switch (platform) {
       case "linkedin":
         return <Share2 className="w-3 h-3" />;
-      case "substack":
+      case "article":
         return <Globe className="w-3 h-3" />;
       default:
         return <User className="w-3 h-3" />;
@@ -394,8 +394,8 @@ const MyContent: React.FC = () => {
     switch (platform) {
       case "linkedin":
         return "LinkedIn";
-      case "substack":
-        return "Substack";
+      case "article":
+        return "Article";
       default:
         return "General";
     }

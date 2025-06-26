@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import functions_framework
 from supabase import create_client, Client
 from substack_posts_fetcher import SubstackPostsFetcher
+from website_news_fetcher import WebsiteNewsFetcher
 from posts_generator import PostsGenerator
 
 # Configure logging
@@ -101,10 +102,17 @@ def get_writing_style(supabase_client: Client, user_id: str) -> str:
 
 
 def get_latest_linkedin_posts_from_idea_banks(
-    supabase_client: Client, user_id: str
+    supabase_client: Client,
+    user_id: str,
 ) -> List[Dict[str, Any]]:
     """
     Get the latest LinkedIn posts from the idea banks created in the last 12 hours.
+    Args:
+        supabase_client: Supabase client
+        user_id: User ID
+
+    Returns:
+        List of idea bank posts
     """
     try:
         # Calculate 12 hours ago
@@ -114,7 +122,7 @@ def get_latest_linkedin_posts_from_idea_banks(
             supabase_client.table("idea_banks")
             .select("id, data, created_at")
             .eq("user_id", user_id)
-            .eq("data->>type", "substack")
+            .eq("data->>type", "article")
             .gte("created_at", twelve_hours_ago)
             .order("created_at", desc=True)
             .execute()
@@ -144,7 +152,9 @@ def get_latest_linkedin_posts_from_idea_banks(
 
 
 def save_candidate_posts_to_idea_banks(
-    supabase_client: Client, user_id: str, candidate_posts: List[Dict[str, Any]]
+    supabase_client: Client,
+    user_id: str,
+    candidate_posts: List[Dict[str, Any]],
 ):
     """
     Save candidate posts to idea banks, or get existing ID if URL already exists.
@@ -171,7 +181,7 @@ def save_candidate_posts_to_idea_banks(
         else:
             # URL doesn't exist, create new entry
             data = {
-                "type": "substack",
+                "type": "article",
                 "value": post_url,
                 "title": post.get("title", ""),
                 "time_sensitive": post.get("time_sensitive", False),
@@ -310,26 +320,25 @@ def generate_suggestions(request):
         # Get topics of interest
         topics_of_interest = user_preferences.get("topics_of_interest", [])
 
-        # Get websites
-        # websites = user_preferences.get("websites", [])
-
         # Get bio
         bio = user_preferences.get("bio", "")
 
         # Get writing style
         writing_style = get_writing_style(supabase, user_id)
 
-        # Get latest LinkedIn posts from idea banks
-        latest_linkedin_posts = get_latest_linkedin_posts_from_idea_banks(
+        candidate_posts = []
+
+        # Get latest LinkedIn posts from idea banks for substacks
+        latest_substack_linkedin_posts = get_latest_linkedin_posts_from_idea_banks(
             supabase, user_id
         )
 
-        if len(latest_linkedin_posts) > 0:
+        if len(latest_substack_linkedin_posts) > 0:
             logger.debug(
-                f"Found {len(latest_linkedin_posts)} latest LinkedIn posts from idea banks for user {user_id} fetched in the last 12 hours"
+                f"Found {len(latest_substack_linkedin_posts)} latest LinkedIn posts from idea banks generated from Substack for user {user_id} fetched in the last 12 hours"
             )
             logger.debug("Therefore, skipping Substack posts fetcher")
-            candidate_posts = latest_linkedin_posts
+            candidate_posts.extend(latest_substack_linkedin_posts)
         else:
             logger.debug(
                 "No latest LinkedIn posts found from idea banks for user {user_id} fetched in the last 12 hours"
@@ -347,21 +356,46 @@ def generate_suggestions(request):
                 topics_of_interest,
                 bio,
             )
-            candidate_posts = substack_data.get("latest_posts", [])
+            latest_substack_posts = substack_data.get("latest_posts", [])
 
             # Save candidate posts to idea banks
-            candidate_posts = save_candidate_posts_to_idea_banks(
-                supabase, user_id, candidate_posts
+            candidate_posts.extend(
+                save_candidate_posts_to_idea_banks(
+                    supabase, user_id, latest_substack_posts
+                )
+            )
+
+            logger.debug("Fetching content from websites")
+
+            # Get websites
+            websites = user_preferences.get("websites", [])
+
+            # Initialize website news fetcher with Supabase client
+            news_fetcher = WebsiteNewsFetcher(
+                openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+            )
+            website_data = news_fetcher.fetch_news(
+                websites,
+                topics_of_interest,
+                bio,
+            )
+            latest_website_posts = website_data
+
+            # Save candidate posts to idea banks
+            candidate_posts.extend(
+                save_candidate_posts_to_idea_banks(
+                    supabase, user_id, latest_website_posts
+                )
             )
 
         posts_generator = PostsGenerator(
             supabase_client=supabase, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
         )
 
-        number_of_posts_to_generate = int(os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "3"))
+        number_of_posts_to_generate = int(os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "5"))
 
         if len(candidate_posts) < number_of_posts_to_generate:
-            # TODO:  get more content from websites or the evergreen topics
+            # TODO:  get more content from the evergreen topics
             pass
 
         linkedin_post_strategy = """
