@@ -1,5 +1,5 @@
 """
-Suggested Posts related Pydantic schemas for request/response validation.
+Posts related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
@@ -9,8 +9,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class SuggestedPostBase(BaseModel):
-    """Base schema for suggested posts."""
+class PostBase(BaseModel):
+    """Base schema for posts."""
 
     title: Optional[str] = None
     content: str
@@ -20,14 +20,14 @@ class SuggestedPostBase(BaseModel):
     status: str = Field(default="suggested")
 
 
-class SuggestedPostCreate(SuggestedPostBase):
-    """Schema for creating suggested posts."""
+class PostCreate(PostBase):
+    """Schema for creating posts."""
 
     idea_bank_id: Optional[UUID] = None
 
 
-class SuggestedPostUpdate(BaseModel):
-    """Schema for updating suggested posts."""
+class PostUpdate(BaseModel):
+    """Schema for updating posts."""
 
     title: Optional[str] = None
     content: Optional[str] = None
@@ -44,8 +44,8 @@ class PostFeedback(BaseModel):
     comment: Optional[str] = None
 
 
-class SuggestedPostResponse(SuggestedPostBase):
-    """Schema for suggested post responses."""
+class PostResponse(PostBase):
+    """Schema for post responses."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -59,10 +59,10 @@ class SuggestedPostResponse(SuggestedPostBase):
     updated_at: datetime
 
 
-class SuggestedPostListResponse(BaseModel):
-    """Schema for paginated suggested posts list."""
+class PostListResponse(BaseModel):
+    """Schema for paginated posts list."""
 
-    items: List[SuggestedPostResponse]
+    items: List[PostResponse]
     total: int
     page: int
     size: int

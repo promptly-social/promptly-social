@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,8 +23,13 @@ import {
   Check,
   X,
   Bookmark,
+  Eye,
+  EyeOff,
+  Copy,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
-import { suggestedPostsApi, SuggestedPost } from "@/lib/suggested-posts-api";
+import { postsApi, Post } from "@/lib/posts-api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -30,9 +42,19 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
-export const SuggestedPosts: React.FC = () => {
-  const [posts, setPosts] = useState<SuggestedPost[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface SuggestedPostsProps {
+  className?: string;
+}
+
+interface PostWithFeedback extends Post {
+  showFeedback?: boolean;
+  feedbackComment?: string;
+}
+
+export function SuggestedPosts({ className }: SuggestedPostsProps) {
+  const [posts, setPosts] = useState<PostWithFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>("");
@@ -58,7 +80,8 @@ export const SuggestedPosts: React.FC = () => {
       if (!user) return;
 
       try {
-        const postsResponse = await suggestedPostsApi.getSuggestedPosts({
+        setLoading(true);
+        const postsResponse = await postsApi.getPosts({
           status: ["suggested"],
           order_by: "recommendation_score",
           order_direction: "desc",
@@ -73,7 +96,7 @@ export const SuggestedPosts: React.FC = () => {
           variant: "destructive",
         });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
@@ -89,8 +112,24 @@ export const SuggestedPosts: React.FC = () => {
     };
   }, [undoTimeouts]);
 
-  const dismissPost = async (post: SuggestedPost) => {
-    setDismissingPostId(post.id);
+  const handleCopyContent = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({
+        title: "Content Copied",
+        description: "Content has been copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy content",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDismiss = async (postId: string) => {
+    setDismissingPostId(postId);
 
     // Show toast with undo option first to get the dismiss function
     const { dismiss: dismissToast } = toast({
@@ -111,7 +150,7 @@ export const SuggestedPosts: React.FC = () => {
             size="sm"
             variant="outline"
             onClick={() => {
-              undoDismiss(post.id);
+              undoDismiss(postId);
               dismissToast();
             }}
             className="w-full"
@@ -124,21 +163,21 @@ export const SuggestedPosts: React.FC = () => {
     });
 
     // Store toast dismisser for potential undo and cleanup
-    setToastDismissers((prev) => new Map(prev).set(post.id, dismissToast));
+    setToastDismissers((prev) => new Map(prev).set(postId, dismissToast));
 
     // Create undo timeout
     const timeoutId = setTimeout(async () => {
       try {
-        await suggestedPostsApi.dismissSuggestedPost(post.id);
-        setPosts(posts.filter((p) => p.id !== post.id));
+        await postsApi.dismissPost(postId);
+        setPosts(posts.filter((p) => p.id !== postId));
         setUndoTimeouts((prev) => {
           const newMap = new Map(prev);
-          newMap.delete(post.id);
+          newMap.delete(postId);
           return newMap;
         });
         setToastDismissers((prev) => {
           const newMap = new Map(prev);
-          newMap.delete(post.id);
+          newMap.delete(postId);
           return newMap;
         });
         // Dismiss the toast when the timeout completes
@@ -157,7 +196,7 @@ export const SuggestedPosts: React.FC = () => {
     }, 3000);
 
     // Store timeout for potential undo
-    setUndoTimeouts((prev) => new Map(prev).set(post.id, timeoutId));
+    setUndoTimeouts((prev) => new Map(prev).set(postId, timeoutId));
   };
 
   const undoDismiss = (postId: string) => {
@@ -185,69 +224,87 @@ export const SuggestedPosts: React.FC = () => {
     });
   };
 
-  const schedulePost = (postId: string) => {
-    console.log("Scheduling post:", postId);
-    // TODO: Implement scheduling logic
-    toast({
-      title: "Coming Soon",
-      description: "Post scheduling will be available soon!",
-    });
-  };
-
-  const removeFromSchedule = async (post: SuggestedPost) => {
+  const handleMarkAsPosted = async (postId: string) => {
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
-        status: "saved",
-      });
-
-      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
-
+      setLoadingAction(`mark-posted-${postId}`);
+      await postsApi.markAsPosted(postId);
+      setPosts(posts.filter((p) => p.id !== postId));
       toast({
-        title: "Removed from Schedule",
-        description: "Post has been removed from schedule and saved for later.",
+        title: "Post marked as posted",
+        description: "Post has been marked as posted",
       });
     } catch (error) {
-      console.error("Error removing from schedule:", error);
+      console.error("Error marking post as posted:", error);
       toast({
         title: "Error",
-        description: "Failed to remove from schedule. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const reschedulePost = (postId: string) => {
-    console.log("Rescheduling post:", postId);
-    // TODO: Implement rescheduling logic
-    toast({
-      title: "Coming Soon",
-      description: "Post rescheduling will be available soon!",
-    });
-  };
-
-  const saveForLater = async (post: SuggestedPost) => {
-    setSavingPostId(post.id);
-    try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
-        status: "saved",
-      });
-
-      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
-
-      toast({
-        title: "Post Saved",
-        description: "Post has been saved for later.",
-      });
-    } catch (error) {
-      console.error("Error saving post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save post. Please try again.",
+        description: "Failed to mark post as posted",
         variant: "destructive",
       });
     } finally {
-      setSavingPostId(null);
+      setLoadingAction(null);
     }
+  };
+
+  const handleFeedback = async (
+    postId: string,
+    feedbackType: "positive" | "negative",
+    comment?: string
+  ) => {
+    try {
+      setLoadingAction(`feedback-${postId}`);
+      await postsApi.submitFeedback(postId, {
+        feedback_type: feedbackType,
+        comment: comment || undefined,
+      });
+
+      // Update the post in the state
+      setPosts(
+        posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                user_feedback: feedbackType,
+                feedback_comment: comment,
+                showFeedback: false,
+              }
+            : post
+        )
+      );
+
+      toast({
+        title: `${
+          feedbackType === "positive" ? "Positive" : "Negative"
+        } feedback submitted`,
+        description: "Thank you for your feedback!",
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const toggleFeedback = (postId: string) => {
+    setPosts(
+      posts.map((post) =>
+        post.id === postId
+          ? { ...post, showFeedback: !post.showFeedback }
+          : post
+      )
+    );
+  };
+
+  const updateFeedbackComment = (postId: string, comment: string) => {
+    setPosts(
+      posts.map((post) =>
+        post.id === postId ? { ...post, feedbackComment: comment } : post
+      )
+    );
   };
 
   const generateNewPosts = async () => {
@@ -255,7 +312,7 @@ export const SuggestedPosts: React.FC = () => {
     try {
       // TODO: Implement actual post generation API call
       // For now, just refresh the existing posts
-      const postsResponse = await suggestedPostsApi.getSuggestedPosts({
+      const postsResponse = await postsApi.getPosts({
         status: ["suggested"],
         order_by: "created_at",
         order_direction: "desc",
@@ -292,14 +349,14 @@ export const SuggestedPosts: React.FC = () => {
     }
   };
 
-  const startEditing = (post: SuggestedPost) => {
+  const startEditing = (post: PostWithFeedback) => {
     setEditingPostId(post.id);
     setEditedContent(post.content);
   };
 
   const saveEdit = async (postId: string) => {
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(postId, {
+      const updatedPost = await postsApi.updatePost(postId, {
         content: editedContent,
       });
 
@@ -326,28 +383,6 @@ export const SuggestedPosts: React.FC = () => {
     setEditedContent("");
   };
 
-  const submitPositiveFeedback = async (postId: string) => {
-    try {
-      const updatedPost = await suggestedPostsApi.submitFeedback(postId, {
-        feedback_type: "positive",
-      });
-
-      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
-
-      toast({
-        title: "Feedback Submitted",
-        description: "Thank you for your positive feedback!",
-      });
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit feedback. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const openNegativeFeedbackModal = (postId: string) => {
     setFeedbackModal({ isOpen: true, postId });
     setFeedbackComment("");
@@ -358,26 +393,9 @@ export const SuggestedPosts: React.FC = () => {
 
     setIsSubmittingFeedback(true);
     try {
-      const updatedPost = await suggestedPostsApi.submitFeedback(
-        feedbackModal.postId,
-        {
-          feedback_type: "negative",
-          comment: feedbackComment || undefined,
-        }
-      );
-
-      setPosts(
-        posts.map((p) => (p.id === feedbackModal.postId ? updatedPost : p))
-      );
-
+      await handleFeedback(feedbackModal.postId, "negative", feedbackComment);
       setFeedbackModal({ isOpen: false, postId: null });
       setFeedbackComment("");
-
-      toast({
-        title: "Feedback Submitted",
-        description:
-          "Thank you for your feedback! We'll use it to improve suggestions.",
-      });
     } catch (error) {
       console.error("Error submitting feedback:", error);
       toast({
@@ -421,41 +439,27 @@ export const SuggestedPosts: React.FC = () => {
     ));
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-              Suggested Posts
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              AI-suggested posts based on your writing style, interests, and
-              ideas.
-            </p>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading posts...</span>
+      </div>
+    );
+  }
+
+  if (posts.length === 0) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-muted-foreground">
+          No posts available. Generate some ideas first!
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className={`space-y-6 ${className}`}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -485,247 +489,162 @@ export const SuggestedPosts: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:gap-6">
-        {posts.map((post, index) => (
-          <Card
-            key={post.id}
-            className="relative hover:shadow-md transition-shadow flex flex-col h-full"
-          >
-            <CardHeader className="pb-3 sm:pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {getSourceIcon(post.platform)}
-                      <span className="ml-1">
-                        {getSourceLabel(post.platform)}
-                      </span>
-                    </Badge>
-                    {post.user_feedback && (
-                      <Badge
-                        variant={
-                          post.user_feedback === "positive"
-                            ? "default"
-                            : "destructive"
-                        }
-                        className="text-xs"
-                      >
-                        {post.user_feedback === "positive" ? (
-                          <>
-                            <ThumbsUp className="w-3 h-3 mr-1" />
-                            Liked
-                          </>
-                        ) : (
-                          <>
-                            <ThumbsDown className="w-3 h-3 mr-1" />
-                            Disliked
-                          </>
-                        )}
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-base sm:text-lg font-semibold text-gray-900">
-                    {post.title || `Post #${index + 1}`}
-                  </CardTitle>
-                </div>
+      {posts.map((post) => (
+        <Card key={post.id} className="w-full">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{getSourceIcon(post.platform)}</Badge>
+                <Badge variant="secondary">
+                  Score: {post.recommendation_score}
+                </Badge>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4 flex-grow flex flex-col">
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg relative">
-                {editingPostId === post.id ? (
-                  <div className="space-y-3">
-                    <Textarea
-                      value={editedContent}
-                      onChange={(e) => setEditedContent(e.target.value)}
-                      className="min-h-[300px] max-h-[400px] resize-y"
-                      placeholder="Edit your post content..."
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => saveEdit(post.id)}>
-                        <Check className="w-4 h-4 mr-1" />
-                        Save
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={cancelEdit}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap">
-                      {renderContentWithNewlines(post.content)}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="absolute top-2 right-2 p-1 h-6 w-6"
-                      onClick={() => startEditing(post)}
-                    >
-                      <Edit3 className="w-3 h-3" />
-                    </Button>
-                  </>
+              <div className="flex items-center gap-2">
+                {post.user_feedback && (
+                  <Badge
+                    variant={
+                      post.user_feedback === "positive"
+                        ? "default"
+                        : "destructive"
+                    }
+                  >
+                    {post.user_feedback === "positive" ? "Liked" : "Disliked"}
+                  </Badge>
                 )}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <span>
-                    Recommendation score:{" "}
-                    <strong>{post.recommendation_score}/100</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock className="w-4 h-4 text-blue-500" />
-                  <span>
-                    Created:{" "}
-                    <strong>
-                      {new Date(post.created_at).toLocaleDateString()}
-                    </strong>
-                  </span>
-                </div>
-              </div>
-
+            </div>
+            {post.title && (
+              <CardTitle className="text-lg">{post.title}</CardTitle>
+            )}
+            <CardDescription>
               {post.topics.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs sm:text-sm font-medium text-gray-700">
-                    Topics:
-                  </p>
-                  <div className="flex flex-wrap gap-1 sm:gap-2">
-                    {post.topics.map((topic, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        {topic}
-                      </Badge>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {post.topics.map((topic, index) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {topic}
+                    </Badge>
+                  ))}
                 </div>
               )}
+            </CardDescription>
+          </CardHeader>
 
-              {/* Feedback Section */}
-              {!post.user_feedback && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">
-                    How is this suggestion?
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => submitPositiveFeedback(post.id)}
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    >
-                      <ThumbsUp className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openNegativeFeedbackModal(post.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <ThumbsDown className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+          <CardContent>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+              {renderContentWithNewlines(post.content)}
+            </div>
+          </CardContent>
 
-              <div className="flex-grow"></div>
+          <CardFooter className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleCopyContent(post.content)}
+                className="flex items-center gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                Copy
+              </Button>
 
-              {post.status !== "posted" && (
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
-                  {post.status === "scheduled" ? (
-                    <>
-                      <Button
-                        onClick={() => removeFromSchedule(post)}
-                        variant="outline"
-                        className="flex-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Remove from Schedule
-                      </Button>
-                      <Button
-                        onClick={() => reschedulePost(post.id)}
-                        className="bg-blue-600 hover:bg-blue-700 flex-1"
-                      >
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Reschedule
-                      </Button>
-                    </>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleFeedback(post.id)}
+                className="flex items-center gap-2"
+              >
+                {post.showFeedback ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+                {post.showFeedback ? "Hide" : "Feedback"}
+              </Button>
+
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDismiss(post.id)}
+                  disabled={loadingAction === `dismiss-${post.id}`}
+                >
+                  {loadingAction === `dismiss-${post.id}` ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Dismiss"
+                  )}
+                </Button>
+
+                <Button
+                  size="sm"
+                  onClick={() => handleMarkAsPosted(post.id)}
+                  disabled={loadingAction === `mark-posted-${post.id}`}
+                  className="flex items-center gap-2"
+                >
+                  {loadingAction === `mark-posted-${post.id}` ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      <Button
-                        onClick={() => schedulePost(post.id)}
-                        className="bg-green-600 hover:bg-green-700 flex-1"
-                      >
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Schedule Post
-                      </Button>
-                      {post.status === "suggested" && (
-                        <Button
-                          onClick={() => saveForLater(post)}
-                          variant="outline"
-                          className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                          disabled={savingPostId === post.id}
-                        >
-                          {savingPostId === post.id ? (
-                            <>
-                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Bookmark className="w-4 h-4 mr-2" />
-                              Save for Later
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      <ExternalLink className="h-4 w-4" />
+                      Mark as Posted
                     </>
                   )}
-                  {post.status === "dismissed" ? (
-                    <Button
-                      onClick={() => saveForLater(post)}
-                      variant="outline"
-                      className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                      disabled={savingPostId === post.id}
-                    >
-                      {savingPostId === post.id ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Bookmark className="w-4 h-4 mr-2" />
-                          Save for Later
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => dismissPost(post)}
-                      disabled={dismissingPostId === post.id}
-                    >
-                      {dismissingPostId === post.id ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Dismissing...
-                        </>
-                      ) : (
-                        <>
-                          <X className="w-4 h-4 mr-2" />
-                          Dismiss
-                        </>
-                      )}
-                    </Button>
-                  )}
+                </Button>
+              </div>
+            </div>
+
+            {post.showFeedback && (
+              <div className="w-full border-t pt-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleFeedback(post.id, "positive", post.feedbackComment)
+                    }
+                    disabled={loadingAction === `feedback-${post.id}`}
+                    className="flex items-center gap-2"
+                  >
+                    <ThumbsUp className="h-4 w-4" />
+                    {loadingAction === `feedback-${post.id}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Like"
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleFeedback(post.id, "negative", post.feedbackComment)
+                    }
+                    disabled={loadingAction === `feedback-${post.id}`}
+                    className="flex items-center gap-2"
+                  >
+                    <ThumbsDown className="h-4 w-4" />
+                    {loadingAction === `feedback-${post.id}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Dislike"
+                    )}
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+                <Textarea
+                  placeholder="Add your feedback (optional)..."
+                  value={post.feedbackComment || ""}
+                  onChange={(e) =>
+                    updateFeedbackComment(post.id, e.target.value)
+                  }
+                  className="text-sm"
+                  rows={3}
+                />
+              </div>
+            )}
+          </CardFooter>
+        </Card>
+      ))}
 
       {posts.length === 0 && (
         <Card className="text-center py-8 sm:py-12">
@@ -794,4 +713,4 @@ export const SuggestedPosts: React.FC = () => {
       </Dialog>
     </div>
   );
-};
+}

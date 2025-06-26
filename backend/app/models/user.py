@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.models.helpers import get_uuid_column
+from app.models.helpers import UUIDType
 
 
 class User(Base):
@@ -32,7 +32,7 @@ class User(Base):
 
     # Primary key with UUID support for both PostgreSQL and SQLite
     id: Mapped[str] = mapped_column(
-        get_uuid_column(),
+        UUIDType(),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
         nullable=False,
@@ -119,7 +119,7 @@ class UserSession(Base):
 
     # Primary key
     id: Mapped[str] = mapped_column(
-        get_uuid_column(),
+        UUIDType(),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
         nullable=False,
@@ -127,7 +127,7 @@ class UserSession(Base):
 
     # Foreign key to user
     user_id: Mapped[str] = mapped_column(
-        get_uuid_column(),
+        UUIDType(),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

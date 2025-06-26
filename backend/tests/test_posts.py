@@ -1,5 +1,5 @@
 """
-Tests for suggested posts functionality.
+Tests for posts functionality.
 """
 
 import pytest
@@ -10,11 +10,11 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 
-from app.schemas.suggested_posts import PostFeedback, SuggestedPostCreate
+from app.schemas.posts import PostFeedback, PostCreate
 
 
-class TestSuggestedPosts:
-    """Test cases for suggested posts endpoints."""
+class TestPosts:
+    """Test cases for posts endpoints."""
 
     @pytest.fixture
     def sample_post_data(self):
@@ -46,9 +46,9 @@ class TestSuggestedPosts:
         """Mock authentication headers for testing."""
         return {"Authorization": "Bearer test-token"}
 
-    def test_get_suggested_posts_unauthorized(self, test_client: TestClient):
+    def test_get_posts_unauthorized(self, test_client: TestClient):
         """Test that unauthorized requests are rejected."""
-        response = test_client.get("/api/v1/suggested-posts/")
+        response = test_client.get("/api/v1/posts/")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_post_feedback_schema_validation(self):
@@ -68,16 +68,16 @@ class TestSuggestedPosts:
         with pytest.raises(ValueError):
             PostFeedback(feedback_type="neutral")
 
-    def test_suggested_post_create_schema_validation(self):
-        """Test SuggestedPostCreate schema validation."""
+    def test_post_create_schema_validation(self):
+        """Test PostCreate schema validation."""
         # Valid creation data
-        valid_data = SuggestedPostCreate(content="Test content\nwith newlines")
+        valid_data = PostCreate(content="Test content\nwith newlines")
         assert valid_data.content == "Test content\nwith newlines"
         assert valid_data.platform == "linkedin"  # default value
         assert valid_data.recommendation_score == 0  # default value
 
         # Test with all fields
-        full_data = SuggestedPostCreate(
+        full_data = PostCreate(
             title="Test Title",
             content="Test content",
             platform="twitter",
@@ -92,15 +92,15 @@ class TestSuggestedPosts:
     @pytest.mark.asyncio
     async def test_service_layer_feedback_submission(self):
         """Test the service layer feedback submission logic."""
-        from app.services.suggested_posts import SuggestedPostsService
-        from app.models.suggested_posts import SuggestedPost
+        from app.services.posts import PostsService
+        from app.models.posts import Post
 
         # Mock database session
         mock_db = AsyncMock()
-        service = SuggestedPostsService(mock_db)
+        service = PostsService(mock_db)
 
         # Mock post
-        mock_post = SuggestedPost(
+        mock_post = Post(
             id=uuid4(),
             user_id=uuid4(),
             content="Test content",
@@ -109,8 +109,8 @@ class TestSuggestedPosts:
             status="suggested",
         )
 
-        # Mock the get_suggested_post method
-        service.get_suggested_post = AsyncMock(return_value=mock_post)
+        # Mock the get_post method
+        service.get_post = AsyncMock(return_value=mock_post)
 
         # Test feedback submission
         result = await service.submit_feedback(
@@ -130,21 +130,21 @@ class TestSuggestedPosts:
         """Test that the feedback endpoint exists and has proper structure."""
         # This test verifies the endpoint exists without authentication
         fake_id = str(uuid4())
-        response = test_client.post(f"/api/v1/suggested-posts/{fake_id}/feedback")
+        response = test_client.post(f"/api/v1/posts/{fake_id}/feedback")
         # Should return 401 (unauthorized) not 404 (not found), proving endpoint exists
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_suggested_posts_endpoints_exist(self, test_client: TestClient):
-        """Test that all suggested posts endpoints exist."""
+    def test_posts_endpoints_exist(self, test_client: TestClient):
+        """Test that all posts endpoints exist."""
         endpoints_to_test = [
-            ("GET", "/api/v1/suggested-posts/"),
-            ("POST", "/api/v1/suggested-posts/"),
-            ("GET", f"/api/v1/suggested-posts/{uuid4()}"),
-            ("PUT", f"/api/v1/suggested-posts/{uuid4()}"),
-            ("DELETE", f"/api/v1/suggested-posts/{uuid4()}"),
-            ("POST", f"/api/v1/suggested-posts/{uuid4()}/dismiss"),
-            ("POST", f"/api/v1/suggested-posts/{uuid4()}/mark-posted"),
-            ("POST", f"/api/v1/suggested-posts/{uuid4()}/feedback"),
+            ("GET", "/api/v1/posts/"),
+            ("POST", "/api/v1/posts/"),
+            ("GET", f"/api/v1/posts/{uuid4()}"),
+            ("PUT", f"/api/v1/posts/{uuid4()}"),
+            ("DELETE", f"/api/v1/posts/{uuid4()}"),
+            ("POST", f"/api/v1/posts/{uuid4()}/dismiss"),
+            ("POST", f"/api/v1/posts/{uuid4()}/mark-posted"),
+            ("POST", f"/api/v1/posts/{uuid4()}/feedback"),
         ]
 
         for method, endpoint in endpoints_to_test:
@@ -169,7 +169,7 @@ class TestSuggestedPosts:
         invalid_feedback = {"feedback_type": "neutral", "comment": "test"}
 
         response = test_client.post(
-            f"/api/v1/suggested-posts/{fake_id}/feedback",
+            f"/api/v1/posts/{fake_id}/feedback",
             json=invalid_feedback,
             headers={"Authorization": "Bearer invalid-token"},
         )
@@ -185,7 +185,7 @@ class TestSuggestedPosts:
         """Test that content with newlines is properly handled in schemas."""
         content_with_newlines = "Line 1\nLine 2\nLine 3\n\nLine 5"
 
-        post_data = SuggestedPostCreate(content=content_with_newlines)
+        post_data = PostCreate(content=content_with_newlines)
         assert post_data.content == content_with_newlines
         assert "\n" in post_data.content
 

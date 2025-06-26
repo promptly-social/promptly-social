@@ -1,6 +1,15 @@
 import { apiClient } from './api';
 
 // Types for API requests/responses
+export interface ContentStrategy {
+  id: string;
+  user_id: string;
+  platform: string;
+  strategy: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface UserPreferences {
   id: string;
   user_id: string;
@@ -8,6 +17,7 @@ export interface UserPreferences {
   websites: string[];
   substacks: string[];
   bio: string;
+  content_strategies: ContentStrategy[];
   created_at: string;
   updated_at: string;
 }
@@ -17,6 +27,7 @@ export interface UserPreferencesUpdate {
   websites?: string[];
   substacks?: string[];
   bio?: string;
+  content_strategies?: { [platform: string]: string };
 }
 
 export interface SocialConnection {

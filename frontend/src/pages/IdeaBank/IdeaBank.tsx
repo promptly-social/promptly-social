@@ -82,11 +82,13 @@ const IdeaBankPage: React.FC = () => {
     direction: "desc",
   });
   const [filters, setFilters] = useState<Filters>({
-    // By default, show suggested and saved posts
+    // By default, show suggested and saved posts, and exclude AI suggested content
+    ai_suggested: false,
     post_status: ["suggested", "saved"],
   });
   const [pendingFilters, setPendingFilters] = useState<Filters>({
-    // By default, show suggested and saved posts
+    // By default, show suggested and saved posts, and exclude AI suggested content
+    ai_suggested: false,
     post_status: ["suggested", "saved"],
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -150,7 +152,8 @@ const IdeaBankPage: React.FC = () => {
 
   const clearPendingFilters = () => {
     const defaultFilters: Filters = {
-      // Reset to default: show suggested and saved posts
+      // Reset to default: show suggested and saved posts, exclude AI suggested content
+      ai_suggested: false,
       post_status: ["suggested", "saved"],
     };
     setPendingFilters(defaultFilters);
@@ -158,7 +161,8 @@ const IdeaBankPage: React.FC = () => {
 
   const clearAllFilters = () => {
     const defaultFilters: Filters = {
-      // Reset to default: show suggested and saved posts
+      // Reset to default: show suggested and saved posts, exclude AI suggested content
+      ai_suggested: false,
       post_status: ["suggested", "saved"],
     };
     setPendingFilters(defaultFilters);
@@ -167,7 +171,7 @@ const IdeaBankPage: React.FC = () => {
 
   const getActiveFilterCount = () => {
     let count = 0;
-    if (filters.ai_suggested !== undefined) count++;
+    // Don't count ai_suggested filter as it's always applied by default
     if (filters.evergreen !== undefined) count++;
     if (filters.has_post !== undefined) count++;
     if (
@@ -419,32 +423,6 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="ai-filter">AI Suggested</Label>
-              <Select
-                value={
-                  pendingFilters.ai_suggested === undefined
-                    ? "all"
-                    : pendingFilters.ai_suggested.toString()
-                }
-                onValueChange={(value) =>
-                  handlePendingFilterChange({
-                    ai_suggested:
-                      value === "all" ? undefined : value === "true",
-                  })
-                }
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="flex items-center justify-between">
               <Label htmlFor="evergreen-filter">Evergreen Topic</Label>
               <Select
@@ -728,7 +706,7 @@ const IdeaBankPage: React.FC = () => {
             {getSortedData().length === 0 ? (
               <div className="text-center py-8 bg-white rounded-lg border">
                 <div className="text-muted-foreground">
-                  No idea banks found. Create your first idea to get started.
+                  No ideas found. Create your first idea to get started.
                 </div>
               </div>
             ) : (
@@ -877,8 +855,7 @@ const IdeaBankPage: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
                       <div className="text-muted-foreground">
-                        No idea banks found. Create your first idea to get
-                        started.
+                        No ideas found. Create your first idea to get started.
                       </div>
                     </TableCell>
                   </TableRow>
@@ -992,8 +969,7 @@ const IdeaBankPage: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
                       <div className="text-muted-foreground">
-                        No idea banks found. Create your first idea to get
-                        started.
+                        No ideas found. Create your first idea to get started.
                       </div>
                     </TableCell>
                   </TableRow>

@@ -21,6 +21,7 @@ import {
   List,
   Lightbulb,
   Calendar,
+  Target,
 } from "lucide-react";
 
 const menuItems = [
@@ -48,6 +49,11 @@ const menuItems = [
     title: "Profile",
     url: "/profile",
     icon: User,
+  },
+  {
+    title: "Content Preferences",
+    url: "/content-preferences",
+    icon: Target,
   },
   {
     title: "Settings",

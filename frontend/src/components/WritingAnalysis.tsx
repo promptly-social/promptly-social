@@ -174,158 +174,9 @@ export const WritingAnalysis: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Writing Style
-            </div>
-            <div className="flex items-center gap-2">
-              {!isEditing && analysisData?.analysis_data && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleEditClick}
-                  className="flex items-center gap-2"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Edit
-                </Button>
-              )}
-
-              {/* Analyze Dialog Trigger */}
-              <Dialog
-                open={analyzeModalOpen}
-                onOpenChange={setAnalyzeModalOpen}
-              >
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="flex items-center gap-2"
-                    disabled={analyzing}
-                  >
-                    {analyzing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                    {analyzing
-                      ? "Analyzing..."
-                      : analysisData?.analysis_data
-                      ? "Re-analyze"
-                      : "Analyze"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Select Writing Sample Source</DialogTitle>
-                  </DialogHeader>
-
-                  {/* Warning about overwriting existing analysis */}
-                  {hasExistingAnalysis && (
-                    <Alert className="border-yellow-200 bg-yellow-50">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      <AlertDescription className="text-yellow-800">
-                        <strong>Warning:</strong> You already have a writing
-                        style analysis. Running a new analysis will overwrite
-                        your existing analysis.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Source Selection */}
-                  <Select
-                    value={selectedSource}
-                    onValueChange={(value) => {
-                      if (analyzing) return; // Don't allow changes while analyzing
-                      setSelectedSource(value);
-                    }}
-                    disabled={analyzing}
-                  >
-                    <SelectTrigger className="w-full" disabled={analyzing}>
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="linkedin">LinkedIn</SelectItem>
-                      <SelectItem value="substack">Substack</SelectItem>
-                      <SelectItem value="import">
-                        Import Writing Sample
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Conditional UI based on source */}
-                  {selectedSource === "import" && (
-                    <div className="space-y-3">
-                      <Textarea
-                        value={importText}
-                        onChange={(e) => setImportText(e.target.value)}
-                        placeholder="Paste your writing sample here... (e.g., blog posts, articles, social media posts)"
-                        className="min-h-[180px] resize-none"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Tip: Include 2-3 substantial pieces of your writing for
-                        the best analysis results.
-                      </p>
-                    </div>
-                  )}
-
-                  {(selectedSource === "linkedin" ||
-                    selectedSource === "substack") && (
-                    <div className="mt-4">
-                      {analyzing ? (
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-600">
-                            We are analyzing your {selectedSource} writing
-                            style. This may take a few minutes.
-                          </p>
-                          <div className="flex items-center gap-2 text-blue-600 text-xs">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Analysis in progress...
-                          </div>
-                        </div>
-                      ) : connections[selectedSource] ? (
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-600">
-                            Connection detected. Click Analyze to analyze your{" "}
-                            {selectedSource} writing style.
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            This will analyze your posts and content to
-                            understand your writing patterns.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-red-600 text-sm">
-                          <Link2 className="w-4 h-4" />
-                          Please connect your {selectedSource} account first to
-                          analyze your writing style.
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <DialogFooter className="mt-4">
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button
-                      onClick={handleAnalyze}
-                      disabled={
-                        analyzing ||
-                        (selectedSource === "import"
-                          ? !importText.trim()
-                          : !connections[selectedSource])
-                      }
-                    >
-                      {analyzing ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : null}
-                      {analyzing ? "Analyzing..." : "Analyze"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Writing Style
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -336,58 +187,220 @@ export const WritingAnalysis: React.FC = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                   <span className="ml-2">Loading analysis...</span>
                 </div>
-              ) : isEditing ? (
-                <div className="space-y-4">
-                  <Textarea
-                    value={editedText}
-                    onChange={(e) => setEditedText(e.target.value)}
-                    placeholder="Enter your writing style analysis..."
-                    className="min-h-[200px] resize-none"
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancel}
-                      disabled={saving}
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      disabled={saving || !editedText.trim()}
-                    >
-                      {saving ? (
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4 mr-1" />
+              ) : (
+                <div className="space-y-3">
+                  {/* Edit and Analyze buttons positioned at top right, outside the text content */}
+                  {!isEditing && (
+                    <div className="flex justify-end gap-2">
+                      {analysisData?.analysis_data && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleEditClick}
+                          className="flex items-center gap-2"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                          Edit
+                        </Button>
                       )}
-                      {saving ? "Saving..." : "Save"}
-                    </Button>
-                  </div>
-                </div>
-              ) : analysisData?.analysis_data ? (
-                <div className="space-y-4">
-                  <div className="prose max-w-none">
-                    <p className="whitespace-pre-wrap text-gray-700">
-                      {analysisData.analysis_data}
-                    </p>
-                  </div>
-                  {analysisData.last_analyzed && (
-                    <div className="text-xs text-gray-500">
-                      Last analyzed:{" "}
-                      {new Date(analysisData.last_analyzed).toLocaleString()}
+
+                      {/* Analyze Dialog Trigger */}
+                      <Dialog
+                        open={analyzeModalOpen}
+                        onOpenChange={setAnalyzeModalOpen}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="flex items-center gap-2"
+                            disabled={analyzing}
+                          >
+                            {analyzing ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Play className="w-4 h-4" />
+                            )}
+                            {analyzing
+                              ? "Analyzing..."
+                              : analysisData?.analysis_data
+                              ? "Re-analyze"
+                              : "Analyze"}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>
+                              Select Writing Sample Source
+                            </DialogTitle>
+                          </DialogHeader>
+
+                          {/* Warning about overwriting existing analysis */}
+                          {hasExistingAnalysis && (
+                            <Alert className="border-yellow-200 bg-yellow-50">
+                              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                              <AlertDescription className="text-yellow-800">
+                                <strong>Warning:</strong> You already have a
+                                writing style analysis. Running a new analysis
+                                will overwrite your existing analysis.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          {/* Source Selection */}
+                          <Select
+                            value={selectedSource}
+                            onValueChange={(value) => {
+                              if (analyzing) return; // Don't allow changes while analyzing
+                              setSelectedSource(value);
+                            }}
+                            disabled={analyzing}
+                          >
+                            <SelectTrigger
+                              className="w-full"
+                              disabled={analyzing}
+                            >
+                              <SelectValue placeholder="Select source" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="linkedin">LinkedIn</SelectItem>
+                              <SelectItem value="substack">Substack</SelectItem>
+                              <SelectItem value="import">
+                                Import Writing Sample
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {/* Conditional UI based on source */}
+                          {selectedSource === "import" && (
+                            <div className="space-y-3">
+                              <Textarea
+                                value={importText}
+                                onChange={(e) => setImportText(e.target.value)}
+                                placeholder="Paste your writing sample here... (e.g., blog posts, articles, social media posts)"
+                                className="min-h-[180px] resize-none"
+                              />
+                              <p className="text-xs text-gray-500">
+                                Tip: Include 2-3 substantial pieces of your
+                                writing for the best analysis results.
+                              </p>
+                            </div>
+                          )}
+
+                          {(selectedSource === "linkedin" ||
+                            selectedSource === "substack") && (
+                            <div className="mt-4">
+                              {analyzing ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm text-gray-600">
+                                    We are analyzing your {selectedSource}{" "}
+                                    writing style. This may take a few minutes.
+                                  </p>
+                                  <div className="flex items-center gap-2 text-blue-600 text-xs">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Analysis in progress...
+                                  </div>
+                                </div>
+                              ) : connections[selectedSource] ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm text-gray-600">
+                                    Connection detected. Click Analyze to
+                                    analyze your {selectedSource} writing style.
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    This will analyze your posts and content to
+                                    understand your writing patterns.
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-red-600 text-sm">
+                                  <Link2 className="w-4 h-4" />
+                                  Please connect your {selectedSource} account
+                                  first to analyze your writing style.
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <DialogFooter className="mt-4">
+                            <DialogClose asChild>
+                              <Button variant="outline">Cancel</Button>
+                            </DialogClose>
+                            <Button
+                              onClick={handleAnalyze}
+                              disabled={
+                                analyzing ||
+                                (selectedSource === "import"
+                                  ? !importText.trim()
+                                  : !connections[selectedSource])
+                              }
+                            >
+                              {analyzing ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : null}
+                              {analyzing ? "Analyzing..." : "Analyze"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">No analysis data found</p>
-                  <p className="text-sm text-gray-500">
-                    Run an analysis to see your writing style insights
-                  </p>
+
+                  {isEditing ? (
+                    <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+                      <Textarea
+                        value={editedText}
+                        onChange={(e) => setEditedText(e.target.value)}
+                        placeholder="Enter your writing style analysis..."
+                        className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancel}
+                          disabled={saving}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSave}
+                          disabled={saving || !editedText.trim()}
+                        >
+                          {saving ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4 mr-1" />
+                          )}
+                          {saving ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : analysisData?.analysis_data ? (
+                    <div className="space-y-4">
+                      <div className="min-h-[100px] p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {analysisData.analysis_data}
+                        </p>
+                      </div>
+                      {analysisData.last_analyzed && (
+                        <div className="text-xs text-gray-500">
+                          Last analyzed:{" "}
+                          {new Date(
+                            analysisData.last_analyzed
+                          ).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600">No analysis data found</p>
+                      <p className="text-sm text-gray-500">
+                        Run an analysis to see your writing style insights
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </>

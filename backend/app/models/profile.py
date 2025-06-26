@@ -1,8 +1,16 @@
-import uuid
-from sqlalchemy import Boolean, Column, DateTime, String, func
+"""
+Profile models for user preferences and social connections.
+"""
+
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID, uuid4
+
+from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.helpers import get_array_column, get_json_column, get_uuid_column
+from app.models.helpers import JSONType, StringArray, UUIDType
 
 
 class UserPreferences(Base):
@@ -10,21 +18,18 @@ class UserPreferences(Base):
 
     __tablename__ = "user_preferences"
 
-    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(get_uuid_column(), nullable=False, unique=True)
-    topics_of_interest = Column(get_array_column(String), default=[])
-    websites = Column(get_array_column(String), default=[])
-    substacks = Column(get_array_column(String), default=[])
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False, unique=True)
+    topics_of_interest: Mapped[List[str]] = mapped_column(StringArray(), default=list)
+    websites: Mapped[List[str]] = mapped_column(StringArray(), default=list)
+    substacks: Mapped[List[str]] = mapped_column(StringArray(), default=list)
+    bio: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    bio = Column(String, default="")
 
 
 class WritingStyleAnalysis(Base):
@@ -32,22 +37,19 @@ class WritingStyleAnalysis(Base):
 
     __tablename__ = "writing_style_analysis"
 
-    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(get_uuid_column(), nullable=False)
+    id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
     # Source of the writing sample (e.g. "import", "substack", "linkedin")
-    source = Column(String, nullable=False)
-    analysis_data = Column(String, nullable=False)
-    last_analyzed_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    analysis_data: Mapped[str] = mapped_column(String, nullable=False)
+    last_analyzed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
@@ -56,25 +58,30 @@ class SocialConnection(Base):
 
     __tablename__ = "social_connections"
 
-    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(get_uuid_column(), nullable=False)
-    platform = Column(String, nullable=False)
-    platform_username = Column(String)
+    id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
+    platform: Mapped[str] = mapped_column(String, nullable=False)
+    platform_username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # All authentication data is now stored in connection_data JSON field
     # Structure varies by auth method:
     # - Native LinkedIn: {"auth_method": "native", "access_token": "...", "refresh_token": "...", "expires_at": "...", "scope": "...", "linkedin_user_id": "...", "email": "..."}
     # - Unipile: {"auth_method": "unipile", "account_id": "...", "unipile_account_id": "...", "provider": "...", "status": "..."}
-    connection_data = Column(get_json_column())
-    is_active = Column(Boolean, default=True, nullable=False)
-    analysis_started_at = Column(DateTime(timezone=True))
-    analysis_completed_at = Column(DateTime(timezone=True))
-    analysis_status = Column(String, default="not_started", nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    connection_data: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONType(), nullable=True
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    analysis_started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analysis_completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analysis_status: Mapped[str] = mapped_column(
+        String, default="not_started", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

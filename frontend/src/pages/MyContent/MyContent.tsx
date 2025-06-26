@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/components/AppLayout";
@@ -22,6 +22,22 @@ import {
   Check,
   X,
   Bookmark,
+  Zap,
+  CheckCircle,
+  XCircle,
+  Info,
+  Activity,
+  Trash2,
+  Search,
+  CheckCheck,
+  PlusCircle,
+  MessageSquare,
+  Heart,
+  Archive,
+  BarChart3,
+  Users,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import {
@@ -38,8 +54,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { suggestedPostsApi, SuggestedPost } from "@/lib/suggested-posts-api";
+import { postsApi, Post } from "@/lib/posts-api";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { SuggestedPosts } from "@/components/SuggestedPosts";
 
 interface Filters {
   status?: string[];
@@ -53,8 +71,8 @@ const MyContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const postId = searchParams.get("post");
 
-  const [posts, setPosts] = useState<SuggestedPost[]>([]);
-  const [selectedPost, setSelectedPost] = useState<SuggestedPost | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>("");
@@ -81,6 +99,9 @@ const MyContent: React.FC = () => {
     order_by: "created_at",
     order_direction: "desc",
   });
+  const [activeTab, setActiveTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,14 +112,12 @@ const MyContent: React.FC = () => {
 
         if (postId) {
           // Fetch specific post
-          const post = await suggestedPostsApi.getSuggestedPost(postId);
+          const post = await postsApi.getPost(postId);
           setSelectedPost(post);
           setPosts([post]);
         } else {
           // Fetch all posts with filters
-          const postsResponse = await suggestedPostsApi.getSuggestedPosts(
-            filters
-          );
+          const postsResponse = await postsApi.getPosts(filters);
           setPosts(postsResponse.items);
           setSelectedPost(null);
         }
@@ -174,13 +193,13 @@ const MyContent: React.FC = () => {
     setSelectedPost(null);
   };
 
-  const dismissPost = async (post: SuggestedPost) => {
+  const dismissPost = async (post: Post) => {
     setDismissingPostId(post.id);
 
     // Create undo timeout
     const timeoutId = setTimeout(async () => {
       try {
-        await suggestedPostsApi.dismissSuggestedPost(post.id);
+        await postsApi.dismissPost(post.id);
         setPosts(posts.filter((p) => p.id !== post.id));
         setUndoTimeouts((prev) => {
           const newMap = new Map(prev);
@@ -236,9 +255,9 @@ const MyContent: React.FC = () => {
     });
   };
 
-  const removeFromSchedule = async (post: SuggestedPost) => {
+  const removeFromSchedule = async (post: Post) => {
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
+      const updatedPost = await postsApi.updatePost(post.id, {
         status: "saved",
       });
 
@@ -264,10 +283,10 @@ const MyContent: React.FC = () => {
     });
   };
 
-  const saveForLater = async (post: SuggestedPost) => {
+  const saveForLater = async (post: Post) => {
     setSavingPostId(post.id);
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
+      const updatedPost = await postsApi.updatePost(post.id, {
         status: "saved",
       });
 
@@ -287,14 +306,14 @@ const MyContent: React.FC = () => {
     }
   };
 
-  const startEditing = (post: SuggestedPost) => {
+  const startEditing = (post: Post) => {
     setEditingPostId(post.id);
     setEditedContent(post.content);
   };
 
   const saveEdit = async (postId: string) => {
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(postId, {
+      const updatedPost = await postsApi.updatePost(postId, {
         content: editedContent,
       });
 
@@ -321,7 +340,7 @@ const MyContent: React.FC = () => {
 
   const submitPositiveFeedback = async (postId: string) => {
     try {
-      const updatedPost = await suggestedPostsApi.submitFeedback(postId, {
+      const updatedPost = await postsApi.submitFeedback(postId, {
         feedback_type: "positive",
       });
 
@@ -349,13 +368,10 @@ const MyContent: React.FC = () => {
 
     setIsSubmittingFeedback(true);
     try {
-      const updatedPost = await suggestedPostsApi.submitFeedback(
-        feedbackModal.postId,
-        {
-          feedback_type: "negative",
-          comment: feedbackComment || undefined,
-        }
-      );
+      const updatedPost = await postsApi.submitFeedback(feedbackModal.postId, {
+        feedback_type: "negative",
+        comment: feedbackComment || undefined,
+      });
 
       setPosts(
         posts.map((p) => (p.id === feedbackModal.postId ? updatedPost : p))
@@ -403,7 +419,7 @@ const MyContent: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
-      suggested: "bg-gray-100 text-gray-800",
+      suggested: "bg-blue-100 text-blue-800",
       saved: "bg-purple-100 text-purple-800",
       posted: "bg-green-100 text-green-800",
       scheduled: "bg-yellow-100 text-yellow-800",
@@ -411,6 +427,21 @@ const MyContent: React.FC = () => {
       dismissed: "bg-red-100 text-red-800",
     };
     return statusColors[status] || "bg-gray-100 text-gray-800";
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "suggested":
+        return <Zap className="w-3 h-3" />;
+      case "posted":
+        return <CheckCircle className="w-3 h-3" />;
+      case "dismissed":
+        return <XCircle className="w-3 h-3" />;
+      case "saved":
+        return <Bookmark className="w-3 h-3" />;
+      default:
+        return <Info className="w-3 h-3" />;
+    }
   };
 
   const renderContentWithNewlines = (content: string) => {
@@ -432,7 +463,7 @@ const MyContent: React.FC = () => {
     });
   };
 
-  const renderPost = (post: SuggestedPost, index: number) => (
+  const renderPost = (post: Post, index: number) => (
     <Card
       key={post.id}
       className="relative hover:shadow-md transition-shadow flex flex-col h-full"
@@ -449,7 +480,8 @@ const MyContent: React.FC = () => {
                 className={`${getStatusColor(post.status)} text-xs`}
                 variant="secondary"
               >
-                {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                {getStatusIcon(post.status)}
+                <span className="ml-1 capitalize">{post.status}</span>
               </Badge>
               {post.user_feedback && (
                 <Badge
@@ -750,19 +782,60 @@ const MyContent: React.FC = () => {
     </Popover>
   );
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchData();
+    setIsRefreshing(false);
+    toast.success("Content refreshed");
+  };
+
   const refreshButton = (
     <Button
-      onClick={() => window.location.reload()}
-      disabled={isLoading}
+      onClick={handleRefresh}
+      disabled={isLoading || isRefreshing}
       variant="outline"
       size="sm"
     >
       <RefreshCw
-        className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} sm:mr-2`}
+        className={`w-4 h-4 ${
+          isLoading || isRefreshing ? "animate-spin" : ""
+        } sm:mr-2`}
       />
       <span className="hidden sm:inline">Refresh</span>
     </Button>
   );
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await postsApi.deletePost(postId);
+      setPosts(posts.filter((post) => post.id !== postId));
+      toast.success("Post deleted successfully");
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast.error("Failed to delete post");
+    }
+  };
+
+  const filteredPosts = posts.filter(
+    (post) =>
+      post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.topics.some((topic) =>
+        topic.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+  );
+
+  const getPostStats = () => {
+    const total = posts.length;
+    const suggested = posts.filter((p) => p.status === "suggested").length;
+    const posted = posts.filter((p) => p.status === "posted").length;
+    const dismissed = posts.filter((p) => p.status === "dismissed").length;
+    const saved = posts.filter((p) => p.status === "saved").length;
+
+    return { total, suggested, posted, dismissed, saved };
+  };
+
+  const stats = getPostStats();
 
   if (isLoading) {
     return (
