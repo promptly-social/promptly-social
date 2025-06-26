@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy import and_, asc, delete, desc, func, select, or_
+from sqlalchemy import and_, asc, delete, desc, func, select, or_, Boolean
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -42,13 +42,13 @@ class IdeaBankService:
             # Apply filters
             if ai_suggested is not None:
                 query = query.where(
-                    IdeaBank.data["ai_suggested"].astext.cast(bool) == ai_suggested
+                    IdeaBank.data["ai_suggested"].astext.cast(Boolean) == ai_suggested
                 )
 
             if evergreen is not None:
                 # Evergreen means NOT time_sensitive
                 query = query.where(
-                    IdeaBank.data["time_sensitive"].astext.cast(bool) != evergreen
+                    IdeaBank.data["time_sensitive"].astext.cast(Boolean) != evergreen
                 )
 
             # For has_post and post_status filters, we need to join with suggested_posts
@@ -132,12 +132,12 @@ class IdeaBankService:
             # Apply same filters to count query
             if ai_suggested is not None:
                 count_query = count_query.where(
-                    IdeaBank.data["ai_suggested"].astext.cast(bool) == ai_suggested
+                    IdeaBank.data["ai_suggested"].astext.cast(Boolean) == ai_suggested
                 )
 
             if evergreen is not None:
                 count_query = count_query.where(
-                    IdeaBank.data["time_sensitive"].astext.cast(bool) != evergreen
+                    IdeaBank.data["time_sensitive"].astext.cast(Boolean) != evergreen
                 )
 
             if has_post is not None or post_status is not None:
