@@ -1,34 +1,9 @@
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Clock,
-  RefreshCw,
-  Calendar,
-  TrendingUp,
-  User,
-  Globe,
-  Share2,
-  ThumbsUp,
-  ThumbsDown,
-  Edit3,
-  Check,
-  X,
-  Bookmark,
-  Eye,
-  EyeOff,
-  Copy,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+import { RefreshCw, TrendingUp, Loader2 } from "lucide-react";
+import { PostCard } from "@/components/PostCard";
+import { PostScheduleModal } from "@/components/PostScheduleModal";
 import { postsApi, Post } from "@/lib/posts-api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,15 +21,9 @@ interface SuggestedPostsProps {
   className?: string;
 }
 
-interface PostWithFeedback extends Post {
-  showFeedback?: boolean;
-  feedbackComment?: string;
-}
-
 export function SuggestedPosts({ className }: SuggestedPostsProps) {
-  const [posts, setPosts] = useState<PostWithFeedback[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>("");
@@ -66,12 +35,12 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [dismissingPostId, setDismissingPostId] = useState<string | null>(null);
   const [savingPostId, setSavingPostId] = useState<string | null>(null);
-  const [undoTimeouts, setUndoTimeouts] = useState<Map<string, NodeJS.Timeout>>(
-    new Map()
-  );
-  const [toastDismissers, setToastDismissers] = useState<
-    Map<string, () => void>
-  >(new Map());
+  const [scheduleModal, setScheduleModal] = useState<{
+    isOpen: boolean;
+    post: Post | null;
+  }>({ isOpen: false, post: null });
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
+  const [isScheduling, setIsScheduling] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -81,6 +50,8 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
 
       try {
         setLoading(true);
+
+        // Fetch suggested posts
         const postsResponse = await postsApi.getPosts({
           status: ["suggested"],
           order_by: "recommendation_score",
@@ -88,11 +59,21 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         });
 
         setPosts(postsResponse.items);
+
+        // Fetch scheduled posts for the schedule modal
+        const scheduledResponse = await postsApi.getPosts({
+          status: ["scheduled"],
+          order_by: "scheduled_at",
+          order_direction: "asc",
+          size: 100,
+        });
+
+        setScheduledPosts(scheduledResponse.items);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch suggested posts. Please try again.",
+          description: "Failed to fetch posts. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -103,179 +84,134 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
     fetchData();
   }, [user, toast]);
 
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      undoTimeouts.forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
-    };
-  }, [undoTimeouts]);
-
-  const handleCopyContent = async (content: string) => {
+  const dismissPost = async (post: Post) => {
+    setDismissingPostId(post.id);
     try {
-      await navigator.clipboard.writeText(content);
+      await postsApi.dismissPost(post.id);
+      setPosts(posts.filter((p) => p.id !== post.id));
       toast({
-        title: "Content Copied",
-        description: "Content has been copied to clipboard",
+        title: "Post dismissed",
+        description: "Post has been dismissed",
       });
     } catch (error) {
+      console.error("Error dismissing post:", error);
       toast({
         title: "Error",
-        description: "Failed to copy content",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDismiss = async (postId: string) => {
-    setDismissingPostId(postId);
-
-    // Show toast with undo option first to get the dismiss function
-    const { dismiss: dismissToast } = toast({
-      title: "Post dismissed",
-      description: (
-        <div className="space-y-2">
-          <p>Post will be removed in 3 seconds</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div
-              className="bg-red-600 h-2 rounded-full"
-              style={{
-                width: "100%",
-                animation: "shrink-width 3s linear forwards",
-              }}
-            />
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              undoDismiss(postId);
-              dismissToast();
-            }}
-            className="w-full"
-          >
-            Undo
-          </Button>
-        </div>
-      ),
-      duration: 3100,
-    });
-
-    // Store toast dismisser for potential undo and cleanup
-    setToastDismissers((prev) => new Map(prev).set(postId, dismissToast));
-
-    // Create undo timeout
-    const timeoutId = setTimeout(async () => {
-      try {
-        await postsApi.dismissPost(postId);
-        setPosts(posts.filter((p) => p.id !== postId));
-        setUndoTimeouts((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(postId);
-          return newMap;
-        });
-        setToastDismissers((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(postId);
-          return newMap;
-        });
-        // Dismiss the toast when the timeout completes
-        dismissToast();
-      } catch (error) {
-        console.error("Error dismissing post:", error);
-        toast({
-          title: "Error",
-          description: "Failed to dismiss post. Please try again.",
-          variant: "destructive",
-        });
-        // Dismiss the original toast on error as well
-        dismissToast();
-      }
-      setDismissingPostId(null);
-    }, 3000);
-
-    // Store timeout for potential undo
-    setUndoTimeouts((prev) => new Map(prev).set(postId, timeoutId));
-  };
-
-  const undoDismiss = (postId: string) => {
-    const timeoutId = undoTimeouts.get(postId);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      setUndoTimeouts((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(postId);
-        return newMap;
-      });
-    }
-
-    // Clean up toast dismisser
-    setToastDismissers((prev) => {
-      const newMap = new Map(prev);
-      newMap.delete(postId);
-      return newMap;
-    });
-
-    setDismissingPostId(null);
-    toast({
-      title: "Dismiss cancelled",
-      description: "Post has been restored.",
-    });
-  };
-
-  const handleMarkAsPosted = async (postId: string) => {
-    try {
-      setLoadingAction(`mark-posted-${postId}`);
-      await postsApi.markAsPosted(postId);
-      setPosts(posts.filter((p) => p.id !== postId));
-      toast({
-        title: "Post marked as posted",
-        description: "Post has been marked as posted",
-      });
-    } catch (error) {
-      console.error("Error marking post as posted:", error);
-      toast({
-        title: "Error",
-        description: "Failed to mark post as posted",
+        description: "Failed to dismiss post. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoadingAction(null);
+      setDismissingPostId(null);
     }
   };
 
-  const handleFeedback = async (
-    postId: string,
-    feedbackType: "positive" | "negative",
-    comment?: string
-  ) => {
+  const saveForLater = async (post: Post) => {
+    setSavingPostId(post.id);
     try {
-      setLoadingAction(`feedback-${postId}`);
-      await postsApi.submitFeedback(postId, {
-        feedback_type: feedbackType,
-        comment: comment || undefined,
+      const updatedPost = await postsApi.updatePost(post.id, {
+        status: "saved",
       });
 
-      // Update the post in the state
-      setPosts(
-        posts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                user_feedback: feedbackType,
-                feedback_comment: comment,
-                showFeedback: false,
-              }
-            : post
-        )
-      );
+      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
 
       toast({
-        title: `${
-          feedbackType === "positive" ? "Positive" : "Negative"
-        } feedback submitted`,
-        description: "Thank you for your feedback!",
+        title: "Post Saved",
+        description: "Post has been saved for later.",
+      });
+    } catch (error) {
+      console.error("Error saving post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPostId(null);
+    }
+  };
+
+  const startEditing = (post: Post) => {
+    setEditingPostId(post.id);
+    setEditedContent(post.content);
+  };
+
+  const saveEdit = async (postId: string) => {
+    try {
+      const updatedPost = await postsApi.updatePost(postId, {
+        content: editedContent,
+      });
+
+      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+      setEditingPostId(null);
+      setEditedContent("");
+
+      toast({
+        title: "Post Updated",
+        description: "Your changes have been saved.",
+      });
+    } catch (error) {
+      console.error("Error updating post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update the post. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingPostId(null);
+    setEditedContent("");
+  };
+
+  const submitPositiveFeedback = async (postId: string) => {
+    try {
+      const updatedPost = await postsApi.submitFeedback(postId, {
+        feedback_type: "positive",
+      });
+
+      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+
+      toast({
+        title: "Feedback Submitted",
+        description: "Thank you for your positive feedback!",
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openNegativeFeedbackModal = (postId: string) => {
+    setFeedbackModal({ isOpen: true, postId });
+    setFeedbackComment("");
+  };
+
+  const submitNegativeFeedback = async () => {
+    if (!feedbackModal.postId) return;
+
+    setIsSubmittingFeedback(true);
+    try {
+      const updatedPost = await postsApi.submitFeedback(feedbackModal.postId, {
+        feedback_type: "negative",
+        comment: feedbackComment || undefined,
+      });
+
+      setPosts(
+        posts.map((p) => (p.id === feedbackModal.postId ? updatedPost : p))
+      );
+
+      setFeedbackModal({ isOpen: false, postId: null });
+      setFeedbackComment("");
+
+      toast({
+        title: "Feedback Submitted",
+        description:
+          "Thank you for your feedback! We'll use it to improve suggestions.",
       });
     } catch (error) {
       console.error("Error submitting feedback:", error);
@@ -285,26 +221,47 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         variant: "destructive",
       });
     } finally {
-      setLoadingAction(null);
+      setIsSubmittingFeedback(false);
     }
   };
 
-  const toggleFeedback = (postId: string) => {
-    setPosts(
-      posts.map((post) =>
-        post.id === postId
-          ? { ...post, showFeedback: !post.showFeedback }
-          : post
-      )
-    );
+  const schedulePost = (postId: string) => {
+    const post = posts.find((p) => p.id === postId);
+    if (post) {
+      setScheduleModal({ isOpen: true, post });
+    }
   };
 
-  const updateFeedbackComment = (postId: string, comment: string) => {
-    setPosts(
-      posts.map((post) =>
-        post.id === postId ? { ...post, feedbackComment: comment } : post
-      )
-    );
+  const handleSchedulePost = async (postId: string, scheduledAt: string) => {
+    setIsScheduling(true);
+    try {
+      const updatedPost = await postsApi.schedulePost(postId, scheduledAt);
+
+      // Remove from suggested posts
+      setPosts(posts.filter((p) => p.id !== postId));
+
+      // Add to scheduled posts
+      setScheduledPosts([...scheduledPosts, updatedPost]);
+
+      // Close modal
+      setScheduleModal({ isOpen: false, post: null });
+
+      toast({
+        title: "Post Scheduled",
+        description: `Post has been scheduled for ${new Date(
+          scheduledAt
+        ).toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error("Error scheduling post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScheduling(false);
+    }
   };
 
   const generateNewPosts = async () => {
@@ -347,96 +304,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const startEditing = (post: PostWithFeedback) => {
-    setEditingPostId(post.id);
-    setEditedContent(post.content);
-  };
-
-  const saveEdit = async (postId: string) => {
-    try {
-      const updatedPost = await postsApi.updatePost(postId, {
-        content: editedContent,
-      });
-
-      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
-      setEditingPostId(null);
-      setEditedContent("");
-
-      toast({
-        title: "Post Updated",
-        description: "Your changes have been saved.",
-      });
-    } catch (error) {
-      console.error("Error updating post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update the post. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingPostId(null);
-    setEditedContent("");
-  };
-
-  const openNegativeFeedbackModal = (postId: string) => {
-    setFeedbackModal({ isOpen: true, postId });
-    setFeedbackComment("");
-  };
-
-  const submitNegativeFeedback = async () => {
-    if (!feedbackModal.postId) return;
-
-    setIsSubmittingFeedback(true);
-    try {
-      await handleFeedback(feedbackModal.postId, "negative", feedbackComment);
-      setFeedbackModal({ isOpen: false, postId: null });
-      setFeedbackComment("");
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit feedback. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmittingFeedback(false);
-    }
-  };
-
-  const getSourceIcon = (platform: string) => {
-    switch (platform) {
-      case "linkedin":
-        return <Share2 className="w-3 h-3" />;
-      case "article":
-        return <Globe className="w-3 h-3" />;
-      default:
-        return <User className="w-3 h-3" />;
-    }
-  };
-
-  const getSourceLabel = (platform: string) => {
-    switch (platform) {
-      case "linkedin":
-        return "LinkedIn";
-      case "article":
-        return "Article";
-      default:
-        return "General";
-    }
-  };
-
-  const renderContentWithNewlines = (content: string) => {
-    return content.split("\n").map((line, index) => (
-      <React.Fragment key={index}>
-        {line}
-        {index < content.split("\n").length - 1 && <br />}
-      </React.Fragment>
-    ));
   };
 
   if (loading) {
@@ -489,161 +356,25 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         </Button>
       </div>
 
-      {posts.map((post) => (
-        <Card key={post.id} className="w-full">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{getSourceIcon(post.platform)}</Badge>
-                <Badge variant="secondary">
-                  Score: {post.recommendation_score}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                {post.user_feedback && (
-                  <Badge
-                    variant={
-                      post.user_feedback === "positive"
-                        ? "default"
-                        : "destructive"
-                    }
-                  >
-                    {post.user_feedback === "positive" ? "Liked" : "Disliked"}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            {post.title && (
-              <CardTitle className="text-lg">{post.title}</CardTitle>
-            )}
-            <CardDescription>
-              {post.topics.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {post.topics.map((topic, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {topic}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            <div className="whitespace-pre-wrap text-sm leading-relaxed">
-              {renderContentWithNewlines(post.content)}
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 w-full">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleCopyContent(post.content)}
-                className="flex items-center gap-2"
-              >
-                <Copy className="h-4 w-4" />
-                Copy
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toggleFeedback(post.id)}
-                className="flex items-center gap-2"
-              >
-                {post.showFeedback ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-                {post.showFeedback ? "Hide" : "Feedback"}
-              </Button>
-
-              <div className="ml-auto flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDismiss(post.id)}
-                  disabled={loadingAction === `dismiss-${post.id}`}
-                >
-                  {loadingAction === `dismiss-${post.id}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Dismiss"
-                  )}
-                </Button>
-
-                <Button
-                  size="sm"
-                  onClick={() => handleMarkAsPosted(post.id)}
-                  disabled={loadingAction === `mark-posted-${post.id}`}
-                  className="flex items-center gap-2"
-                >
-                  {loadingAction === `mark-posted-${post.id}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <ExternalLink className="h-4 w-4" />
-                      Mark as Posted
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {post.showFeedback && (
-              <div className="w-full border-t pt-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      handleFeedback(post.id, "positive", post.feedbackComment)
-                    }
-                    disabled={loadingAction === `feedback-${post.id}`}
-                    className="flex items-center gap-2"
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                    {loadingAction === `feedback-${post.id}` ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Like"
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      handleFeedback(post.id, "negative", post.feedbackComment)
-                    }
-                    disabled={loadingAction === `feedback-${post.id}`}
-                    className="flex items-center gap-2"
-                  >
-                    <ThumbsDown className="h-4 w-4" />
-                    {loadingAction === `feedback-${post.id}` ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Dislike"
-                    )}
-                  </Button>
-                </div>
-
-                <Textarea
-                  placeholder="Add your feedback (optional)..."
-                  value={post.feedbackComment || ""}
-                  onChange={(e) =>
-                    updateFeedbackComment(post.id, e.target.value)
-                  }
-                  className="text-sm"
-                  rows={3}
-                />
-              </div>
-            )}
-          </CardFooter>
-        </Card>
+      {posts.map((post, index) => (
+        <PostCard
+          key={post.id}
+          post={post}
+          index={index}
+          editingPostId={editingPostId}
+          editedContent={editedContent}
+          savingPostId={savingPostId}
+          dismissingPostId={dismissingPostId}
+          onStartEditing={startEditing}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onEditContentChange={setEditedContent}
+          onSubmitPositiveFeedback={submitPositiveFeedback}
+          onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
+          onSchedulePost={schedulePost}
+          onSaveForLater={saveForLater}
+          onDismissPost={dismissPost}
+        />
       ))}
 
       {posts.length === 0 && (
@@ -711,6 +442,16 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Schedule Post Modal */}
+      <PostScheduleModal
+        isOpen={scheduleModal.isOpen}
+        onClose={() => setScheduleModal({ isOpen: false, post: null })}
+        post={scheduleModal.post}
+        scheduledPosts={scheduledPosts}
+        onSchedule={handleSchedulePost}
+        isScheduling={isScheduling}
+      />
     </div>
   );
 }

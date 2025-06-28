@@ -18,6 +18,7 @@ class PostBase(BaseModel):
     topics: List[str] = Field(default_factory=list)
     recommendation_score: int = Field(default=0, ge=0, le=100)
     status: str = Field(default="suggested")
+    scheduled_at: Optional[datetime] = None
 
 
 class PostCreate(PostBase):
@@ -35,6 +36,7 @@ class PostUpdate(BaseModel):
     topics: Optional[List[str]] = None
     recommendation_score: Optional[int] = Field(None, ge=0, le=100)
     status: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class PostFeedback(BaseModel):
@@ -55,6 +57,7 @@ class PostResponse(PostBase):
     user_feedback: Optional[str] = None
     feedback_comment: Optional[str] = None
     feedback_at: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

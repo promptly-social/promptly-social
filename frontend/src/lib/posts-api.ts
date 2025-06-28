@@ -17,6 +17,7 @@ export interface Post {
   user_feedback?: string;
   feedback_comment?: string;
   feedback_at?: string;
+  scheduled_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +47,7 @@ export interface UpdatePostRequest {
   topics?: string[];
   recommendation_score?: number;
   status?: string;
+  scheduled_at?: string;
 }
 
 export interface PostFeedbackRequest {
@@ -151,6 +153,27 @@ class PostsAPI {
     const response = await apiClient.request<Post>(`/posts/${postId}/feedback`, {
       method: 'POST',
       body: JSON.stringify(feedback),
+    });
+    return response;
+  }
+
+  /**
+   * Schedule a post for publishing
+   */
+  async schedulePost(postId: string, scheduledAt: string): Promise<Post> {
+    const response = await apiClient.request<Post>(`/posts/${postId}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({ scheduled_at: scheduledAt }),
+    });
+    return response;
+  }
+
+  /**
+   * Remove a post from schedule
+   */
+  async unschedulePost(postId: string): Promise<Post> {
+    const response = await apiClient.request<Post>(`/posts/${postId}/schedule`, {
+      method: 'DELETE',
     });
     return response;
   }

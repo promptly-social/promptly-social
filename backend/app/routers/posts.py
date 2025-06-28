@@ -240,3 +240,65 @@ async def submit_post_feedback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit feedback",
         )
+
+
+@router.post("/{post_id}/schedule", response_model=PostResponse)
+async def schedule_post(
+    post_id: UUID,
+    schedule_data: dict,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Schedule a post for publishing."""
+    try:
+        scheduled_at = schedule_data.get("scheduled_at")
+        if not scheduled_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="scheduled_at is required",
+            )
+
+        service = PostsService(db)
+        post = await service.schedule_post(current_user.id, post_id, scheduled_at)
+
+        if not post:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
+            )
+
+        return PostResponse.model_validate(post)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error scheduling post {post_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to schedule post",
+        )
+
+
+@router.delete("/{post_id}/schedule", response_model=PostResponse)
+async def unschedule_post(
+    post_id: UUID,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Remove a post from schedule."""
+    try:
+        service = PostsService(db)
+        post = await service.unschedule_post(current_user.id, post_id)
+
+        if not post:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
+            )
+
+        return PostResponse.model_validate(post)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unscheduling post {post_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to unschedule post",
+        )

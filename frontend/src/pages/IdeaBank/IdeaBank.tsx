@@ -347,7 +347,7 @@ const IdeaBankPage: React.FC = () => {
 
   const renderLastPostUsed = (latestPost: SuggestedPost | undefined) => {
     if (!latestPost) {
-      return <span className="text-muted-foreground">Not used yet</span>;
+      return <span className="text-muted-foreground">No post created yet</span>;
     }
 
     return (
@@ -684,7 +684,7 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           {/* Mobile Card Layout */}
-          <div className="block lg:hidden space-y-4">
+          <div className="block md:hidden space-y-4">
             {/* Mobile Sort Info */}
             <div className="flex items-center justify-between text-sm text-gray-500 px-1">
               <span>
@@ -728,6 +728,18 @@ const IdeaBankPage: React.FC = () => {
                             AI
                           </Badge>
                         )}
+                        <Badge
+                          variant={
+                            !ideaBank.data.time_sensitive
+                              ? "default"
+                              : "secondary"
+                          }
+                          className="text-xs"
+                        >
+                          {!ideaBank.data.time_sensitive
+                            ? "Evergreen"
+                            : "Time Sensitive"}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
@@ -781,19 +793,6 @@ const IdeaBankPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
-                        <div>
-                          <span className="text-gray-500">Evergreen: </span>
-                          <Badge
-                            variant={
-                              !ideaBank.data.time_sensitive
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {!ideaBank.data.time_sensitive ? "Yes" : "No"}
-                          </Badge>
-                        </div>
                         <div className="text-gray-500">
                           {formatDate(ideaBank.updated_at)}
                         </div>
@@ -815,7 +814,7 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           {/* Desktop Table Layout */}
-          <div className="hidden lg:block border rounded-lg overflow-x-auto">
+          <div className="hidden xl:block border rounded-lg overflow-x-auto">
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
@@ -827,24 +826,6 @@ const IdeaBankPage: React.FC = () => {
                   </TableHead>
                   <TableHead className="w-[150px]">
                     <SortButton column="updated_at">Last Updated</SortButton>
-                  </TableHead>
-                  <TableHead className="w-[100px]">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <SortButton column="evergreen">
-                              Evergreen Topic
-                            </SortButton>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            Topics that are good anytime and not time-sensitive
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </TableHead>
                   <TableHead className="w-[180px]">Last Post Used</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
@@ -875,6 +856,18 @@ const IdeaBankPage: React.FC = () => {
                                 AI
                               </Badge>
                             )}
+                            <Badge
+                              variant={
+                                !ideaBank.data.time_sensitive
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className="text-xs"
+                            >
+                              {!ideaBank.data.time_sensitive
+                                ? "Evergreen"
+                                : "Time Sensitive"}
+                            </Badge>
                           </div>
                         </TableCell>
                         <TableCell className="min-w-0">
@@ -906,17 +899,6 @@ const IdeaBankPage: React.FC = () => {
                         <TableCell className="text-muted-foreground">
                           {formatDate(ideaBank.updated_at)}
                         </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              !ideaBank.data.time_sensitive
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {!ideaBank.data.time_sensitive ? "Yes" : "No"}
-                          </Badge>
-                        </TableCell>
                         <TableCell>{renderLastPostUsed(latestPost)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -947,7 +929,7 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           {/* Medium Screen Table Layout */}
-          <div className="hidden md:block lg:hidden border rounded-lg overflow-x-auto">
+          <div className="hidden md:block xl:hidden border rounded-lg overflow-x-auto">
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
@@ -1001,7 +983,9 @@ const IdeaBankPage: React.FC = () => {
                                 }
                                 className="text-xs"
                               >
-                                {!ideaBank.data.time_sensitive ? "EG" : "TS"}
+                                {!ideaBank.data.time_sensitive
+                                  ? "Evergreen"
+                                  : "Time Sensitive"}
                               </Badge>
                             </div>
                           </div>
@@ -1067,7 +1051,7 @@ const IdeaBankPage: React.FC = () => {
                             </div>
                           ) : (
                             <span className="text-muted-foreground text-xs">
-                              Not used
+                              No post created yet
                             </span>
                           )}
                         </TableCell>
