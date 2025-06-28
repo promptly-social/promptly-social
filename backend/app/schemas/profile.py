@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.content_strategies import ContentStrategyResponse
 
 
 class UserPreferencesBase(BaseModel):
@@ -27,6 +28,7 @@ class UserPreferencesUpdate(BaseModel):
     websites: Optional[List[str]] = None
     substacks: Optional[List[str]] = None
     bio: Optional[str] = None
+    content_strategies: Optional[Dict[str, str]] = None
 
 
 class UserPreferencesResponse(UserPreferencesBase):
@@ -38,6 +40,7 @@ class UserPreferencesResponse(UserPreferencesBase):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+    content_strategies: List[ContentStrategyResponse] = Field(default_factory=list)
 
 
 class SocialConnectionBase(BaseModel):

@@ -20,6 +20,7 @@ import google.oauth2.service_account
 
 from app.core.config import settings
 from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
+from app.models.content_strategies import ContentStrategy
 from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate
 
 
@@ -40,17 +41,97 @@ class ProfileService:
             logger.error(f"Error getting user preferences for {user_id}: {e}")
             raise
 
+    async def get_content_strategies(self, user_id: UUID) -> List[ContentStrategy]:
+        """Get content strategies for a user."""
+        try:
+            query = select(ContentStrategy).where(ContentStrategy.user_id == user_id)
+            result = await self.db.execute(query)
+            return result.scalars().all()
+        except Exception as e:
+            logger.error(f"Error getting content strategies for {user_id}: {e}")
+            raise
+
+    async def upsert_content_strategy(
+        self, user_id: UUID, platform: str, strategy: str
+    ) -> ContentStrategy:
+        """Create or update a content strategy for a platform."""
+        try:
+            # Check if strategy exists
+            query = select(ContentStrategy).where(
+                and_(
+                    ContentStrategy.user_id == user_id,
+                    ContentStrategy.platform == platform,
+                )
+            )
+            result = await self.db.execute(query)
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                # Update existing strategy
+                existing.strategy = strategy
+                existing.updated_at = datetime.now(timezone.utc)
+                await self.db.commit()
+                await self.db.refresh(existing)
+                logger.info(f"Updated content strategy {platform} for {user_id}")
+                return existing
+            else:
+                # Create new strategy
+                strategy_obj = ContentStrategy(
+                    user_id=user_id,
+                    platform=platform,
+                    strategy=strategy,
+                )
+                self.db.add(strategy_obj)
+                await self.db.commit()
+                await self.db.refresh(strategy_obj)
+                logger.info(f"Created content strategy {platform} for {user_id}")
+                return strategy_obj
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(
+                f"Error upserting content strategy {platform} for {user_id}: {e}"
+            )
+            raise
+
+    async def create_default_linkedin_strategy(self, user_id: UUID) -> ContentStrategy:
+        """Create default LinkedIn content strategy for a user."""
+        default_linkedin_strategy = """Best Practices for Crafting Engaging LinkedIn Post Text
+
+Start with a Strong Hook: Begin the post with a compelling question, a surprising statistic, or a bold statement to immediately capture the reader's attention and stop them from scrolling.
+
+Encourage Conversation: End your post with a clear call-to-action or an open-ended question that prompts readers to share their own experiences, opinions, or advice in the comments. Frame the text to start a discussion, not just to broadcast information.
+
+Write for Readability: Use short paragraphs, single-sentence lines, and bullet points to break up large blocks of text. This makes the post easier to scan and digest on a mobile device.
+
+Provide Genuine Value: The core of the text should offer insights, tips, or a personal story that is valuable to your target audience. Avoid pure self-promotion and focus on sharing expertise or relatable experiences.
+
+Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
+
+Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the end of your post. These should act as keywords for your topic (e.g., #ProjectManagementTips instead of just #Management) to connect with interested communities."""
+
+        return await self.upsert_content_strategy(
+            user_id, "linkedin", default_linkedin_strategy
+        )
+
     async def upsert_user_preferences(
         self, user_id: UUID, preferences_data: UserPreferencesUpdate
     ) -> UserPreferences:
         """Create or update user preferences."""
         try:
+            # Handle content strategies separately
+            content_strategies_data = preferences_data.content_strategies
+            preferences_data_dict = preferences_data.model_dump(exclude_unset=True)
+            preferences_data_dict.pop(
+                "content_strategies", None
+            )  # Remove content_strategies from preferences data
+
             # Check if preferences exist
             existing = await self.get_user_preferences(user_id)
 
             if existing:
                 # Update existing preferences
-                update_dict = preferences_data.model_dump(exclude_unset=True)
+                update_dict = preferences_data_dict
                 update_dict["updated_at"] = datetime.now(timezone.utc)
 
                 for key, value in update_dict.items():
@@ -59,17 +140,29 @@ class ProfileService:
                 await self.db.commit()
                 await self.db.refresh(existing)
                 logger.info(f"Updated user preferences for {user_id}")
-                return existing
             else:
                 # Create new preferences
-                preferences = UserPreferences(
-                    user_id=user_id, **preferences_data.model_dump()
-                )
+                preferences = UserPreferences(user_id=user_id, **preferences_data_dict)
                 self.db.add(preferences)
                 await self.db.commit()
                 await self.db.refresh(preferences)
+                existing = preferences
                 logger.info(f"Created user preferences for {user_id}")
-                return preferences
+
+            # Handle content strategies if provided
+            if content_strategies_data:
+                for platform, strategy in content_strategies_data.items():
+                    await self.upsert_content_strategy(user_id, platform, strategy)
+
+            # Ensure default LinkedIn strategy exists
+            existing_strategies = await self.get_content_strategies(user_id)
+            linkedin_strategy_exists = any(
+                s.platform == "linkedin" for s in existing_strategies
+            )
+            if not linkedin_strategy_exists:
+                await self.create_default_linkedin_strategy(user_id)
+
+            return existing
 
         except Exception as e:
             await self.db.rollback()

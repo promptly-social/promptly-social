@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileApi } from "@/lib/profile-api";
 import { useToast } from "@/hooks/use-toast";
-import { User, Edit, Check, X } from "lucide-react";
+import { User, Edit3, Check, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const UserBio: React.FC = () => {
@@ -95,39 +95,43 @@ export const UserBio: React.FC = () => {
           <Skeleton className="w-full h-24" />
         ) : (
           <div className="space-y-3">
-            {!isEditing ? (
-              // Display mode
-              <div className="space-y-3">
-                <div className="min-h-[100px] p-3 bg-gray-50 rounded-md border">
-                  {bio ? (
-                    <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap">
-                      {bio}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">
-                      No bio added yet. Click edit to add a brief description
-                      about yourself.
-                    </p>
-                  )}
-                </div>
+            {/* Edit button positioned at top right, outside the text box */}
+            {!isEditing && (
+              <div className="flex justify-end">
                 <Button
                   onClick={handleEdit}
                   size="sm"
                   variant="outline"
-                  className="w-full sm:w-auto"
+                  className="flex items-center gap-2"
                 >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Bio
+                  <Edit3 className="w-4 h-4" />
+                  Edit
                 </Button>
+              </div>
+            )}
+
+            {!isEditing ? (
+              // Display mode
+              <div className="min-h-[100px] p-4 bg-gray-50 rounded-lg border border-gray-200">
+                {bio ? (
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {bio}
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">
+                    No bio added yet. Click edit to add a brief description
+                    about yourself.
+                  </p>
+                )}
               </div>
             ) : (
               // Edit mode
-              <div className="space-y-3">
+              <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
                 <Textarea
                   value={editingBio}
                   onChange={(e) => setEditingBio(e.target.value)}
                   placeholder="Tell us about yourself, your interests, and what you're passionate about..."
-                  className="min-h-[100px] text-sm sm:text-base"
+                  className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   disabled={isSaving}
                 />
                 <div className="flex justify-end items-center">
@@ -147,7 +151,7 @@ export const UserBio: React.FC = () => {
                       disabled={isSaving}
                     >
                       <Check className="w-4 h-4 mr-1" />
-                      {isSaving ? "Saving..." : "Confirm"}
+                      {isSaving ? "Saving..." : "Save"}
                     </Button>
                   </div>
                 </div>

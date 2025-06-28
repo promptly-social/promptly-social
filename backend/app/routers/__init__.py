@@ -1,5 +1,5 @@
 """API routers package."""
 
-from . import auth, content, idea_bank, profile, suggested_posts
+from . import auth, idea_bank, profile, posts
 
-__all__ = ["auth", "content", "idea_bank", "profile", "suggested_posts"]
+__all__ = ["auth", "idea_bank", "profile", "posts"]

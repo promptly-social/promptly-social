@@ -6,23 +6,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/components/AppLayout";
-import {
-  RefreshCw,
-  Calendar,
-  ArrowLeft,
-  Filter,
-  TrendingUp,
-  Clock,
-  Share2,
-  Globe,
-  User,
-  ThumbsUp,
-  ThumbsDown,
-  Edit3,
-  Check,
-  X,
-  Bookmark,
-} from "lucide-react";
+import { PostCard } from "@/components/PostCard";
+import { PostScheduleModal } from "@/components/PostScheduleModal";
+import { RefreshCw, ArrowLeft, Filter, TrendingUp } from "lucide-react";
 
 import {
   Popover,
@@ -38,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { suggestedPostsApi, SuggestedPost } from "@/lib/suggested-posts-api";
+import { postsApi, Post } from "@/lib/posts-api";
 import { toast } from "sonner";
 
 interface Filters {
@@ -53,8 +39,8 @@ const MyContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const postId = searchParams.get("post");
 
-  const [posts, setPosts] = useState<SuggestedPost[]>([]);
-  const [selectedPost, setSelectedPost] = useState<SuggestedPost | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>("");
@@ -69,6 +55,12 @@ const MyContent: React.FC = () => {
   const [undoTimeouts, setUndoTimeouts] = useState<Map<string, NodeJS.Timeout>>(
     new Map()
   );
+  const [scheduleModal, setScheduleModal] = useState<{
+    isOpen: boolean;
+    post: Post | null;
+  }>({ isOpen: false, post: null });
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
+  const [isScheduling, setIsScheduling] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     status: ["suggested", "saved"], // Show suggested and saved by default
     platform: undefined,
@@ -91,16 +83,23 @@ const MyContent: React.FC = () => {
 
         if (postId) {
           // Fetch specific post
-          const post = await suggestedPostsApi.getSuggestedPost(postId);
+          const post = await postsApi.getPost(postId);
           setSelectedPost(post);
           setPosts([post]);
         } else {
           // Fetch all posts with filters
-          const postsResponse = await suggestedPostsApi.getSuggestedPosts(
-            filters
-          );
+          const postsResponse = await postsApi.getPosts(filters);
           setPosts(postsResponse.items);
           setSelectedPost(null);
+
+          // Fetch scheduled posts for the schedule modal
+          const scheduledResponse = await postsApi.getPosts({
+            status: ["scheduled"],
+            order_by: "scheduled_at",
+            order_direction: "asc",
+            size: 100,
+          });
+          setScheduledPosts(scheduledResponse.items);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -174,13 +173,13 @@ const MyContent: React.FC = () => {
     setSelectedPost(null);
   };
 
-  const dismissPost = async (post: SuggestedPost) => {
+  const dismissPost = async (post: Post) => {
     setDismissingPostId(post.id);
 
     // Create undo timeout
     const timeoutId = setTimeout(async () => {
       try {
-        await suggestedPostsApi.dismissSuggestedPost(post.id);
+        await postsApi.dismissPost(post.id);
         setPosts(posts.filter((p) => p.id !== post.id));
         setUndoTimeouts((prev) => {
           const newMap = new Map(prev);
@@ -229,16 +228,47 @@ const MyContent: React.FC = () => {
   };
 
   const schedulePost = (postId: string) => {
-    console.log("Scheduling post:", postId);
-    // TODO: Implement scheduling logic
-    toast.success("Coming Soon", {
-      description: "Post scheduling will be available soon!",
-    });
+    const post = posts.find((p) => p.id === postId);
+    if (post) {
+      setScheduleModal({ isOpen: true, post });
+    }
   };
 
-  const removeFromSchedule = async (post: SuggestedPost) => {
+  const handleSchedulePost = async (postId: string, scheduledAt: string) => {
+    setIsScheduling(true);
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
+      const updatedPost = await postsApi.schedulePost(postId, scheduledAt);
+
+      // Update posts list
+      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+
+      // Update selected post if it's the same one
+      if (selectedPost?.id === postId) {
+        setSelectedPost(updatedPost);
+      }
+
+      // Add to scheduled posts
+      setScheduledPosts([...scheduledPosts, updatedPost]);
+
+      // Close modal
+      setScheduleModal({ isOpen: false, post: null });
+
+      toast.success("Post Scheduled", {
+        description: `Post has been scheduled for ${new Date(
+          scheduledAt
+        ).toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error("Error scheduling post:", error);
+      toast.error("Failed to schedule post. Please try again.");
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
+  const removeFromSchedule = async (post: Post) => {
+    try {
+      const updatedPost = await postsApi.updatePost(post.id, {
         status: "saved",
       });
 
@@ -258,16 +288,16 @@ const MyContent: React.FC = () => {
 
   const reschedulePost = (postId: string) => {
     console.log("Rescheduling post:", postId);
-    // TODO: Implement rescheduling logic
+
     toast.success("Coming Soon", {
       description: "Post rescheduling will be available soon!",
     });
   };
 
-  const saveForLater = async (post: SuggestedPost) => {
+  const saveForLater = async (post: Post) => {
     setSavingPostId(post.id);
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(post.id, {
+      const updatedPost = await postsApi.updatePost(post.id, {
         status: "saved",
       });
 
@@ -287,14 +317,14 @@ const MyContent: React.FC = () => {
     }
   };
 
-  const startEditing = (post: SuggestedPost) => {
+  const startEditing = (post: Post) => {
     setEditingPostId(post.id);
     setEditedContent(post.content);
   };
 
   const saveEdit = async (postId: string) => {
     try {
-      const updatedPost = await suggestedPostsApi.updateSuggestedPost(postId, {
+      const updatedPost = await postsApi.updatePost(postId, {
         content: editedContent,
       });
 
@@ -321,7 +351,7 @@ const MyContent: React.FC = () => {
 
   const submitPositiveFeedback = async (postId: string) => {
     try {
-      const updatedPost = await suggestedPostsApi.submitFeedback(postId, {
+      const updatedPost = await postsApi.submitFeedback(postId, {
         feedback_type: "positive",
       });
 
@@ -349,13 +379,10 @@ const MyContent: React.FC = () => {
 
     setIsSubmittingFeedback(true);
     try {
-      const updatedPost = await suggestedPostsApi.submitFeedback(
-        feedbackModal.postId,
-        {
-          feedback_type: "negative",
-          comment: feedbackComment || undefined,
-        }
-      );
+      const updatedPost = await postsApi.submitFeedback(feedbackModal.postId, {
+        feedback_type: "negative",
+        comment: feedbackComment || undefined,
+      });
 
       setPosts(
         posts.map((p) => (p.id === feedbackModal.postId ? updatedPost : p))
@@ -378,297 +405,6 @@ const MyContent: React.FC = () => {
       setIsSubmittingFeedback(false);
     }
   };
-
-  const getSourceIcon = (platform: string) => {
-    switch (platform) {
-      case "linkedin":
-        return <Share2 className="w-3 h-3" />;
-      case "substack":
-        return <Globe className="w-3 h-3" />;
-      default:
-        return <User className="w-3 h-3" />;
-    }
-  };
-
-  const getSourceLabel = (platform: string) => {
-    switch (platform) {
-      case "linkedin":
-        return "LinkedIn";
-      case "substack":
-        return "Substack";
-      default:
-        return "General";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    const statusColors: Record<string, string> = {
-      suggested: "bg-gray-100 text-gray-800",
-      saved: "bg-purple-100 text-purple-800",
-      posted: "bg-green-100 text-green-800",
-      scheduled: "bg-yellow-100 text-yellow-800",
-      canceled: "bg-orange-100 text-orange-800",
-      dismissed: "bg-red-100 text-red-800",
-    };
-    return statusColors[status] || "bg-gray-100 text-gray-800";
-  };
-
-  const renderContentWithNewlines = (content: string) => {
-    return content.split("\n").map((line, index) => (
-      <React.Fragment key={index}>
-        {line}
-        {index < content.split("\n").length - 1 && <br />}
-      </React.Fragment>
-    ));
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const renderPost = (post: SuggestedPost, index: number) => (
-    <Card
-      key={post.id}
-      className="relative hover:shadow-md transition-shadow flex flex-col h-full"
-    >
-      <CardHeader className="pb-3 sm:pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary" className="text-xs">
-                {getSourceIcon(post.platform)}
-                <span className="ml-1">{getSourceLabel(post.platform)}</span>
-              </Badge>
-              <Badge
-                className={`${getStatusColor(post.status)} text-xs`}
-                variant="secondary"
-              >
-                {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
-              </Badge>
-              {post.user_feedback && (
-                <Badge
-                  variant={
-                    post.user_feedback === "positive"
-                      ? "default"
-                      : "destructive"
-                  }
-                  className="text-xs"
-                >
-                  {post.user_feedback === "positive" ? (
-                    <>
-                      <ThumbsUp className="w-3 h-3 mr-1" />
-                      Liked
-                    </>
-                  ) : (
-                    <>
-                      <ThumbsDown className="w-3 h-3 mr-1" />
-                      Disliked
-                    </>
-                  )}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 flex-grow flex flex-col">
-        <div className="bg-gray-50 p-3 sm:p-4 rounded-lg relative">
-          {editingPostId === post.id ? (
-            <div className="space-y-3">
-              <Textarea
-                value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
-                className="min-h-[300px] max-h-[400px] resize-y"
-                placeholder="Edit your post content..."
-              />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => saveEdit(post.id)}>
-                  <Check className="w-4 h-4 mr-1" />
-                  Save
-                </Button>
-                <Button size="sm" variant="outline" onClick={cancelEdit}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap">
-                {renderContentWithNewlines(post.content)}
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="absolute top-2 right-2 p-1 h-6 w-6"
-                onClick={() => startEditing(post)}
-              >
-                <Edit3 className="w-3 h-3" />
-              </Button>
-            </>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-          <div className="flex items-center gap-2 text-gray-600">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span>
-              Recommendation score:{" "}
-              <strong>{post.recommendation_score}/100</strong>
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-600">
-            <Clock className="w-4 h-4 text-blue-500" />
-            <span>
-              Created: <strong>{formatDate(post.created_at)}</strong>
-            </span>
-          </div>
-        </div>
-
-        {post.topics.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm font-medium text-gray-700">
-              Topics:
-            </p>
-            <div className="flex flex-wrap gap-1 sm:gap-2">
-              {post.topics.map((topic, idx) => (
-                <Badge key={idx} variant="outline" className="text-xs">
-                  {topic}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Feedback Section */}
-        {!post.user_feedback && (
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <span className="text-sm text-gray-600">
-              How is this suggestion?
-            </span>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => submitPositiveFeedback(post.id)}
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-              >
-                <ThumbsUp className="w-4 h-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openNegativeFeedbackModal(post.id)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <ThumbsDown className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex-grow"></div>
-
-        {post.status !== "posted" && (
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
-            {post.status === "scheduled" ? (
-              <>
-                <Button
-                  onClick={() => removeFromSchedule(post)}
-                  variant="outline"
-                  className="flex-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Remove from Schedule
-                </Button>
-                <Button
-                  onClick={() => reschedulePost(post.id)}
-                  className="bg-blue-600 hover:bg-blue-700 flex-1"
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Reschedule
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  onClick={() => schedulePost(post.id)}
-                  className="bg-green-600 hover:bg-green-700 flex-1"
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Schedule Post
-                </Button>
-                {post.status === "suggested" && (
-                  <Button
-                    onClick={() => saveForLater(post)}
-                    variant="outline"
-                    className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                    disabled={savingPostId === post.id}
-                  >
-                    {savingPostId === post.id ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Bookmark className="w-4 h-4 mr-2" />
-                        Save for Later
-                      </>
-                    )}
-                  </Button>
-                )}
-              </>
-            )}
-            {post.status === "dismissed" ? (
-              <Button
-                onClick={() => saveForLater(post)}
-                variant="outline"
-                className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                disabled={savingPostId === post.id}
-              >
-                {savingPostId === post.id ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="w-4 h-4 mr-2" />
-                    Save for Later
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() => dismissPost(post)}
-                disabled={dismissingPostId === post.id}
-              >
-                {dismissingPostId === post.id ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Dismissing...
-                  </>
-                ) : (
-                  <>
-                    <X className="w-4 h-4 mr-2" />
-                    Dismiss
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
 
   const filterButton = (
     <Popover>
@@ -750,20 +486,6 @@ const MyContent: React.FC = () => {
     </Popover>
   );
 
-  const refreshButton = (
-    <Button
-      onClick={() => window.location.reload()}
-      disabled={isLoading}
-      variant="outline"
-      size="sm"
-    >
-      <RefreshCw
-        className={`w-4 h-4 ${isLoading ? "animate-spin" : ""} sm:mr-2`}
-      />
-      <span className="hidden sm:inline">Refresh</span>
-    </Button>
-  );
-
   if (isLoading) {
     return (
       <AppLayout title="My Content" emailBreakpoint="md">
@@ -796,7 +518,27 @@ const MyContent: React.FC = () => {
                 Back to My Posts
               </Button>
 
-              <div className="max-w-4xl">{renderPost(selectedPost, 0)}</div>
+              <div className="max-w-4xl">
+                <PostCard
+                  post={selectedPost}
+                  index={0}
+                  editingPostId={editingPostId}
+                  editedContent={editedContent}
+                  savingPostId={savingPostId}
+                  dismissingPostId={dismissingPostId}
+                  onStartEditing={startEditing}
+                  onSaveEdit={saveEdit}
+                  onCancelEdit={cancelEdit}
+                  onEditContentChange={setEditedContent}
+                  onSubmitPositiveFeedback={submitPositiveFeedback}
+                  onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
+                  onSchedulePost={schedulePost}
+                  onRemoveFromSchedule={removeFromSchedule}
+                  onReschedulePost={reschedulePost}
+                  onSaveForLater={saveForLater}
+                  onDismissPost={dismissPost}
+                />
+              </div>
             </div>
           ) : (
             /* Posts List View */
@@ -811,10 +553,7 @@ const MyContent: React.FC = () => {
                 <span className="text-md text-gray-600 font-medium">
                   {posts.length} {posts.length === 1 ? "post" : "posts"}
                 </span>
-                <div className="flex items-center gap-2">
-                  {filterButton}
-                  {refreshButton}
-                </div>
+                <div className="flex items-center gap-2">{filterButton}</div>
               </div>
 
               {posts.length === 0 ? (
@@ -831,7 +570,28 @@ const MyContent: React.FC = () => {
                 </Card>
               ) : (
                 <div className="grid gap-4 sm:gap-6">
-                  {posts.map((post, index) => renderPost(post, index))}
+                  {posts.map((post, index) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      index={index}
+                      editingPostId={editingPostId}
+                      editedContent={editedContent}
+                      savingPostId={savingPostId}
+                      dismissingPostId={dismissingPostId}
+                      onStartEditing={startEditing}
+                      onSaveEdit={saveEdit}
+                      onCancelEdit={cancelEdit}
+                      onEditContentChange={setEditedContent}
+                      onSubmitPositiveFeedback={submitPositiveFeedback}
+                      onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
+                      onSchedulePost={schedulePost}
+                      onRemoveFromSchedule={removeFromSchedule}
+                      onReschedulePost={reschedulePost}
+                      onSaveForLater={saveForLater}
+                      onDismissPost={dismissPost}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -876,6 +636,16 @@ const MyContent: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Schedule Post Modal */}
+      <PostScheduleModal
+        isOpen={scheduleModal.isOpen}
+        onClose={() => setScheduleModal({ isOpen: false, post: null })}
+        post={scheduleModal.post}
+        scheduledPosts={scheduledPosts}
+        onSchedule={handleSchedulePost}
+        isScheduling={isScheduling}
+      />
     </AppLayout>
   );
 };

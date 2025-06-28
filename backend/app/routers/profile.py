@@ -20,6 +20,7 @@ from app.schemas.profile import (
     LinkedInShareRequest,
     AnalysisRequest,
 )
+from app.schemas.content_strategies import ContentStrategyResponse
 from app.services.profile import ProfileService
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -35,8 +36,18 @@ async def get_user_preferences(
     try:
         profile_service = ProfileService(db)
         preferences = await profile_service.get_user_preferences(current_user.id)
+        content_strategies = await profile_service.get_content_strategies(
+            current_user.id
+        )
 
         if not preferences:
+            # Ensure default LinkedIn strategy exists
+            if not any(s.platform == "linkedin" for s in content_strategies):
+                await profile_service.create_default_linkedin_strategy(current_user.id)
+                content_strategies = await profile_service.get_content_strategies(
+                    current_user.id
+                )
+
             # Return default preferences
             return UserPreferencesResponse(
                 id=UUID("00000000-0000-0000-0000-000000000000"),
@@ -46,12 +57,30 @@ async def get_user_preferences(
                 substacks=[],
                 created_at=current_user.created_at,
                 updated_at=current_user.created_at,
+                content_strategies=[
+                    ContentStrategyResponse.model_validate(cs)
+                    for cs in content_strategies
+                ],
             )
 
         # Handle None values for new fields added via migration
         if preferences.substacks is None:
             preferences.substacks = []
-        return UserPreferencesResponse.model_validate(preferences)
+
+        # Ensure default LinkedIn strategy exists
+        if not any(s.platform == "linkedin" for s in content_strategies):
+            await profile_service.create_default_linkedin_strategy(current_user.id)
+            content_strategies = await profile_service.get_content_strategies(
+                current_user.id
+            )
+
+        # Create response with content strategies
+        response_data = UserPreferencesResponse.model_validate(preferences)
+        response_data.content_strategies = [
+            ContentStrategyResponse.model_validate(cs) for cs in content_strategies
+        ]
+
+        return response_data
     except Exception as e:
         logger.error(f"Error getting user preferences: {e}")
         raise HTTPException(
@@ -72,10 +101,21 @@ async def update_user_preferences(
         preferences = await profile_service.upsert_user_preferences(
             current_user.id, preferences_data
         )
+        content_strategies = await profile_service.get_content_strategies(
+            current_user.id
+        )
+
         # Handle None values for new fields added via migration
         if preferences.substacks is None:
             preferences.substacks = []
-        return UserPreferencesResponse.model_validate(preferences)
+
+        # Create response with content strategies
+        response_data = UserPreferencesResponse.model_validate(preferences)
+        response_data.content_strategies = [
+            ContentStrategyResponse.model_validate(cs) for cs in content_strategies
+        ]
+
+        return response_data
     except Exception as e:
         logger.error(f"Error updating user preferences: {e}")
         raise HTTPException(

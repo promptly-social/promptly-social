@@ -48,16 +48,16 @@ async def get_idea_bank_list(
     """Get idea banks with filtering and pagination."""
     try:
         idea_bank_service = IdeaBankService(db)
-        result = await idea_bank_service.get_idea_bank_list(
+        result = await idea_bank_service.get_idea_banks_list(
             user_id=current_user.id,
             page=page,
             size=size,
             order_by=order_by,
             order_direction=order_direction,
-            ai_suggested=ai_suggested,
-            evergreen=evergreen,
             has_post=has_post,
-            post_status=post_status,
+            post_status=post_status[0]
+            if post_status and len(post_status) > 0
+            else None,
         )
         return IdeaBankListResponse(**result)
     except Exception as e:

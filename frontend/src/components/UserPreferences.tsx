@@ -266,13 +266,13 @@ export const UserPreferences: React.FC = () => {
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-green-500" />
             <h3 className="font-medium text-sm sm:text-base">
-              Favorite Websites
+              Favorite News Websites
             </h3>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
-              placeholder="Add a website (e.g., techcrunch.com, medium.com)"
+              placeholder="Add a website (e.g., techcrunch.com, tldr.tech)"
               value={newWebsite}
               onChange={(e) => setNewWebsite(e.target.value)}
               onKeyDown={handleWebsiteKeyPress}

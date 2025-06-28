@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 class IdeaBankData(BaseModel):
     """Schema for idea bank data structure."""
 
-    type: str  # "substack" or "text"
+    type: str  # "article" or "text"
     value: str
     title: Optional[str] = None
     time_sensitive: Optional[bool] = False

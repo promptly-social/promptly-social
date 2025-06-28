@@ -82,11 +82,13 @@ const IdeaBankPage: React.FC = () => {
     direction: "desc",
   });
   const [filters, setFilters] = useState<Filters>({
-    // By default, show suggested and saved posts
+    // By default, show suggested and saved posts, and exclude AI suggested content
+    ai_suggested: false,
     post_status: ["suggested", "saved"],
   });
   const [pendingFilters, setPendingFilters] = useState<Filters>({
-    // By default, show suggested and saved posts
+    // By default, show suggested and saved posts, and exclude AI suggested content
+    ai_suggested: false,
     post_status: ["suggested", "saved"],
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -150,7 +152,8 @@ const IdeaBankPage: React.FC = () => {
 
   const clearPendingFilters = () => {
     const defaultFilters: Filters = {
-      // Reset to default: show suggested and saved posts
+      // Reset to default: show suggested and saved posts, exclude AI suggested content
+      ai_suggested: false,
       post_status: ["suggested", "saved"],
     };
     setPendingFilters(defaultFilters);
@@ -158,7 +161,8 @@ const IdeaBankPage: React.FC = () => {
 
   const clearAllFilters = () => {
     const defaultFilters: Filters = {
-      // Reset to default: show suggested and saved posts
+      // Reset to default: show suggested and saved posts, exclude AI suggested content
+      ai_suggested: false,
       post_status: ["suggested", "saved"],
     };
     setPendingFilters(defaultFilters);
@@ -167,7 +171,7 @@ const IdeaBankPage: React.FC = () => {
 
   const getActiveFilterCount = () => {
     let count = 0;
-    if (filters.ai_suggested !== undefined) count++;
+    // Don't count ai_suggested filter as it's always applied by default
     if (filters.evergreen !== undefined) count++;
     if (filters.has_post !== undefined) count++;
     if (
@@ -208,9 +212,16 @@ const IdeaBankPage: React.FC = () => {
   const handleEdit = (ideaBankWithPost: IdeaBankWithPost) => {
     setEditingIdeaBank(ideaBankWithPost);
     const ideaBank = ideaBankWithPost.idea_bank;
+    // Handle migration from old "substack" type to new "article" type
+    const legacyType = ideaBank.data.type as string;
+    const mappedType: "article" | "text" =
+      legacyType === "substack"
+        ? "article"
+        : (legacyType as "article" | "text");
+
     setFormData({
       data: {
-        type: ideaBank.data.type,
+        type: mappedType,
         value: ideaBank.data.value,
         title: ideaBank.data.title || "",
         time_sensitive: ideaBank.data.time_sensitive || false,
@@ -336,7 +347,7 @@ const IdeaBankPage: React.FC = () => {
 
   const renderLastPostUsed = (latestPost: SuggestedPost | undefined) => {
     if (!latestPost) {
-      return <span className="text-muted-foreground">Not used yet</span>;
+      return <span className="text-muted-foreground">No post created yet</span>;
     }
 
     return (
@@ -412,32 +423,6 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="ai-filter">AI Suggested</Label>
-              <Select
-                value={
-                  pendingFilters.ai_suggested === undefined
-                    ? "all"
-                    : pendingFilters.ai_suggested.toString()
-                }
-                onValueChange={(value) =>
-                  handlePendingFilterChange({
-                    ai_suggested:
-                      value === "all" ? undefined : value === "true",
-                  })
-                }
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="flex items-center justify-between">
               <Label htmlFor="evergreen-filter">Evergreen Topic</Label>
               <Select
@@ -570,7 +555,7 @@ const IdeaBankPage: React.FC = () => {
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.data.type}
-              onValueChange={(value: "substack" | "text") =>
+              onValueChange={(value: "article" | "text") =>
                 setFormData((prev) => ({
                   ...prev,
                   data: {
@@ -585,17 +570,17 @@ const IdeaBankPage: React.FC = () => {
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="substack">Substack</SelectItem>
+                <SelectItem value="article">Article</SelectItem>
                 <SelectItem value="text">Text</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {formData.data.type === "substack" && (
+          {formData.data.type === "article" && (
             <div className="space-y-2">
               <Label htmlFor="title">Title (Optional)</Label>
               <Input
                 id="title"
-                placeholder="Enter a title for this Substack article..."
+                placeholder="Enter a title for this article..."
                 value={formData.data.title || ""}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -608,13 +593,13 @@ const IdeaBankPage: React.FC = () => {
           )}
           <div className="space-y-2">
             <Label htmlFor="value">
-              {formData.data.type === "substack" ? "URL" : "Content"}
+              {formData.data.type === "article" ? "URL" : "Content"}
             </Label>
-            {formData.data.type === "substack" ? (
+            {formData.data.type === "article" ? (
               <Input
                 id="value"
                 type="url"
-                placeholder="https://example.substack.com"
+                placeholder="https://example.com/article"
                 value={formData.data.value}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -699,7 +684,7 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           {/* Mobile Card Layout */}
-          <div className="block lg:hidden space-y-4">
+          <div className="block md:hidden space-y-4">
             {/* Mobile Sort Info */}
             <div className="flex items-center justify-between text-sm text-gray-500 px-1">
               <span>
@@ -721,7 +706,7 @@ const IdeaBankPage: React.FC = () => {
             {getSortedData().length === 0 ? (
               <div className="text-center py-8 bg-white rounded-lg border">
                 <div className="text-muted-foreground">
-                  No idea banks found. Create your first idea to get started.
+                  No ideas found. Create your first idea to get started.
                 </div>
               </div>
             ) : (
@@ -743,6 +728,18 @@ const IdeaBankPage: React.FC = () => {
                             AI
                           </Badge>
                         )}
+                        <Badge
+                          variant={
+                            !ideaBank.data.time_sensitive
+                              ? "default"
+                              : "secondary"
+                          }
+                          className="text-xs"
+                        >
+                          {!ideaBank.data.time_sensitive
+                            ? "Evergreen"
+                            : "Time Sensitive"}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
@@ -796,19 +793,6 @@ const IdeaBankPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
-                        <div>
-                          <span className="text-gray-500">Evergreen: </span>
-                          <Badge
-                            variant={
-                              !ideaBank.data.time_sensitive
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {!ideaBank.data.time_sensitive ? "Yes" : "No"}
-                          </Badge>
-                        </div>
                         <div className="text-gray-500">
                           {formatDate(ideaBank.updated_at)}
                         </div>
@@ -830,7 +814,7 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           {/* Desktop Table Layout */}
-          <div className="hidden lg:block border rounded-lg overflow-x-auto">
+          <div className="hidden xl:block border rounded-lg overflow-x-auto">
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
@@ -843,24 +827,6 @@ const IdeaBankPage: React.FC = () => {
                   <TableHead className="w-[150px]">
                     <SortButton column="updated_at">Last Updated</SortButton>
                   </TableHead>
-                  <TableHead className="w-[100px]">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <SortButton column="evergreen">
-                              Evergreen Topic
-                            </SortButton>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            Topics that are good anytime and not time-sensitive
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableHead>
                   <TableHead className="w-[180px]">Last Post Used</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
@@ -870,8 +836,7 @@ const IdeaBankPage: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
                       <div className="text-muted-foreground">
-                        No idea banks found. Create your first idea to get
-                        started.
+                        No ideas found. Create your first idea to get started.
                       </div>
                     </TableCell>
                   </TableRow>
@@ -891,6 +856,18 @@ const IdeaBankPage: React.FC = () => {
                                 AI
                               </Badge>
                             )}
+                            <Badge
+                              variant={
+                                !ideaBank.data.time_sensitive
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className="text-xs"
+                            >
+                              {!ideaBank.data.time_sensitive
+                                ? "Evergreen"
+                                : "Time Sensitive"}
+                            </Badge>
                           </div>
                         </TableCell>
                         <TableCell className="min-w-0">
@@ -922,17 +899,6 @@ const IdeaBankPage: React.FC = () => {
                         <TableCell className="text-muted-foreground">
                           {formatDate(ideaBank.updated_at)}
                         </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              !ideaBank.data.time_sensitive
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {!ideaBank.data.time_sensitive ? "Yes" : "No"}
-                          </Badge>
-                        </TableCell>
                         <TableCell>{renderLastPostUsed(latestPost)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -963,7 +929,7 @@ const IdeaBankPage: React.FC = () => {
           </div>
 
           {/* Medium Screen Table Layout */}
-          <div className="hidden md:block lg:hidden border rounded-lg overflow-x-auto">
+          <div className="hidden md:block xl:hidden border rounded-lg overflow-x-auto">
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
@@ -985,8 +951,7 @@ const IdeaBankPage: React.FC = () => {
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
                       <div className="text-muted-foreground">
-                        No idea banks found. Create your first idea to get
-                        started.
+                        No ideas found. Create your first idea to get started.
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1018,7 +983,9 @@ const IdeaBankPage: React.FC = () => {
                                 }
                                 className="text-xs"
                               >
-                                {!ideaBank.data.time_sensitive ? "EG" : "TS"}
+                                {!ideaBank.data.time_sensitive
+                                  ? "Evergreen"
+                                  : "Time Sensitive"}
                               </Badge>
                             </div>
                           </div>
@@ -1084,7 +1051,7 @@ const IdeaBankPage: React.FC = () => {
                             </div>
                           ) : (
                             <span className="text-muted-foreground text-xs">
-                              Not used
+                              No post created yet
                             </span>
                           )}
                         </TableCell>
@@ -1130,7 +1097,7 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={formData.data.type}
-                onValueChange={(value: "substack" | "text") =>
+                onValueChange={(value: "article" | "text") =>
                   setFormData((prev) => ({
                     ...prev,
                     data: {
@@ -1145,17 +1112,17 @@ const IdeaBankPage: React.FC = () => {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="substack">Substack</SelectItem>
+                  <SelectItem value="article">Article</SelectItem>
                   <SelectItem value="text">Text</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {formData.data.type === "substack" && (
+            {formData.data.type === "article" && (
               <div className="space-y-2">
                 <Label htmlFor="edit-title">Title (Optional)</Label>
                 <Input
                   id="edit-title"
-                  placeholder="Enter a title for this Substack article..."
+                  placeholder="Enter a title for this article..."
                   value={formData.data.title || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -1168,13 +1135,13 @@ const IdeaBankPage: React.FC = () => {
             )}
             <div className="space-y-2">
               <Label htmlFor="edit-value">
-                {formData.data.type === "substack" ? "URL" : "Content"}
+                {formData.data.type === "article" ? "URL" : "Content"}
               </Label>
-              {formData.data.type === "substack" ? (
+              {formData.data.type === "article" ? (
                 <Input
                   id="edit-value"
                   type="url"
-                  placeholder="https://example.substack.com"
+                  placeholder="https://example.com/article"
                   value={formData.data.value}
                   onChange={(e) =>
                     setFormData((prev) => ({

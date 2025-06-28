@@ -191,7 +191,8 @@ export const SocialConnections: React.FC = () => {
                     )}
                     {platform.connection?.analysis_status === "in_progress" && (
                       <p className="text-xs text-blue-600">
-                        Analysis in progress...
+                        Analysis in progress. Please check back in a few
+                        minutes.
                       </p>
                     )}
                   </div>

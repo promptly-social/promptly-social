@@ -1,7 +1,6 @@
 import React from "react";
 import { SocialConnections } from "@/components/SocialConnections";
 import { WritingAnalysis } from "@/components/WritingAnalysis";
-import { UserPreferences } from "@/components/UserPreferences";
 import { UserBio } from "@/components/UserBio";
 import AppLayout from "@/components/AppLayout";
 import { UnipileLinkedInConnection } from "@/components/UnipileLinkedInConnection";
@@ -13,8 +12,8 @@ const Profile: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
           <div className="text-center mb-6 sm:mb-8">
             <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto px-4">
-              Configure your content preferences, connect social accounts, and
-              analyze your writing style for personalized content creation
+              Connect your social accounts, and analyze your bio, writing style,
+              and content preferences for personalized content creation
             </p>
           </div>
 
@@ -26,8 +25,6 @@ const Profile: React.FC = () => {
             <UserBio />
 
             <WritingAnalysis />
-
-            <UserPreferences />
           </div>
         </div>
       </main>

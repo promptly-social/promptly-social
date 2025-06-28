@@ -12,6 +12,7 @@ import Landing from "./pages/Landing";
 import { Login /* , Signup */ } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
+import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
 import MyContent from "./pages/MyContent/MyContent";
 import PostingSchedule from "./pages/PostingSchedule/PostingSchedule";
 import IdeaBank from "./pages/IdeaBank/IdeaBank";
@@ -123,6 +124,19 @@ const App = () => (
                     <div className="min-h-screen flex w-full">
                       <AppSidebar />
                       <Profile />
+                    </div>
+                  </SidebarProvider>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/content-preferences"
+              element={
+                <ProtectedRoute>
+                  <SidebarProvider>
+                    <div className="min-h-screen flex w-full">
+                      <AppSidebar />
+                      <ContentPreferences />
                     </div>
                   </SidebarProvider>
                 </ProtectedRoute>

@@ -6,6 +6,7 @@ It fetches LinkedIn posts, parses content, and performs NLP analysis.
 """
 
 import logging
+import os
 from typing import Dict, List, Any
 import httpx
 import random
@@ -32,6 +33,17 @@ class LinkedInAnalyzer:
         )
         self.unipile_access_token = unipile_access_token
         self.unipile_dsn = unipile_dsn
+        # Get model configuration from environment variables
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+        )
+        self.models_fallback = [
+            model.strip() for model in models_fallback_str.split(",")
+        ]
+        self.temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.0"))
 
     def analyze_linkedin(
         self, account_id: str, current_bio: str, content_to_analyze: List[str]
@@ -572,12 +584,12 @@ class LinkedInAnalyzer:
 
         try:
             response = self.openrouter_client.chat.completions.create(
-                model="google/gemini-2.5-pro",
+                model=self.model_primary,
                 extra_body={
-                    "models": ["openai/gpt-4o"],
+                    "models": self.models_fallback,
                 },
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
+                temperature=self.temperature,
             )
 
             if not response.choices:
@@ -631,12 +643,12 @@ class LinkedInAnalyzer:
 
         try:
             response = self.openrouter_client.chat.completions.create(
-                model="google/gemini-2.5-pro",
+                model=self.model_primary,
                 extra_body={
-                    "models": ["openai/gpt-4o"],
+                    "models": self.models_fallback,
                 },
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
+                temperature=self.temperature,
             )
 
             if not response.choices:
@@ -681,12 +693,12 @@ class LinkedInAnalyzer:
 
         try:
             response = self.openrouter_client.chat.completions.create(
-                model="google/gemini-2.5-pro",
+                model=self.model_primary,
                 extra_body={
-                    "models": ["openai/gpt-4o"],
+                    "models": self.models_fallback,
                 },
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
+                temperature=self.temperature,
             )
 
             if not response.choices:

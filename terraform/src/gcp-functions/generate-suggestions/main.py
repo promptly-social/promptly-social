@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import functions_framework
 from supabase import create_client, Client
 from substack_posts_fetcher import SubstackPostsFetcher
+from website_news_fetcher import WebsiteNewsFetcher
 from posts_generator import PostsGenerator
 
 # Configure logging
@@ -100,11 +101,18 @@ def get_writing_style(supabase_client: Client, user_id: str) -> str:
         return ""
 
 
-def get_latest_linkedin_posts_from_idea_banks(
-    supabase_client: Client, user_id: str
+def get_latest_articles_from_idea_bank(
+    supabase_client: Client,
+    user_id: str,
 ) -> List[Dict[str, Any]]:
     """
-    Get the latest LinkedIn posts from the idea banks created in the last 12 hours.
+    Get the latest articles from the idea banks created in the last 12 hours.
+    Args:
+        supabase_client: Supabase client
+        user_id: User ID
+
+    Returns:
+        List of idea bank posts
     """
     try:
         # Calculate 12 hours ago
@@ -114,7 +122,7 @@ def get_latest_linkedin_posts_from_idea_banks(
             supabase_client.table("idea_banks")
             .select("id, data, created_at")
             .eq("user_id", user_id)
-            .eq("data->>type", "substack")
+            .eq("data->>type", "article")
             .gte("created_at", twelve_hours_ago)
             .order("created_at", desc=True)
             .execute()
@@ -144,7 +152,9 @@ def get_latest_linkedin_posts_from_idea_banks(
 
 
 def save_candidate_posts_to_idea_banks(
-    supabase_client: Client, user_id: str, candidate_posts: List[Dict[str, Any]]
+    supabase_client: Client,
+    user_id: str,
+    candidate_posts: List[Dict[str, Any]],
 ):
     """
     Save candidate posts to idea banks, or get existing ID if URL already exists.
@@ -171,7 +181,7 @@ def save_candidate_posts_to_idea_banks(
         else:
             # URL doesn't exist, create new entry
             data = {
-                "type": "substack",
+                "type": "article",
                 "value": post_url,
                 "title": post.get("title", ""),
                 "time_sensitive": post.get("time_sensitive", False),
@@ -202,31 +212,101 @@ def save_candidate_posts_to_idea_banks(
 
 def save_suggested_posts_to_contents(
     supabase_client: Client, user_id: str, suggested_posts: List[Dict[str, Any]]
-):
+) -> List[Dict[str, Any]]:
     """
-    Save suggested posts to contents.
+    Save suggested posts to the posts table in Supabase.
     """
     for i, post in enumerate(suggested_posts):
-        data = {
-            "user_id": user_id,
-            "title": post.get("title", None),
-            "content": post.get("linkedin_post", ""),
-            "platform": "linkedin",
-            "status": "suggested",
-            "created_at": datetime.now().isoformat(),
-            "recommendation_score": post.get("recommendation_score", 50),
-            "idea_bank_id": post.get("post_id", None),
-            "topics": post.get("topics", []),
-        }
-        response = supabase_client.table("suggested_posts").insert(data).execute()
-        if not response.data:
-            logger.error(f"Error saving suggested post to contents: {response.data}")
-            raise Exception(f"Failed to save suggested post: {response.data}")
-        logger.debug(
-            f"Saved suggested post to contents for user {user_id}: {response.data}"
-        )
-        suggested_posts[i]["post_id"] = response.data[0].get("id")
+        try:
+            data = {
+                "user_id": user_id,
+                "title": post.get("title"),
+                "content": post["content"],
+                "platform": post.get("platform", "linkedin"),
+                "topics": post.get("topics", []),
+                "recommendation_score": post.get("recommendation_score", 0),
+                "status": "suggested",
+            }
+            response = supabase_client.table("posts").insert(data).execute()
+
+            if response.data:
+                logger.info(
+                    f"Successfully saved post {i + 1}/{len(suggested_posts)} to posts table"
+                )
+                # Store the post_id in the original data for reference
+                suggested_posts[i]["post_id"] = response.data[0].get("id")
+        except Exception as e:
+            logger.error(f"Error saving post {i + 1} to database: {e}")
+            continue
+
     return suggested_posts
+
+
+def get_content_strategy(supabase_client: Client, user_id: str) -> str:
+    """
+    Get the user's content strategy.
+    """
+    if not supabase_client:
+        raise ValueError("Supabase client not provided")
+
+    try:
+        response = (
+            supabase_client.table("content_strategies")
+            .select("strategy")
+            .eq("platform", "linkedin")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if response.data and len(response.data) > 0:
+            return response.data[0].get("strategy", "")
+        else:
+            logger.info(
+                f"No content strategy found for user {user_id}. So creating one..."
+            )
+            return create_content_strategy(supabase_client, user_id)
+    except Exception as e:
+        logger.error(f"Error fetching user content strategy for user {user_id}: {e}")
+
+
+def create_content_strategy(supabase_client: Client, user_id: str) -> str:
+    """
+    Create a content strategy for the user.
+    """
+    if not supabase_client:
+        raise ValueError("Supabase client not provided")
+
+    STRATEGY = """
+    Best Practices for Crafting Engaging LinkedIn Post Text
+Start with a Strong Hook: Begin the post with a compelling question, a surprising statistic, or a bold statement to immediately capture the reader's attention and stop them from scrolling.
+Encourage Conversation: End your post with a clear call-to-action or an open-ended question that prompts readers to share their own experiences, opinions, or advice in the comments. Frame the text to start a discussion, not just to broadcast information.
+Write for Readability: Use short paragraphs, single-sentence lines, and bullet points to break up large blocks of text. This makes the post easier to scan and digest on a mobile device.
+Provide Genuine Value: The core of the text should offer insights, tips, or a personal story that is valuable to your target audience. Avoid pure self-promotion and focus on sharing expertise or relatable experiences.
+Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
+Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the end of your post. These should act as keywords for your topic (e.g., #ProjectManagementTips instead of just #Management) to connect with interested communities.
+    """
+
+    try:
+        response = (
+            supabase_client.table("content_strategies")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "platform": "linkedin",
+                    "strategy": STRATEGY,
+                }
+            )
+            .execute()
+        )
+
+        if response.data:
+            logger.info(f"Created content strategy for user {user_id}")
+            return response.data[0].get("strategy", "")
+        else:
+            logger.error(f"Error creating content strategy for user {user_id}")
+            raise Exception("No data returned from content strategies insert")
+    except Exception as e:
+        logger.error(f"Error creating content strategy for user {user_id}: {e}")
+        raise
 
 
 @functions_framework.http
@@ -310,31 +390,29 @@ def generate_suggestions(request):
         # Get topics of interest
         topics_of_interest = user_preferences.get("topics_of_interest", [])
 
-        # Get websites
-        # websites = user_preferences.get("websites", [])
-
         # Get bio
         bio = user_preferences.get("bio", "")
 
         # Get writing style
         writing_style = get_writing_style(supabase, user_id)
 
-        # Get latest LinkedIn posts from idea banks
-        latest_linkedin_posts = get_latest_linkedin_posts_from_idea_banks(
+        candidate_posts = []
+
+        # Get latest
+        latest_substack_linkedin_posts = get_latest_articles_from_idea_bank(
             supabase, user_id
         )
 
-        if len(latest_linkedin_posts) > 0:
+        candidate_posts.extend(latest_substack_linkedin_posts)
+
+        number_of_posts_to_generate = int(os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "5"))
+
+        if len(candidate_posts) < number_of_posts_to_generate:
             logger.debug(
-                f"Found {len(latest_linkedin_posts)} latest LinkedIn posts from idea banks for user {user_id} fetched in the last 12 hours"
+                f"{len(candidate_posts)} latest articles found from idea banks for user {user_id} fetched in the last 12 hours"
             )
-            logger.debug("Therefore, skipping Substack posts fetcher")
-            candidate_posts = latest_linkedin_posts
-        else:
-            logger.debug(
-                "No latest LinkedIn posts found from idea banks for user {user_id} fetched in the last 12 hours"
-            )
-            logger.debug("Therefore, using Substack posts fetcher")
+            logger.debug("Fetching more from Substack and websites")
+
             # Initialize Substack posts fetcher with Supabase client
             posts_fetcher = SubstackPostsFetcher(
                 openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
@@ -347,32 +425,36 @@ def generate_suggestions(request):
                 topics_of_interest,
                 bio,
             )
-            candidate_posts = substack_data.get("latest_posts", [])
-
-            # Save candidate posts to idea banks
-            candidate_posts = save_candidate_posts_to_idea_banks(
-                supabase, user_id, candidate_posts
+            latest_substack_posts = substack_data.get("latest_posts", [])
+            saved_substack_posts = save_candidate_posts_to_idea_banks(
+                supabase, user_id, latest_substack_posts
             )
+            candidate_posts.extend(saved_substack_posts)
+
+            logger.debug("Fetching content from websites")
+
+            # Get websites
+            websites = user_preferences.get("websites", [])
+
+            # Initialize website news fetcher with Supabase client
+            news_fetcher = WebsiteNewsFetcher(
+                openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
+            )
+            website_data = news_fetcher.fetch_news(
+                websites,
+                topics_of_interest,
+                bio,
+            )
+            saved_website_posts = save_candidate_posts_to_idea_banks(
+                supabase, user_id, website_data
+            )
+            candidate_posts.extend(saved_website_posts)
 
         posts_generator = PostsGenerator(
             supabase_client=supabase, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
         )
 
-        number_of_posts_to_generate = int(os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "3"))
-
-        if len(candidate_posts) < number_of_posts_to_generate:
-            # TODO:  get more content from websites or the evergreen topics
-            pass
-
-        linkedin_post_strategy = """
-        Best Practices for Crafting Engaging LinkedIn Post Text
-Start with a Strong Hook: Begin the post with a compelling question, a surprising statistic, or a bold statement to immediately capture the reader's attention and stop them from scrolling.
-Encourage Conversation: End your post with a clear call-to-action or an open-ended question that prompts readers to share their own experiences, opinions, or advice in the comments. Frame the text to start a discussion, not just to broadcast information.
-Write for Readability: Use short paragraphs, single-sentence lines, and bullet points to break up large blocks of text. This makes the post easier to scan and digest on a mobile device.
-Provide Genuine Value: The core of the text should offer insights, tips, or a personal story that is valuable to your target audience. Avoid pure self-promotion and focus on sharing expertise or relatable experiences.
-Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
-Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the end of your post. These should act as keywords for your topic (e.g., #ProjectManagementTips instead of just #Management) to connect with interested communities.
-        """
+        linkedin_post_strategy = get_content_strategy(supabase, user_id)
 
         generated_posts = posts_generator.generate_posts(
             user_id,

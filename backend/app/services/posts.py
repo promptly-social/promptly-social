@@ -1,5 +1,5 @@
 """
-Suggested Posts service for business logic.
+Posts service for business logic.
 """
 
 from datetime import datetime
@@ -10,17 +10,17 @@ from loguru import logger
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.suggested_posts import SuggestedPost
-from app.schemas.suggested_posts import SuggestedPostCreate, SuggestedPostUpdate
+from app.models.posts import Post
+from app.schemas.posts import PostCreate, PostUpdate
 
 
-class SuggestedPostsService:
-    """Service for suggested posts operations."""
+class PostsService:
+    """Service for posts operations."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_suggested_posts_list(
+    async def get_posts_list(
         self,
         user_id: UUID,
         platform: Optional[str] = None,
@@ -30,21 +30,19 @@ class SuggestedPostsService:
         order_by: str = "created_at",
         order_direction: str = "desc",
     ) -> Dict:
-        """Get suggested posts with filtering and pagination."""
+        """Get posts with filtering and pagination."""
         try:
             # Build filters
-            filters = [SuggestedPost.user_id == user_id]
+            filters = [Post.user_id == user_id]
 
             if platform:
-                filters.append(SuggestedPost.platform == platform)
+                filters.append(Post.platform == platform)
 
             if status:
-                filters.append(SuggestedPost.status.in_(status))
+                filters.append(Post.status.in_(status))
 
             # Build query for total count
-            count_query = (
-                select(func.count()).select_from(SuggestedPost).where(and_(*filters))
-            )
+            count_query = select(func.count()).select_from(Post).where(and_(*filters))
             count_result = await self.db.execute(count_query)
             total = count_result.scalar()
 
@@ -52,12 +50,12 @@ class SuggestedPostsService:
             offset = (page - 1) * size
 
             # Order by
-            order_column = getattr(SuggestedPost, order_by, SuggestedPost.created_at)
+            order_column = getattr(Post, order_by, Post.created_at)
             if order_direction.lower() == "desc":
                 order_column = desc(order_column)
 
             query = (
-                select(SuggestedPost)
+                select(Post)
                 .where(and_(*filters))
                 .order_by(order_column)
                 .offset(offset)
@@ -76,33 +74,29 @@ class SuggestedPostsService:
             }
 
         except Exception as e:
-            logger.error(f"Error getting suggested posts list: {e}")
+            logger.error(f"Error getting posts list: {e}")
             raise
 
-    async def get_suggested_post(
-        self, user_id: UUID, post_id: UUID
-    ) -> Optional[SuggestedPost]:
-        """Get a specific suggested post."""
+    async def get_post(self, user_id: UUID, post_id: UUID) -> Optional[Post]:
+        """Get a specific post."""
         try:
-            query = select(SuggestedPost).where(
+            query = select(Post).where(
                 and_(
-                    SuggestedPost.id == post_id,
-                    SuggestedPost.user_id == user_id,
+                    Post.id == post_id,
+                    Post.user_id == user_id,
                 )
             )
             result = await self.db.execute(query)
             return result.scalar_one_or_none()
 
         except Exception as e:
-            logger.error(f"Error getting suggested post {post_id}: {e}")
+            logger.error(f"Error getting post {post_id}: {e}")
             raise
 
-    async def create_suggested_post(
-        self, user_id: UUID, post_data: SuggestedPostCreate
-    ) -> SuggestedPost:
-        """Create a new suggested post."""
+    async def create_post(self, user_id: UUID, post_data: PostCreate) -> Post:
+        """Create a new post."""
         try:
-            post = SuggestedPost(
+            post = Post(
                 user_id=user_id,
                 idea_bank_id=post_data.idea_bank_id,
                 title=post_data.title,
@@ -120,15 +114,15 @@ class SuggestedPostsService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error creating suggested post: {e}")
+            logger.error(f"Error creating post: {e}")
             raise
 
-    async def update_suggested_post(
-        self, user_id: UUID, post_id: UUID, update_data: SuggestedPostUpdate
-    ) -> Optional[SuggestedPost]:
-        """Update a suggested post."""
+    async def update_post(
+        self, user_id: UUID, post_id: UUID, update_data: PostUpdate
+    ) -> Optional[Post]:
+        """Update a post."""
         try:
-            post = await self.get_suggested_post(user_id, post_id)
+            post = await self.get_post(user_id, post_id)
             if not post:
                 return None
 
@@ -143,13 +137,13 @@ class SuggestedPostsService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error updating suggested post {post_id}: {e}")
+            logger.error(f"Error updating post {post_id}: {e}")
             raise
 
-    async def delete_suggested_post(self, user_id: UUID, post_id: UUID) -> bool:
-        """Delete a suggested post."""
+    async def delete_post(self, user_id: UUID, post_id: UUID) -> bool:
+        """Delete a post."""
         try:
-            post = await self.get_suggested_post(user_id, post_id)
+            post = await self.get_post(user_id, post_id)
             if not post:
                 return False
 
@@ -159,15 +153,13 @@ class SuggestedPostsService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error deleting suggested post {post_id}: {e}")
+            logger.error(f"Error deleting post {post_id}: {e}")
             raise
 
-    async def dismiss_suggested_post(
-        self, user_id: UUID, post_id: UUID
-    ) -> Optional[SuggestedPost]:
-        """Mark a suggested post as dismissed."""
+    async def dismiss_post(self, user_id: UUID, post_id: UUID) -> Optional[Post]:
+        """Mark a post as dismissed."""
         try:
-            post = await self.get_suggested_post(user_id, post_id)
+            post = await self.get_post(user_id, post_id)
             if not post:
                 return None
 
@@ -178,15 +170,13 @@ class SuggestedPostsService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error dismissing suggested post {post_id}: {e}")
+            logger.error(f"Error dismissing post {post_id}: {e}")
             raise
 
-    async def mark_as_posted(
-        self, user_id: UUID, post_id: UUID
-    ) -> Optional[SuggestedPost]:
-        """Mark a suggested post as posted."""
+    async def mark_as_posted(self, user_id: UUID, post_id: UUID) -> Optional[Post]:
+        """Mark a post as posted."""
         try:
-            post = await self.get_suggested_post(user_id, post_id)
+            post = await self.get_post(user_id, post_id)
             if not post:
                 return None
 
@@ -197,7 +187,7 @@ class SuggestedPostsService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error marking suggested post as posted {post_id}: {e}")
+            logger.error(f"Error marking post as posted {post_id}: {e}")
             raise
 
     async def submit_feedback(
@@ -206,10 +196,10 @@ class SuggestedPostsService:
         post_id: UUID,
         feedback_type: str,
         comment: Optional[str] = None,
-    ) -> Optional[SuggestedPost]:
-        """Submit user feedback for a suggested post."""
+    ) -> Optional[Post]:
+        """Submit user feedback for a post."""
         try:
-            post = await self.get_suggested_post(user_id, post_id)
+            post = await self.get_post(user_id, post_id)
             if not post:
                 return None
 
@@ -224,4 +214,50 @@ class SuggestedPostsService:
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Error submitting feedback for post {post_id}: {e}")
+            raise
+
+    async def schedule_post(
+        self, user_id: UUID, post_id: UUID, scheduled_at: str
+    ) -> Optional[Post]:
+        """Schedule a post for publishing."""
+        try:
+            post = await self.get_post(user_id, post_id)
+            if not post:
+                return None
+
+            # Parse the scheduled_at string to datetime
+            if isinstance(scheduled_at, str):
+                scheduled_at = datetime.fromisoformat(
+                    scheduled_at.replace("Z", "+00:00")
+                )
+
+            post.status = "scheduled"
+            post.scheduled_at = scheduled_at
+
+            await self.db.commit()
+            await self.db.refresh(post)
+            return post
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error scheduling post {post_id}: {e}")
+            raise
+
+    async def unschedule_post(self, user_id: UUID, post_id: UUID) -> Optional[Post]:
+        """Remove a post from schedule."""
+        try:
+            post = await self.get_post(user_id, post_id)
+            if not post:
+                return None
+
+            post.status = "saved"
+            post.scheduled_at = None
+
+            await self.db.commit()
+            await self.db.refresh(post)
+            return post
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error unscheduling post {post_id}: {e}")
             raise

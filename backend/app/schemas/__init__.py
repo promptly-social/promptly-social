@@ -1,17 +1,7 @@
 """Schemas module."""
 
 from .auth import TokenResponse, UserCreate, UserResponse, UserUpdate
-from .content import (
-    ContentBase,
-    ContentCreate,
-    ContentListResponse,
-    ContentResponse,
-    ContentUpdate,
-    PublicationBase,
-    PublicationCreate,
-    PublicationResponse,
-    PublicationUpdate,
-)
+
 from .idea_bank import (
     IdeaBankBase,
     IdeaBankCreate,
@@ -39,12 +29,12 @@ from .profile import (
     WritingStyleAnalysisUpdate,
     WritingStyleData,
 )
-from .suggested_posts import (
-    SuggestedPostBase,
-    SuggestedPostCreate,
-    SuggestedPostListResponse,
-    SuggestedPostResponse,
-    SuggestedPostUpdate,
+from .posts import (
+    PostCreate,
+    PostFeedback,
+    PostListResponse,
+    PostResponse,
+    PostUpdate,
 )
 
 __all__ = [
@@ -53,17 +43,6 @@ __all__ = [
     "UserResponse",
     "TokenResponse",
     "UserUpdate",
-    # Content schemas
-    "ContentBase",
-    "ContentCreate",
-    "ContentUpdate",
-    "ContentResponse",
-    "ContentListResponse",
-    # Publication schemas
-    "PublicationBase",
-    "PublicationCreate",
-    "PublicationUpdate",
-    "PublicationResponse",
     # Idea bank schemas
     "IdeaBankBase",
     "IdeaBankCreate",
@@ -86,17 +65,16 @@ __all__ = [
     "WritingStyleAnalysisCreate",
     "WritingStyleAnalysisUpdate",
     "WritingStyleAnalysisResponse",
-    # Suggested post schemas
-    "SuggestedPostBase",
-    "SuggestedPostCreate",
-    "SuggestedPostUpdate",
-    "SuggestedPostResponse",
-    "SuggestedPostListResponse",
+    # Posts schemas
+    "PostCreate",
+    "PostFeedback",
+    "PostListResponse",
+    "PostResponse",
+    "PostUpdate",
     # Platform analysis schemas
     "SubstackAnalysisResponse",
     "WritingStyleData",
     "PostingPatterns",
     "EngagementInsights",
-    "PlatformAnalysisData",
     "PlatformAnalysisResponse",
 ]

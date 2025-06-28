@@ -2,13 +2,15 @@
 Idea Bank related database models.
 """
 
-import uuid
+from datetime import datetime
+from typing import Any, Dict
+from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey, Text
-from sqlalchemy.sql import func
+from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.helpers import get_json_column, get_uuid_column
+from app.models.helpers import JSONType, UUIDType
 
 
 class IdeaBank(Base):
@@ -16,15 +18,16 @@ class IdeaBank(Base):
 
     __tablename__ = "idea_banks"
 
-    id = Column(get_uuid_column(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(get_uuid_column(), ForeignKey("users.id"), nullable=False)
-    data = Column(get_json_column(), nullable=False, default={})
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("users.id"), nullable=False
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+    data: Mapped[Dict[str, Any]] = mapped_column(
+        JSONType(), nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

@@ -1,5 +1,5 @@
 """
-Suggested Posts related Pydantic schemas for request/response validation.
+Posts related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
@@ -9,8 +9,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class SuggestedPostBase(BaseModel):
-    """Base schema for suggested posts."""
+class PostBase(BaseModel):
+    """Base schema for posts."""
 
     title: Optional[str] = None
     content: str
@@ -18,16 +18,17 @@ class SuggestedPostBase(BaseModel):
     topics: List[str] = Field(default_factory=list)
     recommendation_score: int = Field(default=0, ge=0, le=100)
     status: str = Field(default="suggested")
+    scheduled_at: Optional[datetime] = None
 
 
-class SuggestedPostCreate(SuggestedPostBase):
-    """Schema for creating suggested posts."""
+class PostCreate(PostBase):
+    """Schema for creating posts."""
 
     idea_bank_id: Optional[UUID] = None
 
 
-class SuggestedPostUpdate(BaseModel):
-    """Schema for updating suggested posts."""
+class PostUpdate(BaseModel):
+    """Schema for updating posts."""
 
     title: Optional[str] = None
     content: Optional[str] = None
@@ -35,6 +36,7 @@ class SuggestedPostUpdate(BaseModel):
     topics: Optional[List[str]] = None
     recommendation_score: Optional[int] = Field(None, ge=0, le=100)
     status: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class PostFeedback(BaseModel):
@@ -44,8 +46,8 @@ class PostFeedback(BaseModel):
     comment: Optional[str] = None
 
 
-class SuggestedPostResponse(SuggestedPostBase):
-    """Schema for suggested post responses."""
+class PostResponse(PostBase):
+    """Schema for post responses."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,14 +57,15 @@ class SuggestedPostResponse(SuggestedPostBase):
     user_feedback: Optional[str] = None
     feedback_comment: Optional[str] = None
     feedback_at: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
 
-class SuggestedPostListResponse(BaseModel):
-    """Schema for paginated suggested posts list."""
+class PostListResponse(BaseModel):
+    """Schema for paginated posts list."""
 
-    items: List[SuggestedPostResponse]
+    items: List[PostResponse]
     total: int
     page: int
     size: int
