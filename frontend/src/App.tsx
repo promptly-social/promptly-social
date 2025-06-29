@@ -9,7 +9,7 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import { Login /* , Signup */ } from "./pages/auth";
+import { Login, EmailVerification } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
 import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
@@ -21,11 +21,14 @@ import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/auth/OAuthCallback";
 import LinkedinCallback from "./pages/auth/LinkedinCallback";
 import EarlyAccess from "./pages/EarlyAccess";
+import Signup from "./pages/auth/Signup";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
+
+  console.log("ProtectedRoute - user:", user, "loading:", loading);
 
   if (loading) {
     return (
@@ -37,16 +40,55 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   // Check for stored token as fallback to handle OAuth callback race condition
   const hasToken = getStoredToken();
+  console.log("ProtectedRoute - hasToken:", hasToken);
 
   if (!user && !hasToken) {
+    console.log("ProtectedRoute - no user or token, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 
+  // If user exists but isn't verified, redirect to verification page
+  if (user && !user.is_verified) {
+    console.log(
+      "ProtectedRoute - user not verified, redirecting to verify-email"
+    );
+    return <Navigate to="/verify-email" replace />;
+  }
+
+  console.log("ProtectedRoute - allowing access to protected route");
   return <>{children}</>;
 };
 
+const EmailVerificationRoute = () => {
+  const { pendingEmailVerification, user } = useAuth();
+
+  const email =
+    pendingEmailVerification || (user && !user.is_verified ? user.email : null);
+
+  // If no email verification is needed, redirect to login
+  if (!email) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If user is already verified, redirect to new-content
+  if (user && user.is_verified) {
+    return <Navigate to="/new-content" replace />;
+  }
+
+  return <EmailVerification email={email} />;
+};
+
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, pendingEmailVerification } = useAuth();
+
+  console.log(
+    "AuthRoute - user:",
+    user,
+    "loading:",
+    loading,
+    "pendingEmailVerification:",
+    pendingEmailVerification
+  );
 
   if (loading) {
     return (
@@ -56,10 +98,26 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (user) {
+  // If user is verified and authenticated, redirect to new-content
+  if (user && user.is_verified) {
+    console.log("AuthRoute - redirecting verified user to /new-content");
     return <Navigate to="/new-content" replace />;
   }
 
+  // If user exists but isn't verified, allow access to public pages
+  // (they can still access landing, login, signup while waiting for verification)
+  if (user && !user.is_verified) {
+    console.log("AuthRoute - allowing unverified user access to public pages");
+    return <>{children}</>;
+  }
+
+  // If no user but has pending verification, allow access to public pages
+  if (pendingEmailVerification) {
+    console.log("AuthRoute - allowing access with pending verification");
+    return <>{children}</>;
+  }
+
+  console.log("AuthRoute - allowing access to public pages");
   return <>{children}</>;
 };
 
@@ -87,22 +145,22 @@ const App = () => (
                 </AuthRoute>
               }
             />
-            <Route
+            {/* <Route
               path="/signup"
               element={
                 <AuthRoute>
                   <EarlyAccess />
                 </AuthRoute>
               }
-            />
-            {/* <Route
+            /> */}
+            <Route
               path="/signup"
               element={
                 <AuthRoute>
                   <Signup />
                 </AuthRoute>
               }
-            /> */}
+            />
             <Route
               path="/new-content"
               element={
@@ -199,6 +257,7 @@ const App = () => (
               path="/auth/linkedin/callback"
               element={<LinkedinCallback />}
             />
+            <Route path="/verify-email" element={<EmailVerificationRoute />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

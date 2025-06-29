@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClient } from './auth-api';
 
 // Content Types - Updated to match backend schemas
 export interface Content {

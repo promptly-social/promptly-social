@@ -5,6 +5,7 @@ import type {
   TokenResponse,
   UserCreate,
   UserLogin,
+  UserUpdate,
   SuccessResponse,
   GoogleAuthRequest,
 } from "@/types/auth";
@@ -150,8 +151,22 @@ class ApiClient {
     });
   }
 
+  async updateUser(userData: UserUpdate): Promise<User> {
+    return this.request<User>("/auth/me", {
+      method: "PUT",
+      body: JSON.stringify(userData),
+    });
+  }
+
   async requestPasswordReset(email: string): Promise<SuccessResponse> {
     return this.request<SuccessResponse>("/auth/password/reset", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resendVerificationEmail(email: string): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>("/auth/resend-verification", {
       method: "POST",
       body: JSON.stringify({ email }),
     });

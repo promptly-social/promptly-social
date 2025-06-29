@@ -1,5 +1,5 @@
 // API interceptor for automatic token refresh and error handling
-import { apiClient } from "./api";
+import { apiClient } from "./auth-api";
 
 // Token management utilities
 const TOKEN_STORAGE_KEY = "access_token";

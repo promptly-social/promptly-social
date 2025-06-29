@@ -19,10 +19,15 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, clearPendingVerification } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Clear pending verification when accessing login page
+  useEffect(() => {
+    clearPendingVerification();
+  }, [clearPendingVerification]);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -51,6 +56,12 @@ const Login = () => {
           description: error.message,
           variant: "destructive",
         });
+      } else {
+        // Sign in successful - navigate to new-content with a small delay
+        console.log("Sign in successful, navigating to /new-content");
+        setTimeout(() => {
+          navigate("/new-content");
+        }, 100);
       }
     } catch (error) {
       toast({

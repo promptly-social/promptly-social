@@ -10,7 +10,13 @@ from sqlalchemy import select, update
 from loguru import logger
 
 from app.models.user import User, UserSession
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
+from app.schemas.auth import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    TokenResponse,
+    UserUpdate,
+)
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -51,11 +57,13 @@ class AuthService:
                     "tokens": None,
                 }
 
-            # Create user in Supabase
+            # Create user in Supabase with redirect to backend verification endpoint
+            backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
+
             supabase_response = await supabase_client.sign_up(
                 email=user_data.email,
                 password=user_data.password,
-                redirect_to=redirect_to,
+                redirect_to=backend_redirect_url,
             )
 
             if supabase_response["error"]:
@@ -87,9 +95,10 @@ class AuthService:
             await self.db.commit()
             await self.db.refresh(local_user)
 
-            # Create tokens if user is already confirmed
+            # Don't create tokens for email signup - user needs to verify email first
             tokens = None
-            if supabase_response["session"]:
+            # Only create tokens if user is already confirmed (which shouldn't happen with email signup)
+            if supabase_response["session"] and supabase_user.email_confirmed_at:
                 tokens = await self._create_tokens(local_user)
                 await self._create_session(
                     local_user.id, tokens.access_token, tokens.refresh_token
@@ -150,6 +159,13 @@ class AuthService:
                 self.db.add(local_user)
                 await self.db.commit()
                 await self.db.refresh(local_user)
+                logger.info(
+                    f"Created new local user: {login_data.email}, is_verified: {local_user.is_verified}"
+                )
+            else:
+                logger.info(
+                    f"Found existing local user: {login_data.email}, is_verified: {local_user.is_verified}"
+                )
 
             # Update last login
             await self._update_last_login(local_user.id)
@@ -162,11 +178,14 @@ class AuthService:
 
             logger.info(f"User signed in successfully: {login_data.email}")
 
+            user_response = UserResponse.model_validate(
+                {**local_user.__dict__, "id": str(local_user.id)}
+            )
+            logger.info(f"Returning user data: {user_response.model_dump()}")
+
             return {
                 "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
+                "user": user_response,
                 "tokens": tokens,
                 "message": "Sign in successful",
             }
@@ -302,6 +321,65 @@ class AuthService:
         except Exception as e:
             logger.error(f"Get current user failed: {e}")
             return None
+
+    async def update_user(
+        self, user_id: str, user_data: UserUpdate
+    ) -> Optional[UserResponse]:
+        """
+        Update user profile information.
+
+        Args:
+            user_id: User ID to update
+            user_data: User update data
+
+        Returns:
+            Updated user information
+        """
+        try:
+            user = await self._get_user_by_id(user_id)
+            if not user or not user.is_active:
+                return None
+
+            # Update fields if provided
+            update_data = user_data.model_dump(exclude_unset=True)
+
+            # Handle password update if provided
+            if "password" in update_data and "confirm_password" in update_data:
+                if update_data["password"] != update_data["confirm_password"]:
+                    raise ValueError("Passwords do not match")
+
+                # Update password in Supabase if user has supabase_user_id
+                if user.supabase_user_id:
+                    from app.utils.supabase import supabase_client
+
+                    supabase_result = await supabase_client.update_user(
+                        user.supabase_user_id, password=update_data["password"]
+                    )
+                    if supabase_result.get("error"):
+                        raise ValueError(
+                            f"Failed to update password in Supabase: {supabase_result['error']}"
+                        )
+
+                # Remove password fields from update data
+                update_data.pop("password", None)
+                update_data.pop("confirm_password", None)
+
+            # Update local user record
+            for key, value in update_data.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+
+            user.updated_at = datetime.utcnow()
+            await self.db.commit()
+            await self.db.refresh(user)
+
+            logger.info(f"User profile updated successfully: {user_id}")
+            return UserResponse.model_validate({**user.__dict__, "id": str(user.id)})
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Update user failed for {user_id}: {e}")
+            raise
 
     async def handle_oauth_callback(
         self, code: str, redirect_to: Optional[str] = None
@@ -461,6 +539,151 @@ class AuthService:
                 "error": "Google authentication failed",
                 "user": None,
                 "tokens": None,
+            }
+
+    async def handle_email_verification(
+        self,
+        token: str,
+        type_param: str,
+        email: str,
+        redirect_to: Optional[str] = None,
+        use_token_hash: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Handle email verification callback.
+
+        Args:
+            token: Email verification token
+            type_param: Verification type (signup, recovery, etc.)
+            redirect_to: Optional redirect URL
+
+        Returns:
+            Dict containing user and token information
+        """
+        try:
+            # Verify the token with Supabase
+            supabase_response = await supabase_client.verify_email_token(
+                token, type_param, email, use_token_hash
+            )
+
+            if supabase_response["error"]:
+                return {
+                    "error": supabase_response["error"],
+                    "user": None,
+                    "tokens": None,
+                }
+
+            supabase_user = supabase_response["user"]
+            supabase_session = supabase_response.get("session")
+
+            if not supabase_user:
+                return {
+                    "error": "Email verification failed",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            # Get local user record
+            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
+            if not local_user:
+                return {
+                    "error": "User not found in local database",
+                    "user": None,
+                    "tokens": None,
+                }
+
+            # Update user as verified using UPDATE statement
+            stmt = update(User).where(User.id == local_user.id).values(is_verified=True)
+            await self.db.execute(stmt)
+            await self.db.commit()
+
+            # Refresh the user object to get updated data
+            await self.db.refresh(local_user)
+
+            # Update last login
+            await self._update_last_login(local_user.id)
+
+            # Always create backend tokens for email verification
+            tokens = await self._create_tokens(local_user)
+
+            # Create session in local database
+            await self._create_session(
+                local_user.id, tokens.access_token, tokens.refresh_token
+            )
+
+            logger.info(f"Email verification successful: {local_user.email}")
+
+            return {
+                "error": None,
+                "user": UserResponse.model_validate(
+                    {**local_user.__dict__, "id": str(local_user.id)}
+                ),
+                "tokens": tokens,
+                "message": "Email verification successful",
+            }
+
+        except Exception as e:
+            logger.error(f"Email verification failed: {e}")
+            return {
+                "error": "Email verification failed",
+                "user": None,
+                "tokens": None,
+            }
+
+    async def resend_verification_email(
+        self, email: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Resend email verification link.
+
+        Args:
+            email: User's email address
+            redirect_to: Optional redirect URL after verification
+
+        Returns:
+            Dict containing success or error information
+        """
+        try:
+            # Check if user exists
+            local_user = await self._get_user_by_email(email)
+            if not local_user:
+                return {
+                    "error": "User not found",
+                    "success": False,
+                }
+
+            # Check if user is already verified
+            if local_user.is_verified:
+                return {
+                    "error": "User is already verified",
+                    "success": False,
+                }
+
+            # Resend verification email via Supabase with redirect to backend
+            backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
+            supabase_response = await supabase_client.resend_verification_email(
+                email, backend_redirect_url
+            )
+
+            if supabase_response["error"]:
+                return {
+                    "error": supabase_response["error"],
+                    "success": False,
+                }
+
+            logger.info(f"Verification email resent: {email}")
+
+            return {
+                "error": None,
+                "success": True,
+                "message": "Verification email sent successfully",
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to resend verification email for {email}: {e}")
+            return {
+                "error": "Failed to resend verification email",
+                "success": False,
             }
 
     # Private helper methods

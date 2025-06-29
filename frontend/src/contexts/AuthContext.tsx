@@ -5,7 +5,7 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import { apiClient, ApiError } from "@/lib/api";
+import { apiClient, ApiError } from "@/lib/auth-api";
 import {
   getStoredToken,
   getStoredRefreshToken,
@@ -14,22 +14,25 @@ import {
   isTokenExpired,
 } from "@/lib/api-interceptor";
 import { getFrontendBaseUrl } from "@/lib/utils";
-import type { User } from "@/types/auth";
+import type { User, UserUpdate } from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  pendingEmailVerification: string | null; // Email waiting for verification
   signUp: (
     email: string,
     password: string,
     fullName?: string
-  ) => Promise<{ error: Error | null }>;
+  ) => Promise<{ error: Error | null; needsVerification?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshAuthToken: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
   forceAuthRefresh: () => Promise<void>;
+  updateUser: (userData: UserUpdate) => Promise<{ error: Error | null }>;
+  clearPendingVerification: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,6 +50,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingEmailVerification, setPendingEmailVerification] = useState<
+    string | null
+  >(null);
 
   const refreshAuthToken = useCallback(async (): Promise<boolean> => {
     const refreshToken = getStoredRefreshToken();
@@ -120,17 +126,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         full_name: fullName,
       });
 
-      // Store tokens
-      setTokens(
-        response.tokens.access_token,
-        response.tokens.refresh_token,
-        response.tokens.expires_in
-      );
-
-      // Set user
-      setUser(response.user);
-
-      return { error: null };
+      // Check if tokens were returned (user is verified)
+      if (response.tokens && response.tokens.access_token) {
+        // Store tokens and set user (OAuth users)
+        setTokens(
+          response.tokens.access_token,
+          response.tokens.refresh_token,
+          response.tokens.expires_in
+        );
+        setUser(response.user);
+        return { error: null, needsVerification: false };
+      } else {
+        // No tokens returned - user needs email verification
+        setPendingEmailVerification(email);
+        return { error: null, needsVerification: true };
+      }
     } catch (error) {
       console.error("Sign up failed:", error);
       return {
@@ -138,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           error instanceof ApiError
             ? new Error(error.message)
             : new Error("Sign up failed"),
+        needsVerification: false,
       };
     }
   };
@@ -146,6 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const response = await apiClient.signIn({ email, password });
 
+      console.log("Sign in response:", response);
+
       // Store tokens
       setTokens(
         response.tokens.access_token,
@@ -155,6 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Set user
       setUser(response.user);
+      console.log("User set in context:", response.user);
 
       return { error: null };
     } catch (error) {
@@ -241,11 +255,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const updateUser = async (userData: UserUpdate) => {
+    try {
+      const updatedUser = await apiClient.updateUser(userData);
+      setUser(updatedUser);
+      return { error: null };
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      return {
+        error:
+          error instanceof ApiError
+            ? new Error(error.message)
+            : new Error("Failed to update user"),
+      };
+    }
+  };
+
+  const clearPendingVerification = () => {
+    setPendingEmailVerification(null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
+        pendingEmailVerification,
         signUp,
         signIn,
         signInWithGoogle,
@@ -253,6 +288,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         refreshAuthToken,
         refreshUser,
         forceAuthRefresh,
+        updateUser,
+        clearPendingVerification,
       }}
     >
       {children}

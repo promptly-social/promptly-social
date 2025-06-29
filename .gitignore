@@ -55,6 +55,7 @@ venv.bak/
 
 .env
 test_*.db
+test*.db
 
 .terraform/
 .terraform.lock.hcl

@@ -482,6 +482,113 @@ class SupabaseClient:
             logger.error(f"Error creating session from response: {e}")
             return None
 
+    async def verify_email_token(
+        self, token: str, type_param: str, email: str, use_token_hash: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Verify email verification token.
+
+        Args:
+            token: Email verification token
+            type_param: Type of verification (signup, recovery, etc.)
+
+        Returns:
+            Dictionary containing user data, session, or error
+        """
+        try:
+            # For email verification, the type should be "email" not "signup"
+            verification_type = "email" if type_param == "signup" else type_param
+
+            # Build verification parameters based on token type
+            verify_params = {
+                "email": email,
+                "type": verification_type,
+            }
+
+            if use_token_hash:
+                verify_params["token_hash"] = token
+            else:
+                verify_params["token"] = token
+
+            # Use the Supabase client to verify the token
+            response = self.client.auth.verify_otp(verify_params)
+
+            if response.user and response.session:
+                logger.info(f"Email verification successful: {response.user.email}")
+                return {
+                    "user": response.user,
+                    "session": response.session,
+                    "error": None,
+                }
+            else:
+                logger.warning("Email verification failed - no user or session")
+                return {
+                    "user": None,
+                    "session": None,
+                    "error": "Email verification failed - invalid token or already used",
+                }
+
+        except Exception as e:
+            logger.error(f"Email verification error: {str(e)}")
+            return {
+                "user": None,
+                "session": None,
+                "error": f"Email verification failed: {str(e)}",
+            }
+
+    async def resend_verification_email(
+        self, email: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Resend email verification link.
+
+        Args:
+            email: User's email address
+            redirect_to: Optional redirect URL after verification
+
+        Returns:
+            Dictionary containing success or error information
+        """
+        try:
+            logger.info(f"Resending verification email to: {email}")
+
+            # Use Supabase to resend the verification email with correct syntax
+            options = {}
+            if redirect_to:
+                options["email_redirect_to"] = redirect_to
+
+            response = self.client.auth.resend(
+                {
+                    "type": "signup",
+                    "email": email,
+                    "options": options,
+                }
+            )
+
+            logger.info(f"Supabase resend response: {response}")
+
+            # Check if there's an error in the response
+            if hasattr(response, "error") and response.error:
+                logger.error(f"Supabase resend error: {response.error}")
+                return {
+                    "error": f"Failed to resend verification email: {response.error}",
+                    "success": False,
+                }
+
+            logger.info("Verification email resent successfully")
+            return {
+                "error": None,
+                "success": True,
+                "message": "Verification email sent successfully",
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to resend verification email: {str(e)}")
+            return {
+                "error": f"Failed to resend verification email: {str(e)}",
+                "success": False,
+            }
+
 
 def get_supabase_client() -> SupabaseClient:
     """Get Supabase client instance."""
