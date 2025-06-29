@@ -57,11 +57,13 @@ class AuthService:
                     "tokens": None,
                 }
 
-            # Create user in Supabase
+            # Create user in Supabase with redirect to backend verification endpoint
+            backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
+
             supabase_response = await supabase_client.sign_up(
                 email=user_data.email,
                 password=user_data.password,
-                redirect_to=redirect_to,
+                redirect_to=backend_redirect_url,
             )
 
             if supabase_response["error"]:
@@ -157,6 +159,13 @@ class AuthService:
                 self.db.add(local_user)
                 await self.db.commit()
                 await self.db.refresh(local_user)
+                logger.info(
+                    f"Created new local user: {login_data.email}, is_verified: {local_user.is_verified}"
+                )
+            else:
+                logger.info(
+                    f"Found existing local user: {login_data.email}, is_verified: {local_user.is_verified}"
+                )
 
             # Update last login
             await self._update_last_login(local_user.id)
@@ -169,11 +178,14 @@ class AuthService:
 
             logger.info(f"User signed in successfully: {login_data.email}")
 
+            user_response = UserResponse.model_validate(
+                {**local_user.__dict__, "id": str(local_user.id)}
+            )
+            logger.info(f"Returning user data: {user_response.model_dump()}")
+
             return {
                 "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
+                "user": user_response,
                 "tokens": tokens,
                 "message": "Sign in successful",
             }
@@ -530,7 +542,12 @@ class AuthService:
             }
 
     async def handle_email_verification(
-        self, token: str, type_param: str, redirect_to: Optional[str] = None
+        self,
+        token: str,
+        type_param: str,
+        email: str,
+        redirect_to: Optional[str] = None,
+        use_token_hash: bool = False,
     ) -> Dict[str, Any]:
         """
         Handle email verification callback.
@@ -546,7 +563,7 @@ class AuthService:
         try:
             # Verify the token with Supabase
             supabase_response = await supabase_client.verify_email_token(
-                token, type_param
+                token, type_param, email, use_token_hash
             )
 
             if supabase_response["error"]:
@@ -557,6 +574,8 @@ class AuthService:
                 }
 
             supabase_user = supabase_response["user"]
+            supabase_session = supabase_response.get("session")
+
             if not supabase_user:
                 return {
                     "error": "Email verification failed",
@@ -573,16 +592,21 @@ class AuthService:
                     "tokens": None,
                 }
 
-            # Update user as verified
-            local_user.is_verified = True
+            # Update user as verified using UPDATE statement
+            stmt = update(User).where(User.id == local_user.id).values(is_verified=True)
+            await self.db.execute(stmt)
             await self.db.commit()
+
+            # Refresh the user object to get updated data
             await self.db.refresh(local_user)
 
             # Update last login
             await self._update_last_login(local_user.id)
 
-            # Create tokens and session
+            # Always create backend tokens for email verification
             tokens = await self._create_tokens(local_user)
+
+            # Create session in local database
             await self._create_session(
                 local_user.id, tokens.access_token, tokens.refresh_token
             )
@@ -635,9 +659,10 @@ class AuthService:
                     "success": False,
                 }
 
-            # Resend verification email via Supabase
+            # Resend verification email via Supabase with redirect to backend
+            backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
             supabase_response = await supabase_client.resend_verification_email(
-                email, redirect_to
+                email, backend_redirect_url
             )
 
             if supabase_response["error"]:

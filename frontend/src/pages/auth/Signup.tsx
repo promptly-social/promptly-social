@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,7 +14,6 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { EmailVerification } from "./index";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -22,10 +21,14 @@ const Signup = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [showVerification, setShowVerification] = useState(false);
-  const { signUp, signInWithGoogle, pendingEmailVerification } = useAuth();
+  const { signUp, signInWithGoogle, clearPendingVerification } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Clear pending verification when accessing signup page
+  useEffect(() => {
+    clearPendingVerification();
+  }, [clearPendingVerification]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +53,7 @@ const Signup = () => {
           variant: "destructive",
         });
       } else if (needsVerification) {
-        setShowVerification(true);
+        navigate("/verify-email");
       } else {
         // User is logged in (OAuth flow)
         navigate("/new-content");
@@ -87,13 +90,6 @@ const Signup = () => {
       setIsGoogleLoading(false);
     }
   };
-
-  // Show email verification screen if needed
-  if (showVerification || pendingEmailVerification) {
-    return (
-      <EmailVerification email={email || pendingEmailVerification || ""} />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center p-4 sm:p-6">

@@ -157,6 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const response = await apiClient.signIn({ email, password });
 
+      console.log("Sign in response:", response);
+
       // Store tokens
       setTokens(
         response.tokens.access_token,
@@ -166,6 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Set user
       setUser(response.user);
+      console.log("User set in context:", response.user);
 
       return { error: null };
     } catch (error) {

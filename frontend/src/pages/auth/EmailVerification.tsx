@@ -11,6 +11,7 @@ import { PenTool, Mail, RefreshCw, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/auth-api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface EmailVerificationProps {
   email?: string;
@@ -19,6 +20,7 @@ interface EmailVerificationProps {
 const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) => {
   const [isResending, setIsResending] = useState(false);
   const { toast } = useToast();
+  const { clearPendingVerification } = useAuth();
 
   const handleResendEmail = async () => {
     if (!email) {
@@ -48,6 +50,10 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) => {
     } finally {
       setIsResending(false);
     }
+  };
+
+  const handleGoBack = () => {
+    clearPendingVerification();
   };
 
   return (
@@ -117,24 +123,49 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ email }) => {
                   )}
                 </Button>
 
-                <div className="text-center text-xs sm:text-sm text-gray-600">
-                  Wrong email address?{" "}
-                  <Link
-                    to="/signup"
-                    className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
-                  >
-                    Sign up again
-                  </Link>
-                </div>
+                <div className="text-center text-xs sm:text-sm text-gray-600 space-y-2">
+                  <div>
+                    Wrong email address?{" "}
+                    <Link
+                      to="/signup"
+                      onClick={handleGoBack}
+                      className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
+                    >
+                      Sign up again
+                    </Link>
+                  </div>
 
-                <div className="text-center text-xs sm:text-sm text-gray-600">
-                  Already verified?{" "}
-                  <Link
-                    to="/login"
-                    className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
-                  >
-                    Sign in
-                  </Link>
+                  <div>
+                    Already verified?{" "}
+                    <Link
+                      to="/login"
+                      onClick={handleGoBack}
+                      className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
+                    >
+                      Sign in
+                    </Link>
+                  </div>
+
+                  <div>
+                    <Link
+                      to="/"
+                      onClick={handleGoBack}
+                      className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
+                    >
+                      ← Back to home
+                    </Link>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleGoBack}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      Skip for now
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -57,6 +57,7 @@ class UserUpdate(BaseModel):
     timezone: Optional[str] = None
     password: Optional[constr(min_length=8, max_length=100)] = None
     confirm_password: Optional[str] = None
+    is_verified: Optional[bool] = None
 
     @model_validator(mode="after")
     def validate_password_match(self):

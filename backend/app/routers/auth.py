@@ -86,10 +86,10 @@ async def sign_up(
     Creates a user in both Supabase Auth and local database.
     """
     try:
-        # Get redirect URL - point to backend verification endpoint
-        # The backend will handle verification and redirect to frontend
-        api_url = settings.backend_url
-        redirect_to = f"{api_url}/api/v1/auth/verify"
+        # Get redirect URL - point directly to frontend callback
+        # Let frontend handle verification tokens using existing OAuth callback logic
+        frontend_url = settings.frontend_url
+        redirect_to = f"{frontend_url}/auth/callback"
 
         auth_service = AuthService(db)
         result = await auth_service.sign_up(user_data, redirect_to)
@@ -501,8 +501,11 @@ async def sign_in_with_google_token(
 
 @router.get("/verify")
 async def email_verification_callback(
-    token: str,
+    request: Request,
+    token_hash: Optional[str] = None,
+    token: Optional[str] = None,
     type: str = "signup",
+    email: Optional[str] = None,
     redirect_to: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -512,45 +515,59 @@ async def email_verification_callback(
     This endpoint is called when users click the verification link in their email.
     """
     try:
-        logger.info(f"=== Email Verification Callback ===")
-        logger.info(f"Token: {token[:20]}..." if token else "No token")
-        logger.info(f"Type: {type}")
-        logger.info(f"Redirect to: {redirect_to}")
+        # Validate required parameters
+        if not (token_hash or token):
+            logger.error("No verification token or token_hash provided")
+            frontend_url = settings.frontend_url
+            error_url = f"{frontend_url}/auth/callback#error=missing_token"
+            return RedirectResponse(url=error_url)
+
+        if not email:
+            logger.error("Email address is required for verification")
+            frontend_url = settings.frontend_url
+            error_url = f"{frontend_url}/auth/callback#error=missing_email"
+            return RedirectResponse(url=error_url)
 
         auth_service = AuthService(db)
-        result = await auth_service.handle_email_verification(token, type, redirect_to)
+
+        # Use token_hash if available, otherwise use token
+        verification_token = token_hash if token_hash else token
+        result = await auth_service.handle_email_verification(
+            verification_token,
+            type,
+            email,
+            redirect_to,
+            use_token_hash=bool(token_hash),
+        )
 
         if result["error"]:
             logger.error(f"Email verification error: {result['error']}")
-            # Redirect to frontend with error
+            # Redirect to frontend with error - use URL fragment to match OAuth callback pattern
             frontend_url = settings.frontend_url
-            error_url = f"{frontend_url}?error={result['error']}"
+            error_url = f"{frontend_url}/auth/callback#error={result['error']}"
             return RedirectResponse(url=error_url)
 
-        # Redirect to frontend with success and tokens
+        # Redirect to frontend with success and tokens using URL fragment (like OAuth callback)
         frontend_url = settings.frontend_url
         success_url = f"{frontend_url}/auth/callback"
-        success_url += f"?access_token={result['tokens'].access_token}"
+        success_url += f"#access_token={result['tokens'].access_token}"
         success_url += f"&refresh_token={result['tokens'].refresh_token}"
         success_url += f"&expires_in={result['tokens'].expires_in}"
-        success_url += f"&user_id={result['user'].id}"
-        success_url += "&verified=true"
+        success_url += f"&token_type=bearer"
+        success_url += f"&type=signup"  # This helps frontend detect it's a verification
 
-        logger.info(f"=== Redirecting to Frontend ===")
-        logger.info(f"Success URL: {success_url}")
         return RedirectResponse(url=success_url)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"=== Email Verification Callback Exception ===")
-        logger.error(f"Exception: {e}")
+        logger.error(f"Email verification callback failed: {e}")
         import traceback
 
         logger.error(f"Traceback: {traceback.format_exc()}")
 
         frontend_url = settings.frontend_url
-        error_url = f"{frontend_url}?error=email_verification_failed"
+        error_url = f"{frontend_url}/auth/callback#error=email_verification_failed"
         return RedirectResponse(url=error_url)
 
 
@@ -565,13 +582,12 @@ async def resend_verification_email(
     Allows users to request a new verification email if they didn't receive it.
     """
     try:
-        # Get redirect URL for the verification link - point to backend
-        api_url = settings.backend_url
-        redirect_to = f"{api_url}/api/v1/auth/verify"
+        # Get redirect URL for the verification link - point to backend verification endpoint
+        backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
 
         auth_service = AuthService(db)
         result = await auth_service.resend_verification_email(
-            request.email, redirect_to
+            request.email, backend_redirect_url
         )
 
         if result["error"]:
@@ -591,4 +607,106 @@ async def resend_verification_email(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to resend verification email",
+        )
+
+
+@router.post("/verify")
+async def exchange_supabase_tokens(
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Exchange Supabase tokens for backend tokens after email verification.
+
+    This endpoint is called by the frontend when it receives Supabase tokens
+    from email verification and needs to exchange them for backend tokens.
+    """
+    try:
+        # Get the request body
+        body = await request.json()
+        supabase_access_token = body.get("supabase_access_token")
+        supabase_refresh_token = body.get("supabase_refresh_token")
+        email = body.get("email")
+
+        if not supabase_access_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Supabase access token is required",
+            )
+
+        # Get user info from Supabase token
+        from app.utils.supabase import supabase_client
+
+        supabase_user_response = supabase_client.get_user(supabase_access_token)
+
+        if supabase_user_response.get("error") or not supabase_user_response.get(
+            "user"
+        ):
+            logger.error(
+                f"Failed to get user from Supabase: {supabase_user_response.get('error')}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Supabase token",
+            )
+
+        supabase_user = supabase_user_response["user"]
+
+        # Get or create local user record
+        auth_service = AuthService(db)
+        local_user = await auth_service._get_user_by_supabase_id(str(supabase_user.id))
+
+        if not local_user:
+            logger.error(
+                f"User not found in local database for Supabase ID: {supabase_user.id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in local database",
+            )
+
+        # Update user as verified if not already
+        if not local_user.is_verified:
+            from sqlalchemy import update
+            from app.models.user import User
+
+            stmt = update(User).where(User.id == local_user.id).values(is_verified=True)
+            await db.execute(stmt)
+            await db.commit()
+            await db.refresh(local_user)
+
+        # Update last login
+        await auth_service._update_last_login(local_user.id)
+
+        # Create backend tokens
+        tokens = await auth_service._create_tokens(local_user)
+
+        # Create session in local database
+        await auth_service._create_session(
+            local_user.id, tokens.access_token, tokens.refresh_token
+        )
+
+        logger.info(f"Successfully exchanged tokens for user: {local_user.email}")
+
+        return {
+            "access_token": tokens.access_token,
+            "refresh_token": tokens.refresh_token,
+            "expires_in": tokens.expires_in,
+            "user": {
+                "id": str(local_user.id),
+                "email": local_user.email,
+                "is_verified": local_user.is_verified,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token exchange failed: {e}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Token exchange failed",
         )

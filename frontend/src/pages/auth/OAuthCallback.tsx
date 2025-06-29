@@ -11,23 +11,34 @@ const OAuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { forceAuthRefresh } = useAuth();
+  const { forceAuthRefresh, clearPendingVerification } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Check for direct tokens first (from backend redirect)
-        const accessToken = searchParams.get("access_token");
-        const refreshToken = searchParams.get("refresh_token");
-        const expiresIn = searchParams.get("expires_in");
-        const error = searchParams.get("error");
+        // Check for tokens in URL parameters first
+        let accessToken = searchParams.get("access_token");
+        let refreshToken = searchParams.get("refresh_token");
+        let expiresIn = searchParams.get("expires_in");
+        let error = searchParams.get("error");
+        let code = searchParams.get("code");
+        let verified = searchParams.get("verified");
+        let type = searchParams.get("type");
 
-        // Check for OAuth code (from Supabase direct redirect)
-        const code = searchParams.get("code");
+        // If no tokens in parameters, check URL fragment (common for Supabase email verification)
+        if (!accessToken && window.location.hash) {
+          const fragment = window.location.hash.substring(1); // Remove #
+          const fragmentParams = new URLSearchParams(fragment);
 
-        // Check for email verification
-        const verified = searchParams.get("verified");
+          accessToken = fragmentParams.get("access_token");
+          refreshToken = fragmentParams.get("refresh_token");
+          expiresIn = fragmentParams.get("expires_in");
+          error = fragmentParams.get("error");
+          code = fragmentParams.get("code") || code;
+          verified = fragmentParams.get("verified") || verified;
+          type = fragmentParams.get("type");
+        }
 
         if (error) {
           console.error("OAuth error detected:", error);
@@ -45,7 +56,90 @@ const OAuthCallback = () => {
 
         // If we have direct tokens, use them
         if (accessToken && refreshToken && expiresIn) {
+          // Check if this is email verification (type=signup indicates email verification)
+          if (type === "signup") {
+            try {
+              // Extract email from the Supabase JWT
+              const tokenPayload = JSON.parse(atob(accessToken.split(".")[1]));
+              const email = tokenPayload.email;
+
+              // Call backend to exchange Supabase tokens for backend tokens
+              const response = await fetch(
+                `${
+                  import.meta.env.VITE_API_URL || "http://localhost:8000"
+                }/api/v1/auth/verify`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    supabase_access_token: accessToken,
+                    supabase_refresh_token: refreshToken,
+                    email: email,
+                  }),
+                }
+              );
+
+              if (response.ok) {
+                const data = await response.json();
+                if (data.access_token && data.refresh_token) {
+                  setTokens(
+                    data.access_token,
+                    data.refresh_token,
+                    data.expires_in || 3600
+                  );
+
+                  // Clear any pending email verification state
+                  clearPendingVerification();
+
+                  // Clean up URL to remove tokens from browser history
+                  if (window.location.hash) {
+                    window.history.replaceState(
+                      {},
+                      document.title,
+                      window.location.pathname
+                    );
+                  }
+
+                  try {
+                    await forceAuthRefresh();
+                  } catch (error) {
+                    console.error("Failed to refresh auth context:", error);
+                  }
+
+                  toast({
+                    title: "Email Verified! 🎉",
+                    description:
+                      "Your email has been verified successfully. Welcome to Promptly!",
+                    duration: 5000,
+                  });
+
+                  navigate("/new-content", { replace: true });
+                  return;
+                }
+              } else {
+                console.error("Failed to exchange tokens with backend");
+              }
+            } catch (error) {
+              console.error("Error exchanging tokens:", error);
+            }
+          }
+
+          // If not email verification or token exchange failed, use the tokens as-is
           setTokens(accessToken, refreshToken, parseInt(expiresIn));
+
+          // Clear any pending email verification state
+          clearPendingVerification();
+
+          // Clean up URL to remove tokens from browser history
+          if (window.location.hash) {
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+          }
 
           try {
             await forceAuthRefresh();
@@ -53,11 +147,36 @@ const OAuthCallback = () => {
             console.error("Failed to refresh auth context:", error);
           }
 
-          if (verified === "true") {
+          // Check if this is email verification (type=signup indicates email verification)
+          if (type === "signup" || verified === "true") {
+            // Update user verification status in database
+            try {
+              await fetch(
+                `${
+                  import.meta.env.VITE_API_URL || "http://localhost:8000"
+                }/api/v1/auth/me`,
+                {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                  body: JSON.stringify({ is_verified: true }),
+                }
+              );
+            } catch (error) {
+              console.error(
+                "Failed to update user verification status:",
+                error
+              );
+              // Don't block the flow if this fails
+            }
+
             toast({
-              title: "Email Verified!",
+              title: "Email Verified! 🎉",
               description:
-                "Your email has been verified successfully. Welcome!",
+                "Your email has been verified successfully. Welcome to Promptly!",
+              duration: 5000,
             });
           } else {
             toast({
@@ -94,13 +213,40 @@ const OAuthCallback = () => {
                   data.expires_in || 3600
                 );
 
+                // Clear any pending email verification state
+                clearPendingVerification();
+
                 await forceAuthRefresh();
 
-                if (verified === "true") {
+                if (type === "signup" || verified === "true") {
+                  // Update user verification status in database
+                  try {
+                    await fetch(
+                      `${
+                        import.meta.env.VITE_API_URL || "http://localhost:8000"
+                      }/api/v1/auth/me`,
+                      {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${data.access_token}`,
+                        },
+                        body: JSON.stringify({ is_verified: true }),
+                      }
+                    );
+                  } catch (error) {
+                    console.error(
+                      "Failed to update user verification status:",
+                      error
+                    );
+                    // Don't block the flow if this fails
+                  }
+
                   toast({
-                    title: "Email Verified!",
+                    title: "Email Verified! 🎉",
                     description:
-                      "Your email has been verified successfully. Welcome!",
+                      "Your email has been verified successfully. Welcome to Promptly!",
+                    duration: 5000,
                   });
                 } else {
                   toast({
@@ -133,8 +279,7 @@ const OAuthCallback = () => {
           throw new Error("Missing authentication tokens or code");
         }
       } catch (error) {
-        console.error("=== OAuth Callback Error ===");
-        console.error("Error details:", error);
+        console.error("OAuth callback error:", error);
         toast({
           title: "Authentication Error",
           description: "Failed to complete authentication. Please try again.",

@@ -28,16 +28,48 @@ import {
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Landing = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { clearPendingVerification } = useAuth();
 
-  // Handle OAuth callback with code parameter
+  // Clear pending verification when landing on home page
+  useEffect(() => {
+    clearPendingVerification();
+  }, [clearPendingVerification]);
+
+  // Handle OAuth callback with code parameter or verification tokens
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code) {
+
+    // Check for verification tokens in URL fragment (email verification)
+    let hasVerificationTokens = false;
+    if (window.location.hash) {
+      const fragment = window.location.hash.substring(1);
+      const fragmentParams = new URLSearchParams(fragment);
+      const accessToken = fragmentParams.get("access_token");
+      const type = fragmentParams.get("type");
+
+      if (accessToken && type === "signup") {
+        hasVerificationTokens = true;
+        console.log("Email verification tokens detected on index page");
+        toast({
+          title: "Processing Email Verification",
+          description: "Please wait while we verify your account...",
+        });
+
+        // Redirect to OAuth callback with tokens in fragment
+        const callbackUrl = `/auth/callback${window.location.hash}`;
+        console.log("Redirecting verification to:", callbackUrl);
+        navigate(callbackUrl, { replace: true });
+      }
+    }
+
+    // Handle OAuth code parameter (Google OAuth)
+    if (code && !hasVerificationTokens) {
       console.log("OAuth code detected on index page:", code);
       toast({
         title: "Processing Authentication",
@@ -46,7 +78,7 @@ const Landing = () => {
 
       // Redirect to our OAuth callback handler with all parameters
       const callbackUrl = `/auth/callback?${searchParams.toString()}`;
-      console.log("Redirecting to:", callbackUrl);
+      console.log("Redirecting OAuth to:", callbackUrl);
       navigate(callbackUrl, { replace: true });
     }
   }, [searchParams, navigate, toast]);
