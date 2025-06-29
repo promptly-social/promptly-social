@@ -219,6 +219,32 @@ class TestAuthService:
 class TestAuthEndpoints:
     """Test cases for authentication endpoints."""
 
+    @pytest.fixture
+    def mock_current_user(self):
+        """Mock current user for authenticated endpoints."""
+        from datetime import datetime
+        from app.schemas.auth import UserResponse
+        from app.routers.auth import get_current_user
+        from app.main import app
+
+        user = UserResponse(
+            id=str(uuid.uuid4()),
+            email="test@example.com",
+            full_name="Test User",
+            preferred_language="en",
+            timezone="UTC",
+            is_active=True,
+            is_verified=True,
+            created_at=datetime.now(),
+        )
+
+        async def mock_get_current_user():
+            return user
+
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        yield user
+        app.dependency_overrides.clear()
+
     def test_signup_endpoint_success(self, client, mock_user_data):
         """Test successful signup endpoint."""
         with patch("app.services.auth.AuthService.sign_up") as mock_signup:
@@ -290,6 +316,92 @@ class TestAuthEndpoints:
         data = response.json()
         assert "name" in data
         assert "status" in data
+
+    def test_update_user_endpoint_success(
+        self, client, mock_user_data, mock_current_user
+    ):
+        """Test successful user update endpoint."""
+        with patch("app.services.auth.AuthService.update_user") as mock_update:
+            from datetime import datetime
+            from app.schemas.auth import UserResponse
+
+            mock_user = UserResponse(
+                id=str(uuid.uuid4()),
+                email=mock_user_data["email"],
+                full_name="Updated Name",
+                preferred_language="en",
+                timezone="UTC",
+                is_active=True,
+                is_verified=False,
+                created_at=datetime.now(),
+            )
+
+            mock_update.return_value = mock_user
+
+            update_data = {
+                "full_name": "Updated Name",
+            }
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["full_name"] == "Updated Name"
+
+    def test_update_user_endpoint_password_update(
+        self, client, mock_user_data, mock_current_user
+    ):
+        """Test user update endpoint with password change."""
+        with patch("app.services.auth.AuthService.update_user") as mock_update:
+            from datetime import datetime
+            from app.schemas.auth import UserResponse
+
+            mock_user = UserResponse(
+                id=str(uuid.uuid4()),
+                email=mock_user_data["email"],
+                full_name=mock_user_data["full_name"],
+                preferred_language="en",
+                timezone="UTC",
+                is_active=True,
+                is_verified=False,
+                created_at=datetime.now(),
+            )
+
+            mock_update.return_value = mock_user
+
+            update_data = {
+                "password": "NewPassword123",
+                "confirm_password": "NewPassword123",
+            }
+
+            response = client.put(
+                "/api/v1/auth/me",
+                json=update_data,
+                headers={"Authorization": "Bearer test_token"},
+            )
+
+            assert response.status_code == 200
+
+    def test_update_user_endpoint_password_mismatch(self, client, mock_current_user):
+        """Test user update endpoint with password mismatch."""
+        update_data = {
+            "password": "NewPassword123",
+            "confirm_password": "DifferentPassword123",
+        }
+
+        response = client.put(
+            "/api/v1/auth/me",
+            json=update_data,
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 422
+        data = response.json()
+        assert "details" in data
 
 
 class TestSecurityUtilities:

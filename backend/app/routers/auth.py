@@ -24,6 +24,7 @@ from app.schemas.auth import (
     UserCreate,
     UserLogin,
     UserResponse,
+    UserUpdate,
 )
 from app.services.auth import AuthService
 
@@ -264,6 +265,38 @@ async def get_current_user_info(current_user: UserResponse = Depends(get_current
     Returns the authenticated user's profile information.
     """
     return current_user
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_current_user(
+    user_data: UserUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Update current user information.
+
+    Updates the authenticated user's profile information.
+    """
+    try:
+        auth_service = AuthService(db)
+        updated_user = await auth_service.update_user(current_user.id, user_data)
+
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        return updated_user
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update user profile",
+        )
 
 
 @router.post("/password/reset", response_model=SuccessResponse)

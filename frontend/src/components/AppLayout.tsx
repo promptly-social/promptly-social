@@ -6,7 +6,6 @@ import { LogOut } from "lucide-react";
 
 interface AppLayoutProps {
   title: string;
-  showWelcome?: boolean;
   emailBreakpoint?: "sm" | "md";
   additionalActions?: React.ReactNode;
   children?: React.ReactNode;
@@ -14,7 +13,6 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({
   title,
-  showWelcome = false,
   emailBreakpoint = "sm",
   additionalActions,
   children,
@@ -25,6 +23,22 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     emailBreakpoint === "md"
       ? "hidden md:inline text-gray-600 text-sm"
       : "hidden sm:inline text-gray-600 text-sm";
+
+  // Helper function to get display name (first name or email fallback)
+  const getDisplayName = () => {
+    if (!user) return "";
+
+    // If user has a full name, extract the first name
+    if (user.full_name) {
+      const firstName = user.full_name.split(" ")[0];
+      return firstName;
+    }
+
+    // Fallback to email
+    return user.email;
+  };
+
+  const displayName = getDisplayName();
 
   return (
     <SidebarInset>
@@ -38,9 +52,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             {additionalActions}
-            <span className={emailClasses}>
-              {showWelcome ? `Welcome, ${user?.email}` : user?.email}
-            </span>
+            <span className={emailClasses}>Welcome, {displayName}</span>
             <Button onClick={signOut} variant="outline" size="sm">
               <LogOut className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Sign Out</span>

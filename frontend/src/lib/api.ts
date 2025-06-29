@@ -5,6 +5,7 @@ import type {
   TokenResponse,
   UserCreate,
   UserLogin,
+  UserUpdate,
   SuccessResponse,
   GoogleAuthRequest,
 } from "@/types/auth";
@@ -147,6 +148,13 @@ class ApiClient {
   async getCurrentUser(): Promise<User> {
     return this.request<User>("/auth/me", {
       method: "GET",
+    });
+  }
+
+  async updateUser(userData: UserUpdate): Promise<User> {
+    return this.request<User>("/auth/me", {
+      method: "PUT",
+      body: JSON.stringify(userData),
     });
   }
 

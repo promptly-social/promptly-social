@@ -10,7 +10,13 @@ from sqlalchemy import select, update
 from loguru import logger
 
 from app.models.user import User, UserSession
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, TokenResponse
+from app.schemas.auth import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    TokenResponse,
+    UserUpdate,
+)
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -302,6 +308,65 @@ class AuthService:
         except Exception as e:
             logger.error(f"Get current user failed: {e}")
             return None
+
+    async def update_user(
+        self, user_id: str, user_data: UserUpdate
+    ) -> Optional[UserResponse]:
+        """
+        Update user profile information.
+
+        Args:
+            user_id: User ID to update
+            user_data: User update data
+
+        Returns:
+            Updated user information
+        """
+        try:
+            user = await self._get_user_by_id(user_id)
+            if not user or not user.is_active:
+                return None
+
+            # Update fields if provided
+            update_data = user_data.model_dump(exclude_unset=True)
+
+            # Handle password update if provided
+            if "password" in update_data and "confirm_password" in update_data:
+                if update_data["password"] != update_data["confirm_password"]:
+                    raise ValueError("Passwords do not match")
+
+                # Update password in Supabase if user has supabase_user_id
+                if user.supabase_user_id:
+                    from app.utils.supabase import supabase_client
+
+                    supabase_result = await supabase_client.update_user(
+                        user.supabase_user_id, password=update_data["password"]
+                    )
+                    if supabase_result.get("error"):
+                        raise ValueError(
+                            f"Failed to update password in Supabase: {supabase_result['error']}"
+                        )
+
+                # Remove password fields from update data
+                update_data.pop("password", None)
+                update_data.pop("confirm_password", None)
+
+            # Update local user record
+            for key, value in update_data.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+
+            user.updated_at = datetime.utcnow()
+            await self.db.commit()
+            await self.db.refresh(user)
+
+            logger.info(f"User profile updated successfully: {user_id}")
+            return UserResponse.model_validate({**user.__dict__, "id": str(user.id)})
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Update user failed for {user_id}: {e}")
+            raise
 
     async def handle_oauth_callback(
         self, code: str, redirect_to: Optional[str] = None

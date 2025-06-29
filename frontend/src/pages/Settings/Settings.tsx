@@ -8,17 +8,79 @@ import { Switch } from "@/components/ui/switch";
 import AppLayout from "@/components/AppLayout";
 import { useToast } from "@/hooks/use-toast";
 import { User, Bell, AlertTriangle, Trash2 } from "lucide-react";
+import type { UserUpdate } from "@/types/auth";
 
 const Settings: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [formData, setFormData] = useState<UserUpdate>({
+    full_name: user?.full_name || "",
+    password: "",
+    confirm_password: "",
+  });
 
-  const handleUpdateProfile = () => {
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been updated successfully",
-    });
+  const handleInputChange = (field: keyof UserUpdate, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleUpdateProfile = async () => {
+    // Validate passwords match if both are provided
+    if (formData.password && formData.password !== formData.confirm_password) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Only include password fields if password is being updated
+    const updateData: UserUpdate = {
+      full_name: formData.full_name,
+    };
+
+    if (formData.password) {
+      updateData.password = formData.password;
+      updateData.confirm_password = formData.confirm_password;
+    }
+
+    setIsUpdating(true);
+    try {
+      const result = await updateUser(updateData);
+
+      if (result.error) {
+        toast({
+          title: "Error",
+          description: result.error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Profile Updated",
+          description: "Your profile has been updated successfully",
+        });
+
+        // Clear password fields after successful update
+        setFormData((prev) => ({
+          ...prev,
+          password: "",
+          confirm_password: "",
+        }));
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -55,6 +117,10 @@ const Settings: React.FC = () => {
                 <Input
                   id="name"
                   placeholder="Enter your full name"
+                  value={formData.full_name}
+                  onChange={(e) =>
+                    handleInputChange("full_name", e.target.value)
+                  }
                   className="text-sm sm:text-base"
                 />
               </div>
@@ -81,6 +147,10 @@ const Settings: React.FC = () => {
                   id="password"
                   type="password"
                   placeholder="Enter new password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   className="text-sm sm:text-base"
                 />
               </div>
@@ -95,14 +165,19 @@ const Settings: React.FC = () => {
                   id="confirm-password"
                   type="password"
                   placeholder="Confirm new password"
+                  value={formData.confirm_password}
+                  onChange={(e) =>
+                    handleInputChange("confirm_password", e.target.value)
+                  }
                   className="text-sm sm:text-base"
                 />
               </div>
               <Button
                 onClick={handleUpdateProfile}
+                disabled={isUpdating}
                 className="w-full sm:w-auto"
               >
-                Update Profile
+                {isUpdating ? "Updating..." : "Update Profile"}
               </Button>
             </CardContent>
           </Card>

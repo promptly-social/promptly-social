@@ -33,6 +33,14 @@ export interface UserCreate {
   timezone?: string;
 }
 
+export interface UserUpdate {
+  full_name?: string;
+  preferred_language?: string;
+  timezone?: string;
+  password?: string;
+  confirm_password?: string;
+}
+
 export interface UserLogin {
   email: string;
   password: string;

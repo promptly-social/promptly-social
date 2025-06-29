@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
 from pydantic.types import constr
 
 
@@ -49,7 +49,7 @@ class UserCreate(UserBase):
         return v
 
 
-class UserUpdate(UserBase):
+class UserUpdate(BaseModel):
     """Schema for user update."""
 
     full_name: Optional[str] = None
@@ -57,6 +57,34 @@ class UserUpdate(UserBase):
     timezone: Optional[str] = None
     password: Optional[constr(min_length=8, max_length=100)] = None
     confirm_password: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_password_match(self):
+        """Validate that password and confirm_password match when both are provided."""
+        password = self.password
+        confirm_password = self.confirm_password
+
+        # Only validate if both password and confirm_password are provided
+        if password and confirm_password:
+            if password != confirm_password:
+                raise ValueError("Passwords do not match")
+
+        return self
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        """Validate password strength requirements if password is provided."""
+        if v is not None:
+            if len(v) < 8:
+                raise ValueError("Password must be at least 8 characters long")
+            if not any(c.isupper() for c in v):
+                raise ValueError("Password must contain at least one uppercase letter")
+            if not any(c.islower() for c in v):
+                raise ValueError("Password must contain at least one lowercase letter")
+            if not any(c.isdigit() for c in v):
+                raise ValueError("Password must contain at least one digit")
+        return v
 
 
 class UserLogin(BaseModel):

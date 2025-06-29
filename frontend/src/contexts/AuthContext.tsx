@@ -14,7 +14,7 @@ import {
   isTokenExpired,
 } from "@/lib/api-interceptor";
 import { getFrontendBaseUrl } from "@/lib/utils";
-import type { User } from "@/types/auth";
+import type { User, UserUpdate } from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +30,7 @@ interface AuthContextType {
   refreshAuthToken: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
   forceAuthRefresh: () => Promise<void>;
+  updateUser: (userData: UserUpdate) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -241,6 +242,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const updateUser = async (userData: UserUpdate) => {
+    try {
+      const updatedUser = await apiClient.updateUser(userData);
+      setUser(updatedUser);
+      return { error: null };
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      return {
+        error:
+          error instanceof ApiError
+            ? new Error(error.message)
+            : new Error("Failed to update user"),
+      };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -253,6 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         refreshAuthToken,
         refreshUser,
         forceAuthRefresh,
+        updateUser,
       }}
     >
       {children}
