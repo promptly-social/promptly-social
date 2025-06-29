@@ -2,7 +2,7 @@
  * Posts API client
  */
 
-import { apiClient } from './api';
+import { apiClient } from './auth-api';
 
 export interface Post {
   id: string;

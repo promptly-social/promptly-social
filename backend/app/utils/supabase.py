@@ -482,6 +482,83 @@ class SupabaseClient:
             logger.error(f"Error creating session from response: {e}")
             return None
 
+    async def verify_email_token(self, token: str, type_param: str) -> Dict[str, Any]:
+        """
+        Verify email verification token.
+
+        Args:
+            token: Email verification token
+            type_param: Type of verification (signup, recovery, etc.)
+
+        Returns:
+            Dictionary containing user data or error
+        """
+        try:
+            logger.info(f"Verifying email token for type: {type_param}")
+
+            # Use the Supabase client to verify the token
+            response = self.client.auth.verify_otp({"token": token, "type": type_param})
+
+            if response.user and response.session:
+                logger.info(f"Email verification successful: {response.user.email}")
+                return {
+                    "user": response.user,
+                    "session": response.session,
+                    "error": None,
+                }
+            else:
+                logger.warning("Email verification failed - no user or session")
+                return {
+                    "user": None,
+                    "session": None,
+                    "error": "Email verification failed",
+                }
+
+        except Exception as e:
+            logger.error(f"Email verification error: {str(e)}")
+            return {
+                "user": None,
+                "session": None,
+                "error": f"Email verification failed: {str(e)}",
+            }
+
+    async def resend_verification_email(
+        self, email: str, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Resend email verification link.
+
+        Args:
+            email: User's email address
+            redirect_to: Optional redirect URL after verification
+
+        Returns:
+            Dictionary containing success or error information
+        """
+        try:
+            logger.info(f"Resending verification email to: {email}")
+
+            # Use Supabase to resend the verification email
+            response = self.client.auth.resend(
+                type="signup",
+                email=email,
+                options={"redirect_to": redirect_to} if redirect_to else {},
+            )
+
+            logger.info("Verification email resent successfully")
+            return {
+                "error": None,
+                "success": True,
+                "message": "Verification email sent successfully",
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to resend verification email: {str(e)}")
+            return {
+                "error": f"Failed to resend verification email: {str(e)}",
+                "success": False,
+            }
+
 
 def get_supabase_client() -> SupabaseClient:
     """Get Supabase client instance."""

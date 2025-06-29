@@ -201,6 +201,12 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class ResendVerificationRequest(BaseModel):
+    """Schema for resending email verification."""
+
+    email: EmailStr
+
+
 class SessionResponse(BaseModel):
     """Schema for user session response."""
 

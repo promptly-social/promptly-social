@@ -26,6 +26,9 @@ const OAuthCallback = () => {
         // Check for OAuth code (from Supabase direct redirect)
         const code = searchParams.get("code");
 
+        // Check for email verification
+        const verified = searchParams.get("verified");
+
         if (error) {
           console.error("OAuth error detected:", error);
           toast({
@@ -50,10 +53,18 @@ const OAuthCallback = () => {
             console.error("Failed to refresh auth context:", error);
           }
 
-          toast({
-            title: "Sign In Successful",
-            description: "Welcome! You have been signed in successfully.",
-          });
+          if (verified === "true") {
+            toast({
+              title: "Email Verified!",
+              description:
+                "Your email has been verified successfully. Welcome!",
+            });
+          } else {
+            toast({
+              title: "Sign In Successful",
+              description: "Welcome! You have been signed in successfully.",
+            });
+          }
 
           navigate("/new-content", { replace: true });
         }
@@ -85,10 +96,19 @@ const OAuthCallback = () => {
 
                 await forceAuthRefresh();
 
-                toast({
-                  title: "Sign In Successful",
-                  description: "Welcome! You have been signed in successfully.",
-                });
+                if (verified === "true") {
+                  toast({
+                    title: "Email Verified!",
+                    description:
+                      "Your email has been verified successfully. Welcome!",
+                  });
+                } else {
+                  toast({
+                    title: "Sign In Successful",
+                    description:
+                      "Welcome! You have been signed in successfully.",
+                  });
+                }
 
                 navigate("/new-content", { replace: true });
               } else {

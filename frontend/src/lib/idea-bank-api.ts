@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClient } from './auth-api';
 
 export interface IdeaBankData {
   type: 'article' | 'text';

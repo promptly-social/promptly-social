@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClient } from './auth-api';
 
 // Types for API requests/responses
 export interface ContentStrategy {

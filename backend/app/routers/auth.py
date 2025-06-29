@@ -19,6 +19,7 @@ from app.schemas.auth import (
     GoogleSignInWithToken,
     PasswordResetRequest,
     RefreshTokenRequest,
+    ResendVerificationRequest,
     SuccessResponse,
     TokenResponse,
     UserCreate,
@@ -85,9 +86,10 @@ async def sign_up(
     Creates a user in both Supabase Auth and local database.
     """
     try:
-        # Get redirect URL from request origin
-        origin = request.headers.get("origin", "http://localhost:3000")
-        redirect_to = f"{origin}/"
+        # Get redirect URL - point to backend verification endpoint
+        # The backend will handle verification and redirect to frontend
+        api_url = settings.backend_url
+        redirect_to = f"{api_url}/api/v1/auth/verify"
 
         auth_service = AuthService(db)
         result = await auth_service.sign_up(user_data, redirect_to)
@@ -494,4 +496,99 @@ async def sign_in_with_google_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google sign in failed",
+        )
+
+
+@router.get("/verify")
+async def email_verification_callback(
+    token: str,
+    type: str = "signup",
+    redirect_to: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Handle email verification callback from Supabase.
+
+    This endpoint is called when users click the verification link in their email.
+    """
+    try:
+        logger.info(f"=== Email Verification Callback ===")
+        logger.info(f"Token: {token[:20]}..." if token else "No token")
+        logger.info(f"Type: {type}")
+        logger.info(f"Redirect to: {redirect_to}")
+
+        auth_service = AuthService(db)
+        result = await auth_service.handle_email_verification(token, type, redirect_to)
+
+        if result["error"]:
+            logger.error(f"Email verification error: {result['error']}")
+            # Redirect to frontend with error
+            frontend_url = settings.frontend_url
+            error_url = f"{frontend_url}?error={result['error']}"
+            return RedirectResponse(url=error_url)
+
+        # Redirect to frontend with success and tokens
+        frontend_url = settings.frontend_url
+        success_url = f"{frontend_url}/auth/callback"
+        success_url += f"?access_token={result['tokens'].access_token}"
+        success_url += f"&refresh_token={result['tokens'].refresh_token}"
+        success_url += f"&expires_in={result['tokens'].expires_in}"
+        success_url += f"&user_id={result['user'].id}"
+        success_url += "&verified=true"
+
+        logger.info(f"=== Redirecting to Frontend ===")
+        logger.info(f"Success URL: {success_url}")
+        return RedirectResponse(url=success_url)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"=== Email Verification Callback Exception ===")
+        logger.error(f"Exception: {e}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        frontend_url = settings.frontend_url
+        error_url = f"{frontend_url}?error=email_verification_failed"
+        return RedirectResponse(url=error_url)
+
+
+@router.post("/resend-verification", response_model=SuccessResponse)
+async def resend_verification_email(
+    request: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Resend email verification link.
+
+    Allows users to request a new verification email if they didn't receive it.
+    """
+    try:
+        # Get redirect URL for the verification link - point to backend
+        api_url = settings.backend_url
+        redirect_to = f"{api_url}/api/v1/auth/verify"
+
+        auth_service = AuthService(db)
+        result = await auth_service.resend_verification_email(
+            request.email, redirect_to
+        )
+
+        if result["error"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
+            )
+
+        logger.info(f"Verification email resent to: {request.email}")
+        return SuccessResponse(
+            message=result.get("message", "Verification email sent successfully")
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Resend verification email endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to resend verification email",
         )

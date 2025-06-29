@@ -9,7 +9,7 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import { Login /* , Signup */ } from "./pages/auth";
+import { Login, EmailVerification } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
 import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
@@ -21,11 +21,12 @@ import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/auth/OAuthCallback";
 import LinkedinCallback from "./pages/auth/LinkedinCallback";
 import EarlyAccess from "./pages/EarlyAccess";
+import Signup from "./pages/auth/Signup";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, pendingEmailVerification } = useAuth();
 
   if (loading) {
     return (
@@ -35,11 +36,21 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
+  // If user needs email verification, show verification page
+  if (pendingEmailVerification) {
+    return <EmailVerification email={pendingEmailVerification} />;
+  }
+
   // Check for stored token as fallback to handle OAuth callback race condition
   const hasToken = getStoredToken();
 
   if (!user && !hasToken) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check if user exists but isn't verified (shouldn't happen with new flow, but safety check)
+  if (user && !user.is_verified) {
+    return <EmailVerification email={user.email} />;
   }
 
   return <>{children}</>;
@@ -87,22 +98,22 @@ const App = () => (
                 </AuthRoute>
               }
             />
-            <Route
+            {/* <Route
               path="/signup"
               element={
                 <AuthRoute>
                   <EarlyAccess />
                 </AuthRoute>
               }
-            />
-            {/* <Route
+            /> */}
+            <Route
               path="/signup"
               element={
                 <AuthRoute>
                   <Signup />
                 </AuthRoute>
               }
-            /> */}
+            />
             <Route
               path="/new-content"
               element={

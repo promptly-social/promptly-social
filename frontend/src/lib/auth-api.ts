@@ -164,6 +164,13 @@ class ApiClient {
       body: JSON.stringify({ email }),
     });
   }
+
+  async resendVerificationEmail(email: string): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>("/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
 }
 
 export const apiClient = new ApiClient();
