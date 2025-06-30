@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -13,6 +13,8 @@ class UserPreferencesBase(BaseModel):
     websites: List[str] = Field(default_factory=list)
     substacks: List[str] = Field(default_factory=list)
     bio: str = Field(default="")
+    preferred_posting_time: Optional[time] = None
+    timezone: Optional[str] = None
 
 
 class UserPreferencesCreate(UserPreferencesBase):
@@ -28,6 +30,8 @@ class UserPreferencesUpdate(BaseModel):
     websites: Optional[List[str]] = None
     substacks: Optional[List[str]] = None
     bio: Optional[str] = None
+    preferred_posting_time: Optional[time] = None
+    timezone: Optional[str] = None
     content_strategies: Optional[Dict[str, str]] = None
 
 

@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     # Cloud run function url
     gcp_analysis_function_url: Optional[str] = Field(default=None)
     gcp_service_account_key_path: Optional[str] = Field(default=None)
+    gcp_generate_suggestions_function_url: Optional[str] = Field(default=None)
 
     @field_validator("environment")
     @classmethod

@@ -22,6 +22,10 @@ import { Calendar as CalendarIcon, Clock, Info } from "lucide-react";
 import { Post } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
+import { profileApi, type UserPreferences } from "@/lib/profile-api";
+import { useAuth } from "@/contexts/AuthContext";
+import { toDate } from "date-fns-tz";
+import { format } from "date-fns";
 
 interface PostScheduleModalProps {
   isOpen: boolean;
@@ -47,8 +51,27 @@ export const PostScheduleModal: React.FC<PostScheduleModalProps> = ({
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [selectedScheduledPost, setSelectedScheduledPost] =
     useState<Post | null>(null);
+  const [userPreferences, setUserPreferences] = useState<
+    Partial<UserPreferences>
+  >({});
+  const { user } = useAuth();
+  const [selectedTimezone, setSelectedTimezone] = useState<string>("");
+  const [timezones, setTimezones] = useState<string[]>([]);
 
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    setTimezones(Intl.supportedValuesOf("timeZone"));
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      profileApi
+        .getUserPreferences()
+        .then(setUserPreferences)
+        .catch(console.error);
+    }
+  }, [user]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -56,18 +79,36 @@ export const PostScheduleModal: React.FC<PostScheduleModalProps> = ({
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       setSelectedDate(tomorrow);
-      setSelectedHour("09");
-      setSelectedMinute("00");
+
+      const defaultTime = userPreferences.preferred_posting_time;
+      if (defaultTime) {
+        const [hour, minute] = defaultTime.split(":");
+        setSelectedHour(hour || "09");
+        setSelectedMinute(minute || "00");
+      } else {
+        setSelectedHour("09");
+        setSelectedMinute("00");
+      }
+
+      const defaultTimezone =
+        userPreferences.timezone ||
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setSelectedTimezone(defaultTimezone);
+
       setConflictingPosts([]);
       setShowConflictDialog(false);
       setSelectedScheduledPost(null);
     }
-  }, [isOpen]);
+  }, [isOpen, userPreferences]);
 
   const formatDateTime = (date: Date, hour: string, minute: string) => {
-    const dateTime = new Date(date);
-    dateTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
-    return dateTime.toISOString();
+    const timezone =
+      selectedTimezone ||
+      userPreferences.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const dateString = `${format(date, "yyyy-MM-dd")}T${hour}:${minute}:00`;
+    const utcDate = toDate(dateString, { timeZone: timezone });
+    return utcDate.toISOString();
   };
 
   // Check for conflicts when date/time changes
@@ -175,11 +216,13 @@ export const PostScheduleModal: React.FC<PostScheduleModalProps> = ({
                   isMobile ? "text-lg" : "text-xl"
                 }`}
               >
-                {new Date(
-                  formatDateTime(selectedDate, selectedHour, selectedMinute)
-                ).toLocaleString("en-US", {
-                  timeZoneName: "short",
-                })}
+                {selectedTimezone &&
+                  new Date(
+                    formatDateTime(selectedDate, selectedHour, selectedMinute)
+                  ).toLocaleString("en-US", {
+                    timeZone: selectedTimezone,
+                    timeZoneName: "short",
+                  })}
               </p>
               {conflictingPosts.length > 0 && (
                 <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-start">
@@ -270,6 +313,26 @@ export const PostScheduleModal: React.FC<PostScheduleModalProps> = ({
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium mb-1 block">
+                          Timezone
+                        </label>
+                        <Select
+                          value={selectedTimezone}
+                          onValueChange={setSelectedTimezone}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timezones.map((tz) => (
+                              <SelectItem key={tz} value={tz}>
+                                {tz}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </CardContent>
@@ -396,6 +459,26 @@ export const PostScheduleModal: React.FC<PostScheduleModalProps> = ({
                               </SelectContent>
                             </Select>
                           </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            Timezone
+                          </label>
+                          <Select
+                            value={selectedTimezone}
+                            onValueChange={setSelectedTimezone}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timezones.map((tz) => (
+                                <SelectItem key={tz} value={tz}>
+                                  {tz}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </CardContent>

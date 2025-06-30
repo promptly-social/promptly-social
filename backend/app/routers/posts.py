@@ -2,10 +2,11 @@
 Posts router with endpoints for posts management.
 """
 
+import httpx
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,8 @@ from app.schemas.posts import (
     PostFeedback,
 )
 from app.services.posts import PostsService
+from app.core.config import settings
+from app.utils.gcp import trigger_gcp_cloud_run
 
 # Create router
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -302,3 +305,36 @@ async def unschedule_post(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to unschedule post",
         )
+
+
+@router.post("/generate-suggestions", status_code=status.HTTP_202_ACCEPTED)
+async def generate_suggestions(
+    background_tasks: BackgroundTasks,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    """Trigger generation of new post suggestions in the background."""
+    if not settings.gcp_generate_suggestions_function_url:
+        logger.error("gcp_generate_suggestions_function_url is not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Suggestion generation service is not configured.",
+        )
+
+    async def trigger_generation_task():
+        """Wrapper task for error handling."""
+        try:
+            logger.info(f"Triggering suggestion generation for user {current_user.id}")
+            await trigger_gcp_cloud_run(
+                target_url=settings.gcp_generate_suggestions_function_url,
+                payload={"user_id": str(current_user.id)},
+                timeout=300.0,  # 5 minutes
+            )
+            logger.info(f"Suggestion generation triggered for user {current_user.id}")
+        except Exception as e:
+            logger.error(
+                f"Error triggering suggestion generation for user {current_user.id}: {e}"
+            )
+
+    background_tasks.add_task(trigger_generation_task)
+
+    return {"message": "Post generation started. Please check back in a few minutes."}

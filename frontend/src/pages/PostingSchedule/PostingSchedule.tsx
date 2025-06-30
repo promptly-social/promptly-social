@@ -112,6 +112,34 @@ const PostingSchedule: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!isDropActionModalOpen) {
+      // Delay resetting data to allow for closing animation
+      const timer = setTimeout(() => {
+        setDropActionData(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isDropActionModalOpen]);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      const timer = setTimeout(() => {
+        setSelectedPost(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isExpanded]);
+
+  useEffect(() => {
+    if (!isRescheduleModalOpen) {
+      const timer = setTimeout(() => {
+        setPostToReschedule(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isRescheduleModalOpen]);
+
   const fetchScheduledPosts = async () => {
     try {
       setLoading(true);
@@ -153,9 +181,7 @@ const PostingSchedule: React.FC = () => {
 
       // Close modals
       setIsRescheduleModalOpen(false);
-      setPostToReschedule(null);
       if (selectedPost?.id === postId) {
-        setSelectedPost(null);
         setIsExpanded(false);
       }
 
@@ -192,7 +218,6 @@ const PostingSchedule: React.FC = () => {
         sortPostsByScheduledAt(scheduledPosts.filter((p) => p.id !== post.id))
       );
       if (selectedPost?.id === post.id) {
-        setSelectedPost(null);
         setIsExpanded(false);
       }
 
@@ -227,7 +252,6 @@ const PostingSchedule: React.FC = () => {
         sortPostsByScheduledAt(scheduledPosts.filter((p) => p.id !== post.id))
       );
       if (selectedPost?.id === post.id) {
-        setSelectedPost(null);
         setIsExpanded(false);
       }
 
@@ -447,7 +471,6 @@ const PostingSchedule: React.FC = () => {
       }
 
       setIsDropActionModalOpen(false);
-      setDropActionData(null);
     } catch (error) {
       console.error("Error handling drop action:", error);
       toast({
@@ -841,7 +864,6 @@ const PostingSchedule: React.FC = () => {
         isOpen={isExpanded}
         onClose={() => {
           setIsExpanded(false);
-          setSelectedPost(null);
         }}
         post={selectedPost}
         onSaveForLater={handleSaveForLater}
@@ -858,7 +880,6 @@ const PostingSchedule: React.FC = () => {
         isOpen={isRescheduleModalOpen}
         onClose={() => {
           setIsRescheduleModalOpen(false);
-          setPostToReschedule(null);
         }}
         post={postToReschedule}
         scheduledPosts={scheduledPosts}
@@ -953,7 +974,6 @@ const PostingSchedule: React.FC = () => {
               variant="outline"
               onClick={() => {
                 setIsDropActionModalOpen(false);
-                setDropActionData(null);
               }}
               disabled={isRescheduling}
             >

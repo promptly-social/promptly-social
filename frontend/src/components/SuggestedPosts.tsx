@@ -264,35 +264,36 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
     }
   };
 
+  const fetchSuggestedPosts = async () => {
+    setLoading(true);
+    try {
+      if (!user) return;
+      const postsResponse = await postsApi.getPosts({
+        status: ["suggested"],
+        order_by: "recommendation_score",
+        order_direction: "desc",
+      });
+      setPosts(postsResponse.items);
+    } catch (error) {
+      console.error("Error fetching suggested posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch suggested posts.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const generateNewPosts = async () => {
     setIsGenerating(true);
     try {
-      // TODO: Implement actual post generation API call
-      // For now, just refresh the existing posts
-      const postsResponse = await postsApi.getPosts({
-        status: ["suggested"],
-        order_by: "created_at",
-        order_direction: "desc",
-      });
-
-      // Sort by created_at (desc) first, then by recommendation_score (desc) for items with same created_at
-      const sortedPosts = postsResponse.items.sort((a, b) => {
-        // First sort by created_at (desc)
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        if (dateB !== dateA) {
-          return dateB - dateA;
-        }
-
-        // If created_at is the same, sort by recommendation_score (desc)
-        return b.recommendation_score - a.recommendation_score;
-      });
-
-      setPosts(sortedPosts);
-
+      await postsApi.generatePosts();
       toast({
-        title: "Posts Refreshed",
-        description: "Your suggested posts have been updated.",
+        title: "Post generation started",
+        description:
+          "Your new posts will be ready in a few minutes. Please check back.",
       });
     } catch (error) {
       console.error("Error generating posts:", error);
@@ -317,11 +318,42 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
 
   if (posts.length === 0) {
     return (
-      <div className="text-center p-8">
-        <p className="text-muted-foreground">
-          No posts available. Generate some ideas first!
-        </p>
-      </div>
+      <Card className="text-center py-8 sm:py-12">
+        <CardContent>
+          <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            No posts available
+          </h3>
+          <p className="text-gray-600 mb-4 text-sm sm:text-base">
+            No suggested posts found. Generate new content suggestions to get
+            started.
+          </p>
+          <div className="flex gap-x-2 justify-center">
+            <Button onClick={generateNewPosts} disabled={isGenerating}>
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Generate New Posts
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={fetchSuggestedPosts}
+              variant="outline"
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -337,23 +369,35 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
             ideas.
           </p>
         </div>
-        <Button
-          onClick={generateNewPosts}
-          disabled={isGenerating}
-          className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-        >
-          {isGenerating ? (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Generate New Posts
-            </>
-          )}
-        </Button>
+        <div className="flex gap-x-2">
+          <Button
+            onClick={generateNewPosts}
+            disabled={isGenerating}
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Generate New Posts
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={fetchSuggestedPosts}
+            variant="outline"
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {posts.map((post, index) => (
@@ -388,19 +432,30 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
               No suggested posts found. Generate new content suggestions to get
               started.
             </p>
-            <Button onClick={generateNewPosts} disabled={isGenerating}>
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Generate New Posts
-                </>
-              )}
-            </Button>
+            <div className="flex gap-x-2 justify-center">
+              <Button onClick={generateNewPosts} disabled={isGenerating}>
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Generate New Posts
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={fetchSuggestedPosts}
+                variant="outline"
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

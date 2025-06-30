@@ -7,21 +7,17 @@ from typing import List, Optional
 from uuid import UUID
 import urllib.parse
 import traceback
-
-
 import httpx
 from loguru import logger
 from sqlalchemy import and_, select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-import google.auth
-import google.auth.transport.requests
-import google.oauth2.id_token
-import google.oauth2.service_account
 
 from app.core.config import settings
 from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from app.models.content_strategies import ContentStrategy
 from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate
+
+from app.utils.gcp import trigger_gcp_cloud_run
 
 
 class ProfileService:
@@ -969,95 +965,37 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
         content_to_analyze: List[str],
     ) -> None:
         """Trigger GCP Cloud Run function for analysis."""
-        try:
-            if not settings.gcp_analysis_function_url:
-                logger.error("Missing GCP Cloud Run function URL")
-                return
+        if not settings.gcp_analysis_function_url:
+            logger.error("Missing GCP Cloud Run function URL")
+            return
 
-            id_token = None
-            auth_req = google.auth.transport.requests.Request()
-
-            if (
-                settings.environment == "development"
-                and settings.gcp_service_account_key_path
-            ):
-                # Local development: Use service account key file
-                logger.debug("Using service account key for GCP authentication.")
-                try:
-                    creds = google.oauth2.service_account.IDTokenCredentials.from_service_account_file(
-                        settings.gcp_service_account_key_path,
-                        target_audience=settings.gcp_analysis_function_url,
-                    )
-                    creds.refresh(auth_req)
-                    id_token = creds.token
-                except FileNotFoundError:
-                    logger.error(
-                        f"Service account key file not found at: {settings.gcp_service_account_key_path}"
-                    )
-                    raise
-            else:
-                # Deployed environment: Use default credentials (metadata server)
-                logger.debug("Using default credentials for GCP authentication.")
-                id_token = google.oauth2.id_token.fetch_id_token(
-                    auth_req, settings.gcp_analysis_function_url
-                )
-
-            if not id_token:
-                logger.error("Could not obtain GCP ID token.")
-                return
-
-            headers = {"Authorization": f"Bearer {id_token}"}
-
-            # Get the platform identifier based on platform type
-            if platform == "substack":
-                platform_identifier = connection.platform_username
-            elif platform == "linkedin":
-                platform_identifier = (
-                    connection.connection_data.get("account_id")
-                    if connection.connection_data
-                    else None
-                )
-            else:
-                raise ValueError(f"Unsupported platform: {platform}")
-
-            if not platform_identifier:
-                raise ValueError(f"Missing platform identifier for {platform}")
-
-            payload = {
-                "user_id": str(user_id),
-                "platform": platform,
-                "platform_username": platform_identifier,
-                "content_to_analyze": content_to_analyze,
-            }
-
-            logger.info(
-                f"Triggering GCP Cloud Run for user {user_id}. This may take a few minutes..."
+        # Get the platform identifier based on platform type
+        if platform == "substack":
+            platform_identifier = connection.platform_username
+        elif platform == "linkedin":
+            platform_identifier = (
+                connection.connection_data.get("account_id")
+                if connection.connection_data
+                else None
             )
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    settings.gcp_analysis_function_url,
-                    json=payload,
-                    headers=headers,
-                    timeout=300.0,  # Increased timeout to 5 minutes
-                )
-                response.raise_for_status()
-            logger.info(f"Successfully triggered GCP Cloud Run for user {user_id}")
-        except httpx.ReadTimeout:
-            logger.error(
-                "Timeout triggering GCP Cloud Run function. The analysis function took too long to respond."
-            )
-            logger.error(traceback.format_exc())
-            raise
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP error triggering GCP Cloud Run function: {e.response.status_code} - {e.response.text}"
-            )
-            logger.error(traceback.format_exc())
-            raise
-        except Exception as e:
-            logger.error(f"Error triggering GCP Cloud Run function: {e}")
-            logger.error(traceback.format_exc())
-            raise
+        else:
+            raise ValueError(f"Unsupported platform: {platform}")
+
+        if not platform_identifier:
+            raise ValueError(f"Missing platform identifier for {platform}")
+
+        payload = {
+            "user_id": str(user_id),
+            "platform": platform,
+            "platform_username": platform_identifier,
+            "content_to_analyze": content_to_analyze,
+        }
+
+        await trigger_gcp_cloud_run(
+            target_url=settings.gcp_analysis_function_url,
+            payload=payload,
+            timeout=300.0,
+        )
 
     async def _trigger_import_analysis(
         self,
@@ -1066,85 +1004,23 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
         content_to_analyze: List[str],
     ) -> None:
         """Trigger GCP Cloud Run function for import sample analysis."""
-        try:
-            if not settings.gcp_analysis_function_url:
-                logger.error("Missing GCP Cloud Run function URL")
-                return
+        if not settings.gcp_analysis_function_url:
+            logger.error("Missing GCP Cloud Run function URL")
+            return
 
-            id_token = None
-            auth_req = google.auth.transport.requests.Request()
+        payload = {
+            "user_id": str(user_id),
+            "platform": "import",
+            "platform_username": "import_sample",  # Placeholder value
+            "content_to_analyze": content_to_analyze,
+            "text_sample": text_sample,
+        }
 
-            if (
-                settings.environment == "development"
-                and settings.gcp_service_account_key_path
-            ):
-                # Local development: Use service account key file
-                logger.debug("Using service account key for GCP authentication.")
-                try:
-                    creds = google.oauth2.service_account.IDTokenCredentials.from_service_account_file(
-                        settings.gcp_service_account_key_path,
-                        target_audience=settings.gcp_analysis_function_url,
-                    )
-                    creds.refresh(auth_req)
-                    id_token = creds.token
-                except FileNotFoundError:
-                    logger.error(
-                        f"Service account key file not found at: {settings.gcp_service_account_key_path}"
-                    )
-                    raise
-            else:
-                # Deployed environment: Use default credentials (metadata server)
-                logger.debug("Using default credentials for GCP authentication.")
-                id_token = google.oauth2.id_token.fetch_id_token(
-                    auth_req, settings.gcp_analysis_function_url
-                )
-
-            if not id_token:
-                logger.error("Could not obtain GCP ID token.")
-                return
-
-            headers = {"Authorization": f"Bearer {id_token}"}
-
-            payload = {
-                "user_id": str(user_id),
-                "platform": "import",
-                "platform_username": "import_sample",  # Placeholder value
-                "content_to_analyze": content_to_analyze,
-                "text_sample": text_sample,
-            }
-
-            logger.info(
-                f"Triggering GCP Cloud Run for import analysis for user {user_id}"
-            )
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    settings.gcp_analysis_function_url,
-                    json=payload,
-                    headers=headers,
-                    timeout=60.0,  # Import analysis should be faster
-                )
-                response.raise_for_status()
-            logger.info(
-                f"Successfully triggered GCP Cloud Run for import analysis for user {user_id}"
-            )
-        except httpx.ReadTimeout:
-            logger.error(
-                "Timeout triggering GCP Cloud Run function for import analysis."
-            )
-            logger.error(traceback.format_exc())
-            raise
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP error triggering GCP Cloud Run function for import analysis: {e.response.status_code} - {e.response.text}"
-            )
-            logger.error(traceback.format_exc())
-            raise
-        except Exception as e:
-            logger.error(
-                f"Error triggering GCP Cloud Run function for import analysis: {e}"
-            )
-            logger.error(traceback.format_exc())
-            raise
+        await trigger_gcp_cloud_run(
+            target_url=settings.gcp_analysis_function_url,
+            payload=payload,
+            timeout=60.0,  # Import analysis should be faster
+        )
 
     # Writing Style Analysis Operations
     async def get_writing_style_analysis(

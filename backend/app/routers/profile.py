@@ -55,6 +55,8 @@ async def get_user_preferences(
                 topics_of_interest=[],
                 websites=[],
                 substacks=[],
+                preferred_posting_time=None,
+                timezone=None,
                 created_at=current_user.created_at,
                 updated_at=current_user.created_at,
                 content_strategies=[
@@ -66,6 +68,8 @@ async def get_user_preferences(
         # Handle None values for new fields added via migration
         if preferences.substacks is None:
             preferences.substacks = []
+        if preferences.bio is None:
+            preferences.bio = ""
 
         # Ensure default LinkedIn strategy exists
         if not any(s.platform == "linkedin" for s in content_strategies):
@@ -108,6 +112,8 @@ async def update_user_preferences(
         # Handle None values for new fields added via migration
         if preferences.substacks is None:
             preferences.substacks = []
+        if preferences.bio is None:
+            preferences.bio = ""
 
         # Create response with content strategies
         response_data = UserPreferencesResponse.model_validate(preferences)

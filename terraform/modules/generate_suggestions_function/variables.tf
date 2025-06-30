@@ -1,75 +1,76 @@
+variable "app_sa_email" {
+  description = "The email of the application service account that will invoke this function."
+  type        = string
+}
+
 variable "project_id" {
   description = "The GCP project ID."
   type        = string
 }
 
 variable "region" {
-  description = "The GCP region to deploy the function to."
+  description = "The GCP region for the function."
   type        = string
-  default     = "us-central1"
-}
-
-variable "app_name" {
-  description = "The name of the application."
-  type        = string
-  default     = "promptly"
 }
 
 variable "function_name" {
   description = "The name of the Cloud Function."
   type        = string
-  default     = "generate-suggestions"
 }
 
-variable "number_of_posts_to_generate" {
-  description = "The number of posts to generate."
-  type        = number
-  default     = 5
+variable "function_source_dir" {
+  description = "The source directory of the function code."
+  type        = string
+}
+
+variable "app_name" {
+  description = "The name of the application."
+  type        = string
 }
 
 variable "environment" {
   description = "The deployment environment (e.g., staging, production)."
   type        = string
-  default     = "staging"
 }
 
-variable "function_source_dir" {
-  description = "The source directory of the cloud function."
+variable "number_of_posts_to_generate" {
+  description = "Number of posts to generate."
   type        = string
+  default     = "5"
 }
 
 variable "openrouter_model_primary" {
-  description = "The primary OpenRouter model to use for analysis."
+  description = "Primary OpenRouter model for generation."
   type        = string
-  default     = "google/gemini-2.5-flash-preview-05-20"
+  default     = "anthropic/claude-3-haiku"
 }
 
 variable "openrouter_models_fallback" {
-  description = "The fallback OpenRouter models to use for analysis."
+  description = "Fallback OpenRouter models for generation."
   type        = list(string)
-  default     = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
+  default     = ["google/gemini-pro", "mistralai/mistral-7b-instruct"]
 }
 
 variable "openrouter_temperature" {
-  description = "The temperature setting for OpenRouter model requests."
-  type        = number
-  default     = 0.0
+  description = "Temperature for OpenRouter model."
+  type        = string
+  default     = "0.7"
 }
 
 variable "openrouter_large_model_primary" {
-  description = "The primary large OpenRouter model to use for posts generation."
+  description = "Primary OpenRouter large model."
   type        = string
-  default     = "google/gemini-2.5-pro"
+  default     = "anthropic/claude-3-opus"
 }
 
 variable "openrouter_large_models_fallback" {
-  description = "The fallback large OpenRouter models to use for posts generation."
+  description = "Fallback OpenRouter large models."
   type        = list(string)
-  default     = ["google/gemini-2.5-pro", "meta-llama/llama-4-maverick"]
+  default     = ["openai/gpt-4-turbo", "google/gemini-1.5-pro"]
 }
 
 variable "openrouter_large_model_temperature" {
-  description = "The temperature setting for large OpenRouter model requests."
-  type        = number
-  default     = 0.7
+  description = "Temperature for OpenRouter large model."
+  type        = string
+  default     = "0.5"
 } 

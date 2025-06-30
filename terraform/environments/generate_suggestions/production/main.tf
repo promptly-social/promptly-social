@@ -22,18 +22,21 @@ provider "google" {
 }
 
 module "generate_suggestions_function" {
-  source                            = "../../../modules/generate_suggestions_function"
-  project_id                        = var.project_id
-  region                            = var.region
-  environment                       = "production"
-  function_source_dir               = "../../../src/gcp-functions/generate-suggestions"
-  number_of_posts_to_generate       = 5
-  openrouter_model_primary          = "google/gemini-2.5-flash-preview-05-20"
-  openrouter_models_fallback        = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
-  openrouter_temperature            = 0.0
-  openrouter_large_model_primary    = "google/gemini-2.5-pro"
-  openrouter_large_models_fallback  = ["deepseek/deepseek-r1-0528"]
-  openrouter_large_model_temperature = 0.7
+  source                             = "../../../modules/generate_suggestions_function"
+  project_id                         = var.project_id
+  region                             = var.region
+  app_name                           = var.app_name
+  environment                        = var.environment
+  function_name                      = "generate-suggestions-function-${var.environment}"
+  function_source_dir                = "../../../src/gcp-functions/generate-suggestions"
+  app_sa_email                       = "promptly-app-sa-${var.environment}@${var.project_id}.iam.gserviceaccount.com"
+  number_of_posts_to_generate        = var.number_of_posts_to_generate
+  openrouter_model_primary           = var.openrouter_model_primary
+  openrouter_models_fallback         = var.openrouter_models_fallback
+  openrouter_temperature             = var.openrouter_temperature
+  openrouter_large_model_primary     = var.openrouter_large_model_primary
+  openrouter_large_models_fallback   = var.openrouter_large_models_fallback
+  openrouter_large_model_temperature = var.openrouter_large_model_temperature
 }
 
 output "function_uri" {

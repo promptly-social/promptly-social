@@ -28,8 +28,6 @@ const queryClient = new QueryClient();
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
-  console.log("ProtectedRoute - user:", user, "loading:", loading);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -40,22 +38,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   // Check for stored token as fallback to handle OAuth callback race condition
   const hasToken = getStoredToken();
-  console.log("ProtectedRoute - hasToken:", hasToken);
 
   if (!user && !hasToken) {
-    console.log("ProtectedRoute - no user or token, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 
   // If user exists but isn't verified, redirect to verification page
   if (user && !user.is_verified) {
-    console.log(
-      "ProtectedRoute - user not verified, redirecting to verify-email"
-    );
     return <Navigate to="/verify-email" replace />;
   }
 
-  console.log("ProtectedRoute - allowing access to protected route");
   return <>{children}</>;
 };
 
@@ -145,22 +137,22 @@ const App = () => (
                 </AuthRoute>
               }
             />
-            {/* <Route
+            <Route
               path="/signup"
               element={
                 <AuthRoute>
                   <EarlyAccess />
                 </AuthRoute>
               }
-            /> */}
-            <Route
+            />
+            {/* <Route
               path="/signup"
               element={
                 <AuthRoute>
                   <Signup />
                 </AuthRoute>
               }
-            />
+            /> */}
             <Route
               path="/new-content"
               element={
