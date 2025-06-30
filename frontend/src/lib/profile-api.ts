@@ -17,6 +17,8 @@ export interface UserPreferences {
   websites: string[];
   substacks: string[];
   bio: string;
+  preferred_posting_time: string | null;
+  timezone: string | null;
   content_strategies: ContentStrategy[];
   created_at: string;
   updated_at: string;
@@ -27,6 +29,8 @@ export interface UserPreferencesUpdate {
   websites?: string[];
   substacks?: string[];
   bio?: string;
+  preferred_posting_time?: string | null;
+  timezone?: string | null;
   content_strategies?: { [platform: string]: string };
 }
 

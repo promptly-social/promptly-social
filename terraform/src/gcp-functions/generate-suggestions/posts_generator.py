@@ -24,7 +24,7 @@ class PostsGenerator:
         self.models_fallback = [
             model.strip() for model in models_fallback_str.split(",")
         ]
-        self.temperature = float(os.getenv("OPENROUTER_LARGE_MODEL_TEMPERATURE", "0.7"))
+        self.temperature = float(os.getenv("OPENROUTER_LARGE_MODEL_TEMPERATURE", "0.0"))
 
     def generate_posts(
         self,

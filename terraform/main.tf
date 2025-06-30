@@ -364,10 +364,18 @@ resource "google_secret_manager_secret_version" "use_unipile_for_linkedin_initia
   secret_data = "true"
 }
 
-# Data source to get the current version of the GCP analysis function URL secret
-/* data "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
-  secret = google_secret_manager_secret.gcp_analysis_function_url.secret_id
-} */
+resource "google_secret_manager_secret" "zyte_api_key" {
+  secret_id = "ZYTE_API_KEY"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "zyte_api_key_initial_version" {
+  secret      = google_secret_manager_secret.zyte_api_key.id
+  secret_data = "placeholder"
+}
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
@@ -387,6 +395,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     unipile_dsn           = google_secret_manager_secret.unipile_dsn
     unipile_access_token  = google_secret_manager_secret.unipile_access_token
     use_unipile_for_linkedin = google_secret_manager_secret.use_unipile_for_linkedin
+    zyte_api_key          = google_secret_manager_secret.zyte_api_key
   }
 
   secret_id = each.value.secret_id
@@ -589,6 +598,28 @@ resource "google_dns_record_set" "frontend_a_record" {
   ttl          = 300
   rrdatas      = [google_compute_global_address.frontend_ip[0].address]
   project      = local.is_production ? var.project_id : var.production_project_id
+}
+
+# --- MX Records for Email ---
+
+# NOTE: The following records are for Google Workspace.
+# If you use a different email provider, you MUST update these records
+# with the values provided by your provider.
+resource "google_dns_record_set" "mx_records" {
+  count = var.manage_frontend_infra ? 1 : 0
+
+  managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
+  name         = "${local.frontend_domain}."
+  type         = "MX"
+  ttl          = 3600
+  rrdatas = [
+    "1 ASPMX.L.GOOGLE.COM.",
+    "5 ALT1.ASPMX.L.GOOGLE.COM.",
+    "5 ALT2.ASPMX.L.GOOGLE.COM.",
+    "10 ASPMX2.GOOGLEMAIL.COM.",
+    "10 ASPMX3.GOOGLEMAIL.COM.",
+  ]
+  project = local.is_production ? var.project_id : var.production_project_id
 }
 
 # --- Backend API Infrastructure (Load Balancer for Cloud Run) ---

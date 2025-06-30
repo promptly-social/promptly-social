@@ -155,12 +155,20 @@ resource "google_cloudfunctions2_function" "function" {
       secret     = "OPENROUTER_API_KEY"
       version    = "latest"
     }
+
+    secret_environment_variables {
+      key        = "ZYTE_API_KEY"
+      project_id = var.project_id
+      secret     = "ZYTE_API_KEY"
+      version    = "latest"
+    }
   }
 
   depends_on = [
     google_secret_manager_secret_iam_member.secret_access_supabase_url,
     google_secret_manager_secret_iam_member.secret_access_supabase_key,
     google_secret_manager_secret_iam_member.secret_access_openrouter_key,
+    google_secret_manager_secret_iam_member.secret_access_zyte_api_key,
     google_project_iam_member.cloudbuild_storage_admin,
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
@@ -197,6 +205,10 @@ data "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
 }
 
+data "google_secret_manager_secret" "zyte_api_key" {
+  secret_id = "ZYTE_API_KEY"
+}
+
 # Data source for the GCP generate suggestions function URL secret
 data "google_secret_manager_secret" "gcp_generate_suggestions_function_url" {
   secret_id = "GCP_GENERATE_SUGGESTIONS_FUNCTION_URL"
@@ -231,6 +243,13 @@ resource "google_secret_manager_secret_iam_member" "secret_access_supabase_key" 
 resource "google_secret_manager_secret_iam_member" "secret_access_openrouter_key" {
   project   = data.google_secret_manager_secret.openrouter_api_key.project
   secret_id = data.google_secret_manager_secret.openrouter_api_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.function_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_zyte_api_key" {
+  project   = data.google_secret_manager_secret.zyte_api_key.project
+  secret_id = data.google_secret_manager_secret.zyte_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
@@ -358,4 +377,12 @@ resource "google_project_iam_member" "compute_sa_token_creator" {
   project = var.project_id
   role    = "roles/iam.serviceAccountTokenCreator"
   member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_cloud_run_service_iam_member" "app_sa_invoker" {
+  project  = google_cloudfunctions2_function.function.project
+  location = google_cloudfunctions2_function.function.location
+  service  = google_cloudfunctions2_function.function.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${var.app_sa_email}"
 } 

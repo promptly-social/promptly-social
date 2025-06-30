@@ -22,6 +22,9 @@ import { Calendar as CalendarIcon, Clock, Info } from "lucide-react";
 import { Post } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
+import { profileApi, type UserPreferences } from "@/lib/profile-api";
+import { useAuth } from "@/contexts/AuthContext";
+import { toDate, format, toZonedTime } from "date-fns-tz";
 
 interface RescheduleModalProps {
   isOpen: boolean;
@@ -47,22 +50,42 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [selectedScheduledPost, setSelectedScheduledPost] =
     useState<Post | null>(null);
+  const [userPreferences, setUserPreferences] = useState<
+    Partial<UserPreferences>
+  >({});
+  const [selectedTimezone, setSelectedTimezone] = useState<string>("");
+  const [timezones, setTimezones] = useState<string[]>([]);
+  const { user } = useAuth();
 
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    setTimezones(Intl.supportedValuesOf("timeZone"));
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      profileApi
+        .getUserPreferences()
+        .then(setUserPreferences)
+        .catch(console.error);
+    }
+  }, [user]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen && post) {
+      const targetTimezone =
+        userPreferences.timezone ||
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setSelectedTimezone(targetTimezone);
+
       // Set initial date/time to current scheduled time or tomorrow
       if (post.scheduled_at) {
-        const currentScheduled = new Date(post.scheduled_at);
-        setSelectedDate(currentScheduled);
-        setSelectedHour(
-          currentScheduled.getHours().toString().padStart(2, "0")
-        );
-        setSelectedMinute(
-          currentScheduled.getMinutes().toString().padStart(2, "0")
-        );
+        const zonedDate = toZonedTime(post.scheduled_at, targetTimezone);
+        setSelectedDate(zonedDate);
+        setSelectedHour(format(zonedDate, "HH"));
+        setSelectedMinute(format(zonedDate, "mm"));
       } else {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -74,12 +97,16 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
       setShowConflictDialog(false);
       setSelectedScheduledPost(null);
     }
-  }, [isOpen, post]);
+  }, [isOpen, post, userPreferences]);
 
   const formatDateTime = (date: Date, hour: string, minute: string) => {
-    const dateTime = new Date(date);
-    dateTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
-    return dateTime.toISOString();
+    const timezone =
+      selectedTimezone ||
+      userPreferences.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const dateString = `${format(date, "yyyy-MM-dd")}T${hour}:${minute}:00`;
+    const utcDate = toDate(dateString, { timeZone: timezone });
+    return utcDate.toISOString();
   };
 
   // Check for conflicts when date/time changes (excluding current post)
@@ -187,11 +214,13 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                   isMobile ? "text-lg" : "text-xl"
                 }`}
               >
-                {new Date(
-                  formatDateTime(selectedDate, selectedHour, selectedMinute)
-                ).toLocaleString("en-US", {
-                  timeZoneName: "short",
-                })}
+                {selectedTimezone &&
+                  new Date(
+                    formatDateTime(selectedDate, selectedHour, selectedMinute)
+                  ).toLocaleString("en-US", {
+                    timeZone: selectedTimezone,
+                    timeZoneName: "short",
+                  })}
               </p>
               {conflictingPosts.length > 0 && (
                 <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-start">
@@ -277,6 +306,26 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                               {minutes.map((minute) => (
                                 <SelectItem key={minute} value={minute}>
                                   :{minute}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium mb-1 block">
+                            Timezone
+                          </label>
+                          <Select
+                            value={selectedTimezone}
+                            onValueChange={setSelectedTimezone}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timezones.map((tz) => (
+                                <SelectItem key={tz} value={tz}>
+                                  {tz}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -406,6 +455,26 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                                 {minutes.map((minute) => (
                                   <SelectItem key={minute} value={minute}>
                                     :{minute}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">
+                              Timezone
+                            </label>
+                            <Select
+                              value={selectedTimezone}
+                              onValueChange={setSelectedTimezone}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {timezones.map((tz) => (
+                                  <SelectItem key={tz} value={tz}>
+                                    {tz}
                                   </SelectItem>
                                 ))}
                               </SelectContent>

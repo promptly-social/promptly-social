@@ -173,7 +173,17 @@ class PostsAPI {
    */
   async unschedulePost(postId: string): Promise<Post> {
     const response = await apiClient.request<Post>(`/posts/${postId}/schedule`, {
-      method: 'DELETE',
+      method: "DELETE",
+    });
+    return response;
+  }
+
+  /**
+   * Generate new post suggestions
+   */
+  async generatePosts(): Promise<{ message: string }> {
+    const response = await apiClient.request<{ message: string }>("/posts/generate-suggestions", {
+      method: "POST",
     });
     return response;
   }

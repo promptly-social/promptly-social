@@ -2,11 +2,11 @@
 Profile models for user preferences and social connections.
 """
 
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import Boolean, DateTime, String, Time, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -24,6 +24,10 @@ class UserPreferences(Base):
     websites: Mapped[List[str]] = mapped_column(StringArray(), default=list)
     substacks: Mapped[List[str]] = mapped_column(StringArray(), default=list)
     bio: Mapped[str] = mapped_column(String, default="")
+    preferred_posting_time: Mapped[Optional[time]] = mapped_column(
+        Time(timezone=False), nullable=True
+    )
+    timezone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -120,10 +120,11 @@ def get_latest_articles_from_idea_bank(
 
         response = (
             supabase_client.table("idea_banks")
-            .select("id, data, created_at")
+            .select("id, data, created_at, posts!left(id)")
             .eq("user_id", user_id)
             .eq("data->>type", "article")
             .gte("created_at", twelve_hours_ago)
+            .is_("posts.id", "null")
             .order("created_at", desc=True)
             .execute()
         )
@@ -221,7 +222,7 @@ def save_suggested_posts_to_contents(
             data = {
                 "user_id": user_id,
                 "title": post.get("title"),
-                "content": post["content"],
+                "content": post.get("linkedin_post", ""),
                 "platform": post.get("platform", "linkedin"),
                 "topics": post.get("topics", []),
                 "recommendation_score": post.get("recommendation_score", 0),
