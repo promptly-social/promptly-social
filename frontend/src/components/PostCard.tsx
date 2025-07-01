@@ -178,7 +178,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
           ) : (
             <>
-              <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap p-2">
                 {renderContentWithNewlines(post.content)}
               </p>
               {onStartEditing && (
@@ -199,8 +199,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className="flex items-center gap-2 text-gray-600">
             <TrendingUp className="w-4 h-4 text-green-500" />
             <span>
-              Recommendation score:{" "}
-              <strong>{post.recommendation_score}/100</strong>
+              Matching score: <strong>{post.recommendation_score}/100</strong>
             </span>
           </div>
           <div className="flex items-center gap-2 text-gray-600">

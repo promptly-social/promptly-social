@@ -1,4 +1,5 @@
 import { apiClient } from './auth-api';
+import type { Post } from './posts-api';
 
 export interface IdeaBankData {
   type: 'article' | 'text';
@@ -209,5 +210,18 @@ export const ideaBankApi = {
     await apiClient.request<void>(`/idea-banks/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  /**
+   * Generate a new post from an idea bank entry
+   */
+  async generatePost(id: string): Promise<Post> {
+    const response = await apiClient.request<Post>(
+      `/idea-banks/${id}/generate-post`,
+      {
+        method: 'POST',
+      }
+    );
+    return response;
   },
 }; 

@@ -4,6 +4,7 @@ Idea Bank service for business logic.
 
 from typing import Dict, List, Optional, Any
 from uuid import UUID
+from datetime import datetime, timezone
 
 from loguru import logger
 from sqlalchemy import and_, desc, func, select, Boolean, text, or_
@@ -12,7 +13,12 @@ from sqlalchemy.orm import selectinload
 
 from app.models.idea_bank import IdeaBank
 from app.models.posts import Post
+from app.models.profile import UserPreferences, WritingStyleAnalysis
+from app.models.content_strategies import ContentStrategy
 from app.schemas.idea_bank import IdeaBankCreate, IdeaBankUpdate
+from app.schemas.posts import PostCreate, PostResponse
+from app.services.post_generator import post_generator_service
+from app.services.profile import ProfileService
 
 
 class IdeaBankService:
@@ -347,27 +353,95 @@ class IdeaBankService:
     async def update_idea_bank(
         self, user_id: UUID, idea_bank_id: UUID, update_data: IdeaBankUpdate
     ) -> Optional[IdeaBank]:
-        """Update an idea bank."""
+        """Update an idea bank entry."""
         try:
             idea_bank = await self.get_idea_bank(user_id, idea_bank_id)
             if not idea_bank:
                 return None
 
-            # Update the data field
-            if update_data.data:
-                idea_bank.data = update_data.data.model_dump()
+            update_data_dict = update_data.model_dump(exclude_unset=True)
+
+            if "data" in update_data_dict:
+                if idea_bank.data:
+                    idea_bank.data.update(update_data_dict["data"])
+                else:
+                    idea_bank.data = update_data_dict["data"]
+                # Required for JSON mutation to be detected by SQLAlchemy
+                idea_bank.updated_at = datetime.now(timezone.utc)
 
             await self.db.commit()
             await self.db.refresh(idea_bank)
+            logger.info(f"Updated idea bank {idea_bank_id} for user {user_id}")
             return idea_bank
-
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Error updating idea bank {idea_bank_id}: {e}")
             raise
 
+    async def generate_post_from_idea(
+        self, user_id: UUID, idea_bank_id: UUID
+    ) -> Optional[PostResponse]:
+        """Generate a new post from an idea bank entry."""
+        try:
+            # 1. Fetch the idea bank entry
+            idea_bank = await self.get_idea_bank(user_id, idea_bank_id)
+            if not idea_bank or not idea_bank.data:
+                logger.warning(f"Idea bank {idea_bank_id} not found for user {user_id}")
+                return None
+
+            idea_content = idea_bank.data.get("value", "")
+            if idea_bank.data.get("title"):
+                idea_content = f"{idea_bank.data['title']}\\n\\n{idea_content}"
+
+            # 2. Fetch user profile information
+            profile_service = ProfileService(self.db)
+            preferences = await profile_service.get_user_preferences(user_id)
+            latest_analysis = await profile_service.get_latest_writing_style_analysis(
+                user_id
+            )
+            content_strategies = await profile_service.get_content_strategies(user_id)
+
+            linkedin_strategy = next(
+                (s for s in content_strategies if s.platform == "linkedin"), None
+            )
+
+            # 3. Generate the post using the AI service
+            generated_data = await post_generator_service.generate_post(
+                idea_content=idea_content,
+                bio=preferences.bio if preferences else "Bio not provided",
+                writing_style=latest_analysis.analysis_data
+                if latest_analysis
+                else "Writing style not provided",
+                linkedin_post_strategy=linkedin_strategy.strategy
+                if linkedin_strategy
+                else "LinkedIn post strategy not provided",
+            )
+
+            # 4. Save the new post to the database
+            new_post_data = PostCreate(
+                content=generated_data.linkedin_post,
+                idea_bank_id=idea_bank_id,
+                status="suggested",
+                topics=generated_data.topics,
+                recommendation_score=generated_data.recommendation_score,
+            )
+
+            new_post = Post(user_id=user_id, **new_post_data.model_dump())
+            self.db.add(new_post)
+            await self.db.commit()
+            await self.db.refresh(new_post)
+
+            logger.info(f"Generated new post {new_post.id} from idea {idea_bank_id}")
+
+            return PostResponse.model_validate(new_post)
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error generating post from idea {idea_bank_id}: {e}")
+            raise
+
     async def delete_idea_bank(self, user_id: UUID, idea_bank_id: UUID) -> bool:
-        """Delete an idea bank."""
+        """Delete an idea bank entry."""
         try:
             idea_bank = await self.get_idea_bank(user_id, idea_bank_id)
             if not idea_bank:

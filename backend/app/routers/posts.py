@@ -2,7 +2,6 @@
 Posts router with endpoints for posts management.
 """
 
-import httpx
 from typing import List, Optional
 from uuid import UUID
 

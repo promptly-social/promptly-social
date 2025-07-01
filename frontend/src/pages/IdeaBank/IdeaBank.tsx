@@ -38,13 +38,8 @@ import {
   Edit,
   RefreshCw,
   Filter,
+  Sparkles,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   Popover,
   PopoverContent,
@@ -58,7 +53,11 @@ import {
   type IdeaBankFilters,
   type SuggestedPost,
 } from "@/lib/idea-bank-api";
+import { postsApi, type Post } from "@/lib/posts-api";
 import AppLayout from "@/components/AppLayout";
+import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
+import { RescheduleModal } from "@/components/RescheduleModal";
+import { PostScheduleModal } from "@/components/PostScheduleModal";
 
 interface SortConfig {
   key: "type" | "value" | "evergreen" | "updated_at";
@@ -69,7 +68,6 @@ interface Filters {
   ai_suggested?: boolean;
   evergreen?: boolean;
   has_post?: boolean;
-  post_status?: string[];
 }
 
 const IdeaBankPage: React.FC = () => {
@@ -82,19 +80,25 @@ const IdeaBankPage: React.FC = () => {
     direction: "desc",
   });
   const [filters, setFilters] = useState<Filters>({
-    // By default, show suggested and saved posts, and exclude AI suggested content
+    // By default, exclude AI suggested content
     ai_suggested: false,
-    post_status: ["suggested", "saved"],
   });
   const [pendingFilters, setPendingFilters] = useState<Filters>({
-    // By default, show suggested and saved posts, and exclude AI suggested content
+    // By default, exclude AI suggested content
     ai_suggested: false,
-    post_status: ["suggested", "saved"],
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingIdeaBank, setEditingIdeaBank] =
     useState<IdeaBankWithPost | null>(null);
+  const [ideaToGenerate, setIdeaToGenerate] = useState<IdeaBankWithPost | null>(
+    null
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedPost, setGeneratedPost] = useState<Post | null>(null);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [formData, setFormData] = useState<IdeaBankCreate>({
     data: {
       type: "text",
@@ -107,8 +111,22 @@ const IdeaBankPage: React.FC = () => {
 
   useEffect(() => {
     loadIdeaBanks();
+    loadScheduledPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortConfig, filters]);
+
+  const loadScheduledPosts = async () => {
+    try {
+      const response = await postsApi.getPosts({
+        status: ["scheduled"],
+        size: 100,
+      });
+      setScheduledPosts(response.items);
+    } catch (error) {
+      console.error("Failed to load scheduled posts:", error);
+      // Do not show toast here as it's a background fetch
+    }
+  };
 
   const loadIdeaBanks = async () => {
     try {
@@ -152,18 +170,16 @@ const IdeaBankPage: React.FC = () => {
 
   const clearPendingFilters = () => {
     const defaultFilters: Filters = {
-      // Reset to default: show suggested and saved posts, exclude AI suggested content
+      // Reset to default: exclude AI suggested content
       ai_suggested: false,
-      post_status: ["suggested", "saved"],
     };
     setPendingFilters(defaultFilters);
   };
 
   const clearAllFilters = () => {
     const defaultFilters: Filters = {
-      // Reset to default: show suggested and saved posts, exclude AI suggested content
+      // Reset to default: exclude AI suggested content
       ai_suggested: false,
-      post_status: ["suggested", "saved"],
     };
     setPendingFilters(defaultFilters);
     setFilters(defaultFilters);
@@ -174,17 +190,6 @@ const IdeaBankPage: React.FC = () => {
     // Don't count ai_suggested filter as it's always applied by default
     if (filters.evergreen !== undefined) count++;
     if (filters.has_post !== undefined) count++;
-    if (
-      filters.post_status &&
-      filters.post_status.length > 0 &&
-      !(
-        filters.post_status.length === 2 &&
-        filters.post_status.includes("suggested") &&
-        filters.post_status.includes("saved")
-      )
-    ) {
-      count++;
-    }
     return count;
   };
 
@@ -269,6 +274,83 @@ const IdeaBankPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to delete idea bank:", error);
       toast.error("Failed to delete idea bank");
+    }
+  };
+
+  const handleGeneratePost = async () => {
+    if (!ideaToGenerate) return;
+
+    setIsGenerating(true);
+    try {
+      const post = await ideaBankApi.generatePost(ideaToGenerate.idea_bank.id);
+      setGeneratedPost(post);
+      toast.success("New post generated successfully!");
+    } catch (error) {
+      console.error("Failed to generate post:", error);
+      toast.error("Failed to generate post. Please try again.");
+    } finally {
+      setIsGenerating(false);
+      setIdeaToGenerate(null);
+    }
+  };
+
+  const handleSavePostForLater = async (post: Post) => {
+    try {
+      await postsApi.updatePost(post.id, { status: "saved" });
+      toast.success("Post saved for later.");
+      setGeneratedPost(null);
+      loadIdeaBanks(); // Refresh to show updated post status
+    } catch (error) {
+      console.error("Failed to save post for later:", error);
+      toast.error("Failed to save post for later.");
+    }
+  };
+
+  const handleDismissPost = async (post: Post) => {
+    try {
+      await postsApi.dismissPost(post.id);
+      toast.success("Generated post dismissed.");
+      setGeneratedPost(null);
+    } catch (error) {
+      console.error("Failed to dismiss post:", error);
+      toast.error("Failed to dismiss post.");
+    }
+  };
+
+  const openScheduleModal = async (postToSchedule: Post) => {
+    try {
+      // Always fetch the latest scheduled posts before opening the modal
+      const response = await postsApi.getPosts({
+        status: ["scheduled"],
+        size: 100,
+      });
+      setScheduledPosts(response.items);
+      setGeneratedPost(postToSchedule);
+      setShowScheduleModal(true);
+    } catch (error) {
+      console.error("Failed to load scheduled posts:", error);
+      toast.error("Could not open the schedule modal. Please try again.");
+    }
+  };
+
+  const handleReschedulePost = (post: Post) => {
+    setGeneratedPost(post); // Keep the post context
+    setShowRescheduleModal(true);
+  };
+
+  const handleSchedulePost = async (postId: string, scheduledAt: string) => {
+    try {
+      const scheduledPost = await postsApi.schedulePost(postId, scheduledAt);
+      toast.success("Post scheduled successfully!");
+      setGeneratedPost(null);
+      setShowRescheduleModal(false);
+      setShowScheduleModal(false);
+      loadIdeaBanks();
+      // Optimistically update the scheduled posts list
+      setScheduledPosts((prev) => [...prev, scheduledPost]);
+    } catch (error) {
+      console.error("Failed to schedule post:", error);
+      toast.error("Failed to schedule post.");
     }
   };
 
@@ -372,6 +454,37 @@ const IdeaBankPage: React.FC = () => {
     );
   };
 
+  const Actions: React.FC<{ ideaBankWithPost: IdeaBankWithPost }> = ({
+    ideaBankWithPost,
+  }) => (
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIdeaToGenerate(ideaBankWithPost)}
+        className="text-indigo-600 hover:text-indigo-800 p-1 h-8 w-8"
+      >
+        <Sparkles className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => handleEdit(ideaBankWithPost)}
+        className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
+      >
+        <Edit className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => handleDelete(ideaBankWithPost.idea_bank.id)}
+        className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+
   const SortButton: React.FC<{
     column: SortConfig["key"];
     children: React.ReactNode;
@@ -471,49 +584,6 @@ const IdeaBankPage: React.FC = () => {
                   <SelectItem value="false">No</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Post Status</Label>
-              <div className="space-y-2">
-                {[
-                  "suggested",
-                  "saved",
-                  "posted",
-                  "scheduled",
-                  "canceled",
-                  "dismissed",
-                ].map((status) => (
-                  <div key={status} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`status-${status}`}
-                      checked={
-                        pendingFilters.post_status?.includes(status) || false
-                      }
-                      onChange={(e) => {
-                        const currentStatuses =
-                          pendingFilters.post_status || [];
-                        if (e.target.checked) {
-                          handlePendingFilterChange({
-                            post_status: [...currentStatuses, status],
-                          });
-                        } else {
-                          handlePendingFilterChange({
-                            post_status: currentStatuses.filter(
-                              (s) => s !== status
-                            ),
-                          });
-                        }
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={`status-${status}`} className="capitalize">
-                      {status}
-                    </Label>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -742,22 +812,7 @@ const IdeaBankPage: React.FC = () => {
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(ideaBankWithPost)}
-                          className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(ideaBank.id)}
-                          className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <Actions ideaBankWithPost={ideaBankWithPost} />
                       </div>
                     </div>
 
@@ -901,24 +956,7 @@ const IdeaBankPage: React.FC = () => {
                         </TableCell>
                         <TableCell>{renderLastPostUsed(latestPost)}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(ideaBankWithPost)}
-                              className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(ideaBank.id)}
-                              className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          <Actions ideaBankWithPost={ideaBankWithPost} />
                         </TableCell>
                       </TableRow>
                     );
@@ -1056,23 +1094,8 @@ const IdeaBankPage: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(ideaBankWithPost)}
-                              className="text-blue-600 hover:text-blue-800 p-1 h-6 w-6"
-                            >
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(ideaBank.id)}
-                              className="text-red-600 hover:text-red-800 p-1 h-6 w-6"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                          <div className="flex flex-col items-center gap-1">
+                            <Actions ideaBankWithPost={ideaBankWithPost} />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1199,6 +1222,86 @@ const IdeaBankPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Generate Post Confirmation Dialog */}
+      <Dialog
+        open={!!ideaToGenerate}
+        onOpenChange={(isOpen) => !isOpen && setIdeaToGenerate(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate a New Post?</DialogTitle>
+            <DialogDescription>
+              This will generate a new LinkedIn post based on the following
+              content. Do you want to continue?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-4 p-4 bg-gray-50 rounded-md max-h-60 overflow-y-auto">
+            <p className="text-sm text-gray-800 whitespace-pre-wrap">
+              {ideaToGenerate?.idea_bank.data.title && (
+                <strong className="block mb-2">
+                  {ideaToGenerate.idea_bank.data.title}
+                </strong>
+              )}
+              {ideaToGenerate?.idea_bank.data.value}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIdeaToGenerate(null)}
+              disabled={isGenerating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleGeneratePost} disabled={isGenerating}>
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Post"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generated Post Details Modal */}
+      {generatedPost && (
+        <ScheduledPostDetails
+          isOpen={!!generatedPost}
+          onClose={() => setGeneratedPost(null)}
+          post={generatedPost}
+          onSaveForLater={handleSavePostForLater}
+          onReschedule={openScheduleModal}
+          onDelete={handleDismissPost}
+          isNewPost={true}
+        />
+      )}
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && generatedPost && (
+        <RescheduleModal
+          post={generatedPost}
+          isOpen={showRescheduleModal}
+          onClose={() => setShowRescheduleModal(false)}
+          onReschedule={handleSchedulePost}
+          scheduledPosts={scheduledPosts}
+        />
+      )}
+
+      {/* Schedule Modal for new posts */}
+      {showScheduleModal && generatedPost && (
+        <PostScheduleModal
+          post={generatedPost}
+          isOpen={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          onSchedule={handleSchedulePost}
+          scheduledPosts={scheduledPosts}
+        />
+      )}
     </AppLayout>
   );
 };

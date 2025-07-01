@@ -3,7 +3,7 @@ Idea Bank related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -23,7 +23,7 @@ class IdeaBankData(BaseModel):
 class IdeaBankBase(BaseModel):
     """Base schema for idea bank."""
 
-    data: Dict[str, Any]
+    data: IdeaBankData
 
 
 class IdeaBankCreate(IdeaBankBase):
@@ -35,7 +35,7 @@ class IdeaBankCreate(IdeaBankBase):
 class IdeaBankUpdate(BaseModel):
     """Schema for updating idea bank."""
 
-    data: Optional[Dict[str, Any]] = None
+    data: Optional[IdeaBankData] = None
 
 
 class IdeaBankResponse(IdeaBankBase):
