@@ -2,9 +2,13 @@ import { apiClient } from './auth-api';
 import type { Post } from './posts-api';
 
 export interface IdeaBankData {
-  type: 'article' | 'text';
-  value: string;
+  type: 'article' | 'text' | 'product';
+  value: string; // URL for article/product, text content for text type
   title?: string;
+  // Product-specific fields
+  product_name?: string;
+  product_description?: string;
+  // Common fields
   time_sensitive: boolean;
   ai_suggested: boolean;
 }

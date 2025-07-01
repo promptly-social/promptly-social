@@ -88,5 +88,55 @@ class PostGeneratorService:
         result = await self.agent.run(prompt)
         return result.output
 
+    async def generate_post_for_product(
+        self,
+        product_name: str,
+        product_description: str,
+        product_url: str,
+        bio: Optional[str],
+        writing_style: Optional[str],
+        linkedin_post_strategy: Optional[str],
+    ) -> GeneratedPost:
+        """
+        Generates a LinkedIn post for a product.
+        """
+
+        prompt = f"""
+        You are an expert at generating posts for LinkedIn to gain the most engagement.
+        Your task is to create a LinkedIn post based on the provided product information.
+
+        Product Name:
+        ---
+        {product_name}
+        ---
+
+        Product website:
+        ---
+        {product_url}
+        ---
+
+        Product Description:
+        ---
+        {product_description}
+        ---
+
+        User Profile:
+        - Bio: {bio}
+        - Writing Style: {writing_style}
+        - LinkedIn Post Strategy: {linkedin_post_strategy}
+
+        Instructions:
+        1. Generate a LinkedIn post that is engaging and likely to get high engagement and get a lot of comments and reactions.
+        2. The post should be plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
+        3. If the product website is a URL, incorporate the link into the post naturally.
+        4. Create a recommendation score for the post between 0 and 100, where 100 is the most recommended.
+        5. Identify a list of relevant topics or hashtags for the post.
+
+        Return the generated post in the required JSON format.
+        """
+
+        result = await self.agent.run(prompt)
+        return result.output
+
 
 post_generator_service = PostGeneratorService()

@@ -3,21 +3,32 @@ Idea Bank related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class IdeaBankData(BaseModel):
     """Schema for idea bank data structure."""
 
-    type: str  # "article" or "text"
-    value: str
+    type: str  # "article", "text", or "product"
+    value: str  # URL for article/product, text content for text type
     title: Optional[str] = None
+    # Product-specific fields
+    product_name: Optional[str] = None
+    product_description: Optional[str] = None
+    # Common fields
     time_sensitive: Optional[bool] = False
     last_used_post_id: Optional[str] = None
     ai_suggested: Optional[bool] = False
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v):
+        if v not in ["article", "text", "product"]:
+            raise ValueError("type must be one of: article, text, product")
+        return v
 
 
 class IdeaBankBase(BaseModel):

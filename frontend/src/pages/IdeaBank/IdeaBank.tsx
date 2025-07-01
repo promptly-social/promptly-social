@@ -51,6 +51,7 @@ import {
   type IdeaBankCreate,
   type IdeaBankUpdate,
   type IdeaBankFilters,
+  type IdeaBankData,
   type SuggestedPost,
 } from "@/lib/idea-bank-api";
 import { postsApi, type Post } from "@/lib/posts-api";
@@ -104,6 +105,8 @@ const IdeaBankPage: React.FC = () => {
       type: "text",
       value: "",
       title: "",
+      product_name: "",
+      product_description: "",
       time_sensitive: false,
       ai_suggested: false,
     },
@@ -203,6 +206,8 @@ const IdeaBankPage: React.FC = () => {
           type: "text",
           value: "",
           title: "",
+          product_name: "",
+          product_description: "",
           time_sensitive: false,
           ai_suggested: false,
         },
@@ -219,16 +224,18 @@ const IdeaBankPage: React.FC = () => {
     const ideaBank = ideaBankWithPost.idea_bank;
     // Handle migration from old "substack" type to new "article" type
     const legacyType = ideaBank.data.type as string;
-    const mappedType: "article" | "text" =
+    const mappedType: "article" | "text" | "product" =
       legacyType === "substack"
         ? "article"
-        : (legacyType as "article" | "text");
+        : (legacyType as "article" | "text" | "product");
 
     setFormData({
       data: {
         type: mappedType,
         value: ideaBank.data.value,
         title: ideaBank.data.title || "",
+        product_name: ideaBank.data.product_name || "",
+        product_description: ideaBank.data.product_description || "",
         time_sensitive: ideaBank.data.time_sensitive || false,
         ai_suggested: ideaBank.data.ai_suggested || false,
       },
@@ -251,6 +258,8 @@ const IdeaBankPage: React.FC = () => {
           type: "text",
           value: "",
           title: "",
+          product_name: "",
+          product_description: "",
           time_sensitive: false,
           ai_suggested: false,
         },
@@ -425,6 +434,61 @@ const IdeaBankPage: React.FC = () => {
   const navigateToSuggestedPost = (post: SuggestedPost) => {
     // Navigate to the my content page with this post selected
     window.open(`/my-content?post=${post.id}`, "_blank");
+  };
+
+  const renderIdeaBankContent = (ideaBank: IdeaBankWithPost["idea_bank"]) => {
+    if (ideaBank.data.type === "product") {
+      return (
+        <div className="space-y-1">
+          {ideaBank.data.product_name && (
+            <div className="font-medium text-sm text-gray-900">
+              {ideaBank.data.product_name}
+            </div>
+          )}
+          {ideaBank.data.product_description && (
+            <div className="text-sm text-gray-600 mb-1">
+              {ideaBank.data.product_description}
+            </div>
+          )}
+          {ideaBank.data.value && (
+            <a
+              href={ideaBank.data.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
+            >
+              <span className="break-all">{ideaBank.data.value}</span>
+              <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
+            </a>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        {ideaBank.data.title && (
+          <div className="font-medium text-sm text-gray-900">
+            {ideaBank.data.title}
+          </div>
+        )}
+        {isUrl(ideaBank.data.value) ? (
+          <a
+            href={ideaBank.data.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
+          >
+            <span className="break-all">{ideaBank.data.value}</span>
+            <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
+          </a>
+        ) : (
+          <div className="whitespace-pre-wrap break-words text-sm">
+            {ideaBank.data.value}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderLastPostUsed = (latestPost: SuggestedPost | undefined) => {
@@ -625,13 +689,17 @@ const IdeaBankPage: React.FC = () => {
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.data.type}
-              onValueChange={(value: "article" | "text") =>
+              onValueChange={(value: "article" | "text" | "product") =>
                 setFormData((prev) => ({
                   ...prev,
                   data: {
                     ...prev.data,
                     type: value,
                     title: value === "text" ? "" : prev.data.title,
+                    product_name:
+                      value === "product" ? prev.data.product_name : "",
+                    product_description:
+                      value === "product" ? prev.data.product_description : "",
                   },
                 }))
               }
@@ -642,6 +710,7 @@ const IdeaBankPage: React.FC = () => {
               <SelectContent>
                 <SelectItem value="article">Article</SelectItem>
                 <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="product">Product</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -661,15 +730,63 @@ const IdeaBankPage: React.FC = () => {
               />
             </div>
           )}
+          {formData.data.type === "product" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="product-name">Product Name (Optional)</Label>
+                <Input
+                  id="product-name"
+                  placeholder="Enter the product name..."
+                  value={formData.data.product_name || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      data: { ...prev.data, product_name: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product-description">
+                  Product Description (Optional)
+                </Label>
+                <Textarea
+                  id="product-description"
+                  placeholder="Enter the product description..."
+                  value={formData.data.product_description || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      data: {
+                        ...prev.data,
+                        product_description: e.target.value,
+                      },
+                    }))
+                  }
+                  rows={3}
+                  className="min-h-[80px] resize-none"
+                />
+              </div>
+            </>
+          )}
           <div className="space-y-2">
             <Label htmlFor="value">
-              {formData.data.type === "article" ? "URL" : "Content"}
+              {formData.data.type === "article"
+                ? "URL"
+                : formData.data.type === "product"
+                ? "Product URL"
+                : "Content"}
             </Label>
-            {formData.data.type === "article" ? (
+            {formData.data.type === "article" ||
+            formData.data.type === "product" ? (
               <Input
                 id="value"
                 type="url"
-                placeholder="https://example.com/article"
+                placeholder={
+                  formData.data.type === "article"
+                    ? "https://example.com/article"
+                    : "https://example.com/product"
+                }
                 value={formData.data.value}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -821,29 +938,8 @@ const IdeaBankPage: React.FC = () => {
                         <span className="text-sm font-medium text-gray-500">
                           Content:
                         </span>
-                        <div className="mt-1 space-y-1">
-                          {ideaBank.data.title && (
-                            <div className="font-medium text-sm text-gray-900">
-                              {ideaBank.data.title}
-                            </div>
-                          )}
-                          {isUrl(ideaBank.data.value) ? (
-                            <a
-                              href={ideaBank.data.value}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
-                            >
-                              <span className="break-all">
-                                {ideaBank.data.value}
-                              </span>
-                              <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                            </a>
-                          ) : (
-                            <div className="whitespace-pre-wrap break-words text-sm">
-                              {ideaBank.data.value}
-                            </div>
-                          )}
+                        <div className="mt-1">
+                          {renderIdeaBankContent(ideaBank)}
                         </div>
                       </div>
 
@@ -926,30 +1022,7 @@ const IdeaBankPage: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell className="min-w-0">
-                          <div className="space-y-1">
-                            {ideaBank.data.title && (
-                              <div className="font-medium text-sm text-gray-900">
-                                {ideaBank.data.title}
-                              </div>
-                            )}
-                            {isUrl(ideaBank.data.value) ? (
-                              <a
-                                href={ideaBank.data.value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all"
-                              >
-                                <span className="break-all">
-                                  {ideaBank.data.value}
-                                </span>
-                                <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                              </a>
-                            ) : (
-                              <div className="whitespace-pre-wrap break-words">
-                                {ideaBank.data.value}
-                              </div>
-                            )}
-                          </div>
+                          {renderIdeaBankContent(ideaBank)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDate(ideaBank.updated_at)}
@@ -1029,30 +1102,7 @@ const IdeaBankPage: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell className="min-w-0">
-                          <div className="space-y-1">
-                            {ideaBank.data.title && (
-                              <div className="font-medium text-sm text-gray-900 line-clamp-2">
-                                {ideaBank.data.title}
-                              </div>
-                            )}
-                            {isUrl(ideaBank.data.value) ? (
-                              <a
-                                href={ideaBank.data.value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
-                              >
-                                <span className="break-all line-clamp-2">
-                                  {ideaBank.data.value}
-                                </span>
-                                <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                              </a>
-                            ) : (
-                              <div className="whitespace-pre-wrap break-words text-sm line-clamp-3">
-                                {ideaBank.data.value}
-                              </div>
-                            )}
-                          </div>
+                          {renderIdeaBankContent(ideaBank)}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {new Date(ideaBank.updated_at).toLocaleDateString(
@@ -1120,13 +1170,19 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={formData.data.type}
-                onValueChange={(value: "article" | "text") =>
+                onValueChange={(value: "article" | "text" | "product") =>
                   setFormData((prev) => ({
                     ...prev,
                     data: {
                       ...prev.data,
                       type: value,
                       title: value === "text" ? "" : prev.data.title,
+                      product_name:
+                        value === "product" ? prev.data.product_name : "",
+                      product_description:
+                        value === "product"
+                          ? prev.data.product_description
+                          : "",
                     },
                   }))
                 }
@@ -1137,6 +1193,7 @@ const IdeaBankPage: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="article">Article</SelectItem>
                   <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="product">Product</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1156,15 +1213,65 @@ const IdeaBankPage: React.FC = () => {
                 />
               </div>
             )}
+            {formData.data.type === "product" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-name">
+                    Product Name (Optional)
+                  </Label>
+                  <Input
+                    id="edit-product-name"
+                    placeholder="Enter the product name..."
+                    value={formData.data.product_name || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, product_name: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-description">
+                    Product Description (Optional)
+                  </Label>
+                  <Textarea
+                    id="edit-product-description"
+                    placeholder="Enter the product description..."
+                    value={formData.data.product_description || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          product_description: e.target.value,
+                        },
+                      }))
+                    }
+                    rows={3}
+                    className="min-h-[80px] resize-none"
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label htmlFor="edit-value">
-                {formData.data.type === "article" ? "URL" : "Content"}
+                {formData.data.type === "article"
+                  ? "URL"
+                  : formData.data.type === "product"
+                  ? "Product URL"
+                  : "Content"}
               </Label>
-              {formData.data.type === "article" ? (
+              {formData.data.type === "article" ||
+              formData.data.type === "product" ? (
                 <Input
                   id="edit-value"
                   type="url"
-                  placeholder="https://example.com/article"
+                  placeholder={
+                    formData.data.type === "article"
+                      ? "https://example.com/article"
+                      : "https://example.com/product"
+                  }
                   value={formData.data.value}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -1238,12 +1345,32 @@ const IdeaBankPage: React.FC = () => {
           </DialogHeader>
           <div className="my-4 p-4 bg-gray-50 rounded-md max-h-60 overflow-y-auto">
             <p className="text-sm text-gray-800 whitespace-pre-wrap">
-              {ideaToGenerate?.idea_bank.data.title && (
-                <strong className="block mb-2">
-                  {ideaToGenerate.idea_bank.data.title}
-                </strong>
+              {ideaToGenerate?.idea_bank.data.type === "product" ? (
+                <>
+                  {ideaToGenerate.idea_bank.data.product_name && (
+                    <strong className="block mb-2">
+                      {ideaToGenerate.idea_bank.data.product_name}
+                    </strong>
+                  )}
+                  {ideaToGenerate.idea_bank.data.product_description && (
+                    <div className="block mb-2">
+                      {ideaToGenerate.idea_bank.data.product_description}
+                    </div>
+                  )}
+                  <div className="text-blue-600">
+                    {ideaToGenerate.idea_bank.data.value}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {ideaToGenerate?.idea_bank.data.title && (
+                    <strong className="block mb-2">
+                      {ideaToGenerate.idea_bank.data.title}
+                    </strong>
+                  )}
+                  {ideaToGenerate?.idea_bank.data.value}
+                </>
               )}
-              {ideaToGenerate?.idea_bank.data.value}
             </p>
           </div>
           <DialogFooter>

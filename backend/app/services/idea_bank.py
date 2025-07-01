@@ -389,10 +389,6 @@ class IdeaBankService:
                 logger.warning(f"Idea bank {idea_bank_id} not found for user {user_id}")
                 return None
 
-            idea_content = idea_bank.data.get("value", "")
-            if idea_bank.data.get("title"):
-                idea_content = f"{idea_bank.data['title']}\\n\\n{idea_content}"
-
             # 2. Fetch user profile information
             profile_service = ProfileService(self.db)
             preferences = await profile_service.get_user_preferences(user_id)
@@ -405,17 +401,43 @@ class IdeaBankService:
                 (s for s in content_strategies if s.platform == "linkedin"), None
             )
 
-            # 3. Generate the post using the AI service
-            generated_data = await post_generator_service.generate_post(
-                idea_content=idea_content,
-                bio=preferences.bio if preferences else "Bio not provided",
-                writing_style=latest_analysis.analysis_data
-                if latest_analysis
-                else "Writing style not provided",
-                linkedin_post_strategy=linkedin_strategy.strategy
-                if linkedin_strategy
-                else "LinkedIn post strategy not provided",
-            )
+            # 3. Generate the post using the appropriate AI service method based on type
+            idea_type = idea_bank.data.get("type", "text")
+
+            if idea_type == "product":
+                # For product type, use the product-specific generator
+                product_name = idea_bank.data.get("product_name", "")
+                product_description = idea_bank.data.get("product_description", "")
+                product_url = idea_bank.data.get("value", "")
+
+                generated_data = await post_generator_service.generate_post_for_product(
+                    product_name=product_name,
+                    product_description=product_description,
+                    product_url=product_url,
+                    bio=preferences.bio if preferences else "Bio not provided",
+                    writing_style=latest_analysis.analysis_data
+                    if latest_analysis
+                    else "Writing style not provided",
+                    linkedin_post_strategy=linkedin_strategy.strategy
+                    if linkedin_strategy
+                    else "LinkedIn post strategy not provided",
+                )
+            else:
+                # For article and text types, use the regular generator
+                idea_content = idea_bank.data.get("value", "")
+                if idea_bank.data.get("title"):
+                    idea_content = f"{idea_bank.data['title']}\\n\\n{idea_content}"
+
+                generated_data = await post_generator_service.generate_post(
+                    idea_content=idea_content,
+                    bio=preferences.bio if preferences else "Bio not provided",
+                    writing_style=latest_analysis.analysis_data
+                    if latest_analysis
+                    else "Writing style not provided",
+                    linkedin_post_strategy=linkedin_strategy.strategy
+                    if linkedin_strategy
+                    else "LinkedIn post strategy not provided",
+                )
 
             # 4. Save the new post to the database
             new_post_data = PostCreate(
