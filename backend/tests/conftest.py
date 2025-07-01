@@ -33,6 +33,10 @@ os.environ.update(
         "REFRESH_TOKEN_EXPIRE_DAYS": "7",
         "LOG_LEVEL": "DEBUG",
         "LOG_FORMAT": "console",
+        # OpenRouter Configuration
+        "OPENROUTER_LARGE_MODEL_TEMPERATURE": "0.0",
+        "OPENROUTER_LARGE_MODEL_PRIMARY": "google/gemini-2.5-pro",
+        "OPENROUTER_LARGE_MODELS_FALLBACK": "anthropic/claude-sonnet-4",
     }
 )
 
