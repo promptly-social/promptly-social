@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/components/AppLayout";
 import { PostCard } from "@/components/PostCard";
 import { PostScheduleModal } from "@/components/PostScheduleModal";
+import { RescheduleModal } from "@/components/RescheduleModal";
 import { RefreshCw, ArrowLeft, Filter, TrendingUp } from "lucide-react";
 
 import {
@@ -59,8 +60,13 @@ const MyContent: React.FC = () => {
     isOpen: boolean;
     post: Post | null;
   }>({ isOpen: false, post: null });
+  const [rescheduleModal, setRescheduleModal] = useState<{
+    isOpen: boolean;
+    post: Post | null;
+  }>({ isOpen: false, post: null });
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     status: ["suggested", "saved"], // Show suggested and saved by default
     platform: undefined,
@@ -91,16 +97,16 @@ const MyContent: React.FC = () => {
           const postsResponse = await postsApi.getPosts(filters);
           setPosts(postsResponse.items);
           setSelectedPost(null);
-
-          // Fetch scheduled posts for the schedule modal
-          const scheduledResponse = await postsApi.getPosts({
-            status: ["scheduled"],
-            order_by: "scheduled_at",
-            order_direction: "asc",
-            size: 100,
-          });
-          setScheduledPosts(scheduledResponse.items);
         }
+
+        // Fetch scheduled posts for the schedule modal
+        const scheduledResponse = await postsApi.getPosts({
+          status: ["scheduled"],
+          order_by: "scheduled_at",
+          order_direction: "asc",
+          size: 100,
+        });
+        setScheduledPosts(scheduledResponse.items);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Failed to fetch posts. Please try again.");
@@ -287,11 +293,44 @@ const MyContent: React.FC = () => {
   };
 
   const reschedulePost = (postId: string) => {
-    console.log("Rescheduling post:", postId);
+    const post = posts.find((p) => p.id === postId);
+    if (post) {
+      setRescheduleModal({ isOpen: true, post });
+    }
+  };
 
-    toast.success("Coming Soon", {
-      description: "Post rescheduling will be available soon!",
-    });
+  const handleReschedulePost = async (postId: string, scheduledAt: string) => {
+    setIsRescheduling(true);
+    try {
+      const updatedPost = await postsApi.schedulePost(postId, scheduledAt);
+
+      // Update posts list
+      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+
+      // Update scheduled posts list
+      setScheduledPosts(
+        scheduledPosts.map((p) => (p.id === postId ? updatedPost : p))
+      );
+
+      // Update selected post if it's the same one
+      if (selectedPost?.id === postId) {
+        setSelectedPost(updatedPost);
+      }
+
+      // Close modal
+      setRescheduleModal({ isOpen: false, post: null });
+
+      toast.success("Post Rescheduled", {
+        description: `Post has been rescheduled for ${new Date(
+          scheduledAt
+        ).toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error("Error rescheduling post:", error);
+      toast.error("Failed to reschedule post. Please try again.");
+    } finally {
+      setIsRescheduling(false);
+    }
   };
 
   const saveForLater = async (post: Post) => {
@@ -645,6 +684,14 @@ const MyContent: React.FC = () => {
         scheduledPosts={scheduledPosts}
         onSchedule={handleSchedulePost}
         isScheduling={isScheduling}
+      />
+      <RescheduleModal
+        isOpen={rescheduleModal.isOpen}
+        onClose={() => setRescheduleModal({ isOpen: false, post: null })}
+        post={rescheduleModal.post}
+        scheduledPosts={scheduledPosts}
+        onReschedule={handleReschedulePost}
+        isRescheduling={isRescheduling}
       />
     </AppLayout>
   );

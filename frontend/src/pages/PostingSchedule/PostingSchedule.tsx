@@ -542,7 +542,7 @@ const PostingSchedule: React.FC = () => {
     switch (platform) {
       case "linkedin":
         return <Share2 className="w-3 h-3" />;
-      case "article":
+      case "url":
         return <Globe className="w-3 h-3" />;
       default:
         return <User className="w-3 h-3" />;
@@ -553,8 +553,8 @@ const PostingSchedule: React.FC = () => {
     switch (platform) {
       case "linkedin":
         return "LinkedIn";
-      case "article":
-        return "Article";
+      case "url":
+        return "Link";
       default:
         return "General";
     }

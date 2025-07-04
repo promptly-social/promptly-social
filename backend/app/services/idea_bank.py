@@ -7,7 +7,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 
 from loguru import logger
-from sqlalchemy import and_, desc, func, select, Boolean, text, or_
+from sqlalchemy import and_, desc, func, select, Boolean, text, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -423,7 +423,7 @@ class IdeaBankService:
                     else "LinkedIn post strategy not provided",
                 )
             else:
-                # For article and text types, use the regular generator
+                # For url and text types, use the regular generator
                 idea_content = idea_bank.data.get("value", "")
                 if idea_bank.data.get("title"):
                     idea_content = f"{idea_bank.data['title']}\\n\\n{idea_content}"
@@ -468,6 +468,14 @@ class IdeaBankService:
             idea_bank = await self.get_idea_bank(user_id, idea_bank_id)
             if not idea_bank:
                 return False
+
+            # Disassociate posts from the idea bank before deleting
+            update_stmt = (
+                update(Post)
+                .where(Post.idea_bank_id == idea_bank_id)
+                .values(idea_bank_id=None)
+            )
+            await self.db.execute(update_stmt)
 
             await self.db.delete(idea_bank)
             await self.db.commit()

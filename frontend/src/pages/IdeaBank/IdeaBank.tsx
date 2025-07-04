@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -49,9 +50,7 @@ import {
   ideaBankApi,
   type IdeaBankWithPost,
   type IdeaBankCreate,
-  type IdeaBankUpdate,
   type IdeaBankFilters,
-  type IdeaBankData,
   type SuggestedPost,
 } from "@/lib/idea-bank-api";
 import { postsApi, type Post } from "@/lib/posts-api";
@@ -111,6 +110,20 @@ const IdeaBankPage: React.FC = () => {
       ai_suggested: false,
     },
   });
+
+  const resetFormData = () => {
+    setFormData({
+      data: {
+        type: "text",
+        value: "",
+        title: "",
+        product_name: "",
+        product_description: "",
+        time_sensitive: false,
+        ai_suggested: false,
+      },
+    });
+  };
 
   useEffect(() => {
     loadIdeaBanks();
@@ -201,17 +214,7 @@ const IdeaBankPage: React.FC = () => {
       await ideaBankApi.create(formData);
       toast.success("Idea bank created successfully");
       setShowCreateDialog(false);
-      setFormData({
-        data: {
-          type: "text",
-          value: "",
-          title: "",
-          product_name: "",
-          product_description: "",
-          time_sensitive: false,
-          ai_suggested: false,
-        },
-      });
+      resetFormData();
       loadIdeaBanks();
     } catch (error) {
       console.error("Failed to create idea bank:", error);
@@ -222,16 +225,10 @@ const IdeaBankPage: React.FC = () => {
   const handleEdit = (ideaBankWithPost: IdeaBankWithPost) => {
     setEditingIdeaBank(ideaBankWithPost);
     const ideaBank = ideaBankWithPost.idea_bank;
-    // Handle migration from old "substack" type to new "article" type
-    const legacyType = ideaBank.data.type as string;
-    const mappedType: "article" | "text" | "product" =
-      legacyType === "substack"
-        ? "article"
-        : (legacyType as "article" | "text" | "product");
 
     setFormData({
       data: {
-        type: mappedType,
+        type: ideaBank.data.type,
         value: ideaBank.data.value,
         title: ideaBank.data.title || "",
         product_name: ideaBank.data.product_name || "",
@@ -253,17 +250,7 @@ const IdeaBankPage: React.FC = () => {
       toast.success("Idea bank updated successfully");
       setShowEditDialog(false);
       setEditingIdeaBank(null);
-      setFormData({
-        data: {
-          type: "text",
-          value: "",
-          title: "",
-          product_name: "",
-          product_description: "",
-          time_sensitive: false,
-          ai_suggested: false,
-        },
-      });
+      resetFormData();
       loadIdeaBanks();
     } catch (error) {
       console.error("Failed to update idea bank:", error);
@@ -340,11 +327,6 @@ const IdeaBankPage: React.FC = () => {
       console.error("Failed to load scheduled posts:", error);
       toast.error("Could not open the schedule modal. Please try again.");
     }
-  };
-
-  const handleReschedulePost = (post: Post) => {
-    setGeneratedPost(post); // Keep the post context
-    setShowRescheduleModal(true);
   };
 
   const handleSchedulePost = async (postId: string, scheduledAt: string) => {
@@ -670,7 +652,15 @@ const IdeaBankPage: React.FC = () => {
   );
 
   const addButton = (
-    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+    <Dialog
+      open={showCreateDialog}
+      onOpenChange={(isOpen) => {
+        if (isOpen) {
+          resetFormData();
+        }
+        setShowCreateDialog(isOpen);
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="w-4 h-4 mr-2" />
@@ -689,7 +679,7 @@ const IdeaBankPage: React.FC = () => {
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.data.type}
-              onValueChange={(value: "article" | "text" | "product") =>
+              onValueChange={(value: "url" | "text" | "product") =>
                 setFormData((prev) => ({
                   ...prev,
                   data: {
@@ -708,18 +698,18 @@ const IdeaBankPage: React.FC = () => {
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="article">Article</SelectItem>
                 <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="url">URL</SelectItem>
                 <SelectItem value="product">Product</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {formData.data.type === "article" && (
+          {formData.data.type === "url" && (
             <div className="space-y-2">
               <Label htmlFor="title">Title (Optional)</Label>
               <Input
                 id="title"
-                placeholder="Enter a title for this article..."
+                placeholder="Enter a title for this article or post..."
                 value={formData.data.title || ""}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -771,20 +761,20 @@ const IdeaBankPage: React.FC = () => {
           )}
           <div className="space-y-2">
             <Label htmlFor="value">
-              {formData.data.type === "article"
+              {formData.data.type === "url"
                 ? "URL"
                 : formData.data.type === "product"
                 ? "Product URL"
                 : "Content"}
             </Label>
-            {formData.data.type === "article" ||
+            {formData.data.type === "url" ||
             formData.data.type === "product" ? (
               <Input
                 id="value"
                 type="url"
                 placeholder={
-                  formData.data.type === "article"
-                    ? "https://example.com/article"
+                  formData.data.type === "url"
+                    ? "https://example.com/url"
                     : "https://example.com/product"
                 }
                 value={formData.data.value}
@@ -822,13 +812,13 @@ const IdeaBankPage: React.FC = () => {
                 }))
               }
             />
-            <Label htmlFor="time-sensitive">Time Sensitive</Label>
+            <Label htmlFor="time-sensitive">Trending</Label>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-            Cancel
-          </Button>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
           <Button onClick={handleCreate} disabled={!formData.data.value.trim()}>
             Create
           </Button>
@@ -925,7 +915,7 @@ const IdeaBankPage: React.FC = () => {
                         >
                           {!ideaBank.data.time_sensitive
                             ? "Evergreen"
-                            : "Time Sensitive"}
+                            : "Trending"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1">
@@ -1017,7 +1007,7 @@ const IdeaBankPage: React.FC = () => {
                             >
                               {!ideaBank.data.time_sensitive
                                 ? "Evergreen"
-                                : "Time Sensitive"}
+                                : "Trending"}
                             </Badge>
                           </div>
                         </TableCell>
@@ -1096,7 +1086,7 @@ const IdeaBankPage: React.FC = () => {
                               >
                                 {!ideaBank.data.time_sensitive
                                   ? "Evergreen"
-                                  : "Time Sensitive"}
+                                  : "Trending"}
                               </Badge>
                             </div>
                           </div>
@@ -1159,7 +1149,16 @@ const IdeaBankPage: React.FC = () => {
       </main>
 
       {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog
+        open={showEditDialog}
+        onOpenChange={(isOpen) => {
+          setShowEditDialog(isOpen);
+          if (!isOpen) {
+            setEditingIdeaBank(null);
+            resetFormData();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Idea</DialogTitle>
@@ -1170,7 +1169,7 @@ const IdeaBankPage: React.FC = () => {
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={formData.data.type}
-                onValueChange={(value: "article" | "text" | "product") =>
+                onValueChange={(value: "url" | "text" | "product") =>
                   setFormData((prev) => ({
                     ...prev,
                     data: {
@@ -1191,18 +1190,18 @@ const IdeaBankPage: React.FC = () => {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="article">Article</SelectItem>
+                  <SelectItem value="url">URL</SelectItem>
                   <SelectItem value="text">Text</SelectItem>
                   <SelectItem value="product">Product</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {formData.data.type === "article" && (
+            {formData.data.type === "url" && (
               <div className="space-y-2">
                 <Label htmlFor="edit-title">Title (Optional)</Label>
                 <Input
                   id="edit-title"
-                  placeholder="Enter a title for this article..."
+                  placeholder="Enter an optional title for this link..."
                   value={formData.data.title || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -1256,20 +1255,20 @@ const IdeaBankPage: React.FC = () => {
             )}
             <div className="space-y-2">
               <Label htmlFor="edit-value">
-                {formData.data.type === "article"
+                {formData.data.type === "url"
                   ? "URL"
                   : formData.data.type === "product"
                   ? "Product URL"
                   : "Content"}
               </Label>
-              {formData.data.type === "article" ||
+              {formData.data.type === "url" ||
               formData.data.type === "product" ? (
                 <Input
                   id="edit-value"
                   type="url"
                   placeholder={
-                    formData.data.type === "article"
-                      ? "https://example.com/article"
+                    formData.data.type === "url"
+                      ? "https://example.com/url"
                       : "https://example.com/product"
                   }
                   value={formData.data.value}
@@ -1307,19 +1306,13 @@ const IdeaBankPage: React.FC = () => {
                   }))
                 }
               />
-              <Label htmlFor="edit-time-sensitive">Time Sensitive</Label>
+              <Label htmlFor="edit-time-sensitive">Trending</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowEditDialog(false);
-                setEditingIdeaBank(null);
-              }}
-            >
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
             <Button
               onClick={handleUpdate}
               disabled={!formData.data.value.trim()}

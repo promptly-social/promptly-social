@@ -2,7 +2,7 @@ import { apiClient } from './auth-api';
 import type { Post } from './posts-api';
 
 export interface IdeaBankData {
-  type: 'article' | 'text' | 'product';
+  type: 'url' | 'text' | 'product';
   value: string; // URL for article/product, text content for text type
   title?: string;
   // Product-specific fields

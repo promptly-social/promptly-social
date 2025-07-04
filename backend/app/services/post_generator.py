@@ -17,6 +17,7 @@ class GeneratedPost(BaseModel):
 
     linkedin_post: str = Field(description="The generated LinkedIn post content.")
     topics: List[str] = Field(description="A list of relevant topics for the post.")
+    source_url: Optional[str] = Field(description="The URL of the source of the post.")
     recommendation_score: int = Field(
         description="Recommendation score from 0 to 100.", ge=0, le=100
     )
@@ -78,9 +79,9 @@ class PostGeneratorService:
         Instructions:
         1. Generate a LinkedIn-appropriate post that is engaging and likely to get high engagement.
         2. The post should be plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
-        3. If the content idea is a URL, incorporate the link into the post naturally.
+        3. If the content idea is a URL, do not include the link in the post, but cite the source of the post in the post.
         4. Create a recommendation score for the post between 0 and 100, where 100 is the most recommended.
-        5. Identify a list of relevant topics or hashtags for the post.
+        5. Identify a list of relevant topics or keywords for the post (no more than 5).
 
         Return the generated post in the required JSON format.
         """
@@ -128,9 +129,9 @@ class PostGeneratorService:
         Instructions:
         1. Generate a LinkedIn post that is engaging and likely to get high engagement and get a lot of comments and reactions.
         2. The post should be plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
-        3. If the product website is a URL, incorporate the link into the post naturally.
+        3. If the product website is a URL, cite the source of the post in the post, but do not include the link to the source in the post.
         4. Create a recommendation score for the post between 0 and 100, where 100 is the most recommended.
-        5. Identify a list of relevant topics or hashtags for the post.
+        5. Identify a list of relevant topics or keywords for the post (no more than 5).
 
         Return the generated post in the required JSON format.
         """
