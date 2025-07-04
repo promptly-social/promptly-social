@@ -53,7 +53,7 @@ jobs:
           echo "SUPABASE_URL=https://test.supabase.co" >> .env
           echo "SUPABASE_KEY=test-anon-key" >> .env
           echo "SUPABASE_SERVICE_KEY=test-service-key" >> .env
-          echo "ENVIRONMENT=test" >> .env
+          echo "ENVIRONMENT=testing" >> .env
           echo "DEBUG=True" >> .env
           echo "OPENROUTER_API_KEY=test-openrouter-api-key" >> .env
           echo "OPENROUTER_LARGE_MODEL_PRIMARY=google/gemini-2.0-flash-001" >> .env
