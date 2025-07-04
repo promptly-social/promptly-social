@@ -139,5 +139,32 @@ class PostGeneratorService:
         result = await self.agent.run(prompt)
         return result.output
 
+    async def generate_conversational_reply(self, prompt: str) -> str:
+        """
+        Generates a simple, conversational reply using the AI model.
+        """
+        # Create a new agent instance for plain text output
+        # to avoid conflicts with the structured output agent.
+        provider = OpenRouterProvider(
+            api_key=settings.openrouter_api_key,
+        )
+
+        model = OpenAIModel(
+            settings.openrouter_small_model,  # Use a faster model for chat
+            provider=provider,
+        )
+
+        chat_agent = Agent(
+            model,
+            output_type=str,  # Expecting a simple string response
+            model_settings=OpenAIModelSettings(
+                temperature=0.7,
+            ),
+            system_prompt="",  # System prompt is included in the main prompt
+        )
+
+        result = await chat_agent.run(prompt)
+        return result.output
+
 
 post_generator_service = PostGeneratorService()
