@@ -3,7 +3,7 @@ Chat schemas for API request/response validation.
 """
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -80,8 +80,11 @@ class ChatRequest(BaseModel):
 class ChatStreamResponse(BaseModel):
     """Schema for streaming chat responses."""
 
-    type: str = Field(..., description="Response type: message, error, or end")
+    type: Literal["message", "tool_result", "error", "end"] = Field(
+        ..., description="Response type: message, tool_result, error, or end"
+    )
     content: Optional[str] = Field(None, description="The response content")
+    tool_name: Optional[str] = Field(None, description="The name of the tool used")
     message_id: Optional[UUID] = Field(None, description="The message ID")
     conversation_id: Optional[UUID] = Field(None, description="The conversation ID")
     error: Optional[str] = Field(None, description="Error message if type is error")
@@ -106,3 +109,21 @@ class ConversationListResponse(BaseModel):
     page: int
     size: int
     has_next: bool
+
+
+class ChatMessage(BaseModel):
+    """Schema for chat messages passed in a streaming request."""
+
+    role: str = Field(
+        ..., description="Role of message sender: user, assistant, system"
+    )
+    content: str = Field(..., description="The message content")
+
+
+class StreamChatRequest(BaseModel):
+    """Schema for a streaming chat request."""
+
+    conversation_id: UUID = Field(..., description="The conversation ID")
+    messages: List[ChatMessage] = Field(
+        ..., description="The history of messages in the conversation"
+    )

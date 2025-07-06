@@ -377,6 +377,98 @@ resource "google_secret_manager_secret_version" "zyte_api_key_initial_version" {
   secret_data = "placeholder"
 }
 
+resource "google_secret_manager_secret" "openrouter_api_key" {
+  secret_id = "OPENROUTER_API_KEY"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_api_key_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_api_key.id
+  secret_data = "placeholder"
+}
+
+resource "google_secret_manager_secret" "openrouter_model_primary" {
+  secret_id = "OPENROUTER_MODEL_PRIMARY"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_model_primary_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_model_primary.id
+  secret_data = "google/gemini-2.5-flash"
+}
+
+resource "google_secret_manager_secret" "openrouter_models_fallback" {
+  secret_id = "OPENROUTER_MODELS_FALLBACK"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_models_fallback_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_models_fallback.id
+  secret_data = "deepseek/deepseek-chat-v3-0324"
+}
+
+resource "google_secret_manager_secret" "openrouter_model_temperature" {
+  secret_id = "OPENROUTER_MODEL_TEMPERATURE"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_model_temperature_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_model_temperature.id
+  secret_data = "0.0"
+}
+
+resource "google_secret_manager_secret" "openrouter_large_model_primary" {
+  secret_id = "OPENROUTER_LARGE_MODEL_PRIMARY"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_large_model_primary_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_large_model_primary.id
+  secret_data = "google/gemini-2.5-pro"
+}
+
+resource "google_secret_manager_secret" "openrouter_large_models_fallback" {
+  secret_id = "OPENROUTER_LARGE_MODELS_FALLBACK"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_large_models_fallback_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_large_models_fallback.id
+  secret_data = "anthropic/claude-sonnet-4"
+}
+
+resource "google_secret_manager_secret" "openrouter_large_model_temperature" {
+  secret_id = "OPENROUTER_LARGE_MODEL_TEMPERATURE"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "openrouter_large_model_temperature_initial_version" {
+  secret      = google_secret_manager_secret.openrouter_large_model_temperature.id
+  secret_data = "0.0"
+}
+
+
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
   for_each = {
@@ -436,6 +528,12 @@ module "cloud_run_service" {
   unipile_dsn_name           = google_secret_manager_secret.unipile_dsn.secret_id
   unipile_access_token_name  = google_secret_manager_secret.unipile_access_token.secret_id
   use_unipile_for_linkedin_name = google_secret_manager_secret.use_unipile_for_linkedin.secret_id
+  openrouter_model_primary_name = google_secret_manager_secret.openrouter_model_primary.secret_id
+  openrouter_models_fallback_name = google_secret_manager_secret.openrouter_models_fallback.secret_id
+  openrouter_model_temperature_name = google_secret_manager_secret.openrouter_model_temperature.secret_id
+  openrouter_large_model_primary_name = google_secret_manager_secret.openrouter_large_model_primary.secret_id
+  openrouter_large_models_fallback_name = google_secret_manager_secret.openrouter_large_models_fallback.secret_id
+  openrouter_large_model_temperature_name = google_secret_manager_secret.openrouter_large_model_temperature.secret_id
   allow_unauthenticated_invocations = false
 }
 

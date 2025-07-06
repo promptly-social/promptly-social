@@ -58,6 +58,7 @@ import AppLayout from "@/components/AppLayout";
 import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
 import { RescheduleModal } from "@/components/RescheduleModal";
 import { PostScheduleModal } from "@/components/PostScheduleModal";
+import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
 
 interface SortConfig {
   key: "type" | "value" | "evergreen" | "updated_at";
@@ -94,7 +95,6 @@ const IdeaBankPage: React.FC = () => {
   const [ideaToGenerate, setIdeaToGenerate] = useState<IdeaBankWithPost | null>(
     null
   );
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPost, setGeneratedPost] = useState<Post | null>(null);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -270,23 +270,6 @@ const IdeaBankPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to delete idea bank:", error);
       toast.error("Failed to delete idea bank");
-    }
-  };
-
-  const handleGeneratePost = async () => {
-    if (!ideaToGenerate) return;
-
-    setIsGenerating(true);
-    try {
-      const post = await ideaBankApi.generatePost(ideaToGenerate.idea_bank.id);
-      setGeneratedPost(post);
-      toast.success("New post generated successfully!");
-    } catch (error) {
-      console.error("Failed to generate post:", error);
-      toast.error("Failed to generate post. Please try again.");
-    } finally {
-      setIsGenerating(false);
-      setIdeaToGenerate(null);
     }
   };
 
@@ -1324,69 +1307,11 @@ const IdeaBankPage: React.FC = () => {
       </Dialog>
 
       {/* Generate Post Confirmation Dialog */}
-      <Dialog
+      <PostGenerationChatDialog
+        idea={ideaToGenerate}
         open={!!ideaToGenerate}
         onOpenChange={(isOpen) => !isOpen && setIdeaToGenerate(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate a New Post?</DialogTitle>
-            <DialogDescription>
-              This will generate a new LinkedIn post based on the following
-              content. Do you want to continue?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="my-4 p-4 bg-gray-50 rounded-md max-h-60 overflow-y-auto">
-            <p className="text-sm text-gray-800 whitespace-pre-wrap">
-              {ideaToGenerate?.idea_bank.data.type === "product" ? (
-                <>
-                  {ideaToGenerate.idea_bank.data.product_name && (
-                    <strong className="block mb-2">
-                      {ideaToGenerate.idea_bank.data.product_name}
-                    </strong>
-                  )}
-                  {ideaToGenerate.idea_bank.data.product_description && (
-                    <div className="block mb-2">
-                      {ideaToGenerate.idea_bank.data.product_description}
-                    </div>
-                  )}
-                  <div className="text-blue-600">
-                    {ideaToGenerate.idea_bank.data.value}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {ideaToGenerate?.idea_bank.data.title && (
-                    <strong className="block mb-2">
-                      {ideaToGenerate.idea_bank.data.title}
-                    </strong>
-                  )}
-                  {ideaToGenerate?.idea_bank.data.value}
-                </>
-              )}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIdeaToGenerate(null)}
-              disabled={isGenerating}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleGeneratePost} disabled={isGenerating}>
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Post"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      />
 
       {/* Generated Post Details Modal */}
       {generatedPost && (

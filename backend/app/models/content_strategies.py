@@ -3,7 +3,6 @@ Content Strategies model for storing user content strategies.
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, String, Text, func
