@@ -20,6 +20,7 @@ interface ScheduledPostDetailsProps {
   onReschedule?: (post: Post) => void;
   onDelete?: (post: Post) => void;
   isProcessing?: boolean;
+  isNewPost?: boolean;
   getSourceIcon?: (platform: string) => React.ReactNode;
   getSourceLabel?: (platform: string) => string;
   formatDateTime?: (dateString: string) => string;
@@ -33,32 +34,11 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
   onReschedule,
   onDelete,
   isProcessing = false,
+  isNewPost = false,
   getSourceIcon,
   getSourceLabel,
   formatDateTime,
 }) => {
-  const defaultGetSourceIcon = (platform: string) => {
-    switch (platform) {
-      case "linkedin":
-        return <Calendar className="w-3 h-3" />;
-      case "article":
-        return <Calendar className="w-3 h-3" />;
-      default:
-        return <Calendar className="w-3 h-3" />;
-    }
-  };
-
-  const defaultGetSourceLabel = (platform: string) => {
-    switch (platform) {
-      case "linkedin":
-        return "LinkedIn";
-      case "article":
-        return "Article";
-      default:
-        return "General";
-    }
-  };
-
   const defaultFormatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -69,8 +49,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
     });
   };
 
-  const sourceIcon = getSourceIcon || defaultGetSourceIcon;
-  const sourceLabel = getSourceLabel || defaultGetSourceLabel;
   const dateTimeFormatter = formatDateTime || defaultFormatDateTime;
 
   return (
@@ -85,13 +63,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
 
         {post && (
           <div className="flex-1 overflow-hidden flex flex-col space-y-4">
-            <div className="flex-shrink-0 flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                {sourceIcon(post.platform)}
-                <span className="ml-1">{sourceLabel(post.platform)}</span>
-              </Badge>
-            </div>
-
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-[300px]">
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -152,7 +123,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
               onClick={() => post && onReschedule(post)}
             >
               <Edit3 className="w-4 h-4 mr-2" />
-              Reschedule
+              {isNewPost ? "Schedule" : "Reschedule"}
             </Button>
           )}
           {onDelete && (

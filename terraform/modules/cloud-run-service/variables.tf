@@ -164,3 +164,33 @@ variable "use_unipile_for_linkedin_name" {
   description = "The name of the Secret Manager secret for the USE_UNIPILE_FOR_LINKEDIN flag."
   type        = string
 }
+
+variable "openrouter_model_primary_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter model primary."
+  type        = string
+}
+
+variable "openrouter_models_fallback_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter models fallback."
+  type        = string
+}
+
+variable "openrouter_model_temperature_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter model temperature."
+  type        = string
+}
+
+variable "openrouter_large_model_primary_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter large model primary."
+  type        = string
+}
+
+variable "openrouter_large_models_fallback_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter large models fallback."
+  type        = string
+}
+
+variable "openrouter_large_model_temperature_name" {
+  description = "The name of the Secret Manager secret for the OpenRouter large model temperature."
+  type        = string
+}

@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     unipile_dsn: Optional[str] = Field(default=None)
     unipile_access_token: Optional[str] = Field(default=None)
 
+    # OpenRouter LLM Configuration
+    openrouter_api_key: Optional[str] = Field(default=None)
+    openrouter_model_primary: str = Field(default="google/gemini-2.5-flash")
+    openrouter_models_fallback: str = Field(default="deepseek/deepseek-chat-v3-0324")
+    openrouter_model_temperature: float = Field(default=0.0)
+    openrouter_large_model_primary: str = Field(default="google/gemini-2.5-pro")
+    openrouter_large_models_fallback: str = Field(default="anthropic/claude-sonnet-4")
+    openrouter_large_model_temperature: float = Field(default=0.0)
+
     # Feature Flags
     use_unipile_for_linkedin: bool = Field(default=False)
 
@@ -70,7 +79,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_environment(cls, v):
         """Validate environment value."""
-        allowed_envs = ["development", "staging", "production", "testing"]
+        allowed_envs = ["development", "staging", "production", "test"]
         if v not in allowed_envs:
             raise ValueError(f"Environment must be one of: {allowed_envs}")
         return v

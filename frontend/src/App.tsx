@@ -73,15 +73,6 @@ const EmailVerificationRoute = () => {
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, pendingEmailVerification } = useAuth();
 
-  console.log(
-    "AuthRoute - user:",
-    user,
-    "loading:",
-    loading,
-    "pendingEmailVerification:",
-    pendingEmailVerification
-  );
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -92,24 +83,20 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 
   // If user is verified and authenticated, redirect to new-content
   if (user && user.is_verified) {
-    console.log("AuthRoute - redirecting verified user to /new-content");
     return <Navigate to="/new-content" replace />;
   }
 
   // If user exists but isn't verified, allow access to public pages
   // (they can still access landing, login, signup while waiting for verification)
   if (user && !user.is_verified) {
-    console.log("AuthRoute - allowing unverified user access to public pages");
     return <>{children}</>;
   }
 
   // If no user but has pending verification, allow access to public pages
   if (pendingEmailVerification) {
-    console.log("AuthRoute - allowing access with pending verification");
     return <>{children}</>;
   }
 
-  console.log("AuthRoute - allowing access to public pages");
   return <>{children}</>;
 };
 
@@ -219,7 +206,7 @@ const App = () => (
               }
             />
             <Route
-              path="/idea-bank"
+              path="/ideas"
               element={
                 <ProtectedRoute>
                   <SidebarProvider>

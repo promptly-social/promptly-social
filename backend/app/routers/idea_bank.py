@@ -18,6 +18,7 @@ from app.schemas.idea_bank import (
     IdeaBankResponse,
     IdeaBankUpdate,
 )
+from app.schemas.posts import PostResponse
 from app.services.idea_bank import IdeaBankService
 
 # Create router
@@ -77,14 +78,8 @@ async def get_idea_banks_with_latest_posts(
     ai_suggested: Optional[bool] = Query(
         None, description="Filter by AI suggested ideas"
     ),
-    evergreen: Optional[bool] = Query(
-        None, description="Filter by evergreen (non-time-sensitive) ideas"
-    ),
     has_post: Optional[bool] = Query(
         None, description="Filter by whether the idea has associated posts"
-    ),
-    post_status: Optional[List[str]] = Query(
-        None, description="Filter by status of associated posts"
     ),
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
@@ -99,9 +94,7 @@ async def get_idea_banks_with_latest_posts(
             order_by=order_by,
             order_direction=order_direction,
             ai_suggested=ai_suggested,
-            evergreen=evergreen,
             has_post=has_post,
-            post_status=post_status,
         )
         return result
     except Exception as e:
@@ -216,6 +209,39 @@ async def update_idea_bank(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update idea bank",
+        )
+
+
+@router.post(
+    "/{idea_bank_id}/generate-post",
+    response_model=PostResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_post_from_idea_bank(
+    idea_bank_id: UUID,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Generate a new post from an idea bank entry."""
+    try:
+        idea_bank_service = IdeaBankService(db)
+        new_post = await idea_bank_service.generate_post_from_idea(
+            current_user.id, idea_bank_id
+        )
+
+        if not new_post:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Idea bank not found"
+            )
+
+        return new_post
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating post from idea bank {idea_bank_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate post from idea bank",
         )
 
 

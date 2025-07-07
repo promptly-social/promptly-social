@@ -36,14 +36,14 @@ const menuItems = [
     icon: List,
   },
   {
+    title: "Ideas",
+    url: "/ideas",
+    icon: Lightbulb,
+  },
+  {
     title: "Posting Schedule",
     url: "/posting-schedule",
     icon: Calendar,
-  },
-  {
-    title: "Idea Bank",
-    url: "/idea-bank",
-    icon: Lightbulb,
   },
   {
     title: "Profile",

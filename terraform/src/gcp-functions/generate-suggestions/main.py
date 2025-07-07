@@ -101,6 +101,51 @@ def get_writing_style(supabase_client: Client, user_id: str) -> str:
         return ""
 
 
+def get_user_ideas(supabase_client: Client, user_id: str) -> List[Dict[str, Any]]:
+    """
+    Get the user's ideas that either don't have a post yet or the post was generated more than a week ago.
+    """
+    try:
+        # Get ideas with no posts
+        ideas_with_no_posts_res = (
+            supabase_client.table("idea_banks")
+            .select("id, data, created_at, posts!idea_bank_id!left(id)")
+            .eq("user_id", user_id)
+            .eq("data->>ai_suggested", "false")
+            .is_("posts", "null")
+            .execute()
+        )
+        ideas_with_no_posts = ideas_with_no_posts_res.data or []
+
+        # Get ideas with posts older than a week
+        one_week_ago = (datetime.now() - timedelta(days=7)).isoformat()
+        ideas_with_old_posts_res = (
+            supabase_client.table("idea_banks")
+            .select("id, data, created_at, posts!idea_bank_id!left(id)")
+            .eq("user_id", user_id)
+            .eq("data->>ai_suggested", "false")
+            .not_.is_("posts", "null")  # Must have posts
+            .lt("posts.created_at", one_week_ago)
+            .execute()
+        )
+        ideas_with_old_posts = ideas_with_old_posts_res.data or []
+
+        # Combine and deduplicate
+        all_ideas = {idea["id"]: idea for idea in ideas_with_no_posts}
+        for idea in ideas_with_old_posts:
+            all_ideas[idea["id"]] = idea
+
+        # Sort combined ideas by creation date
+        sorted_ideas = sorted(
+            all_ideas.values(), key=lambda x: x["created_at"], reverse=True
+        )
+
+        return sorted_ideas
+    except Exception as e:
+        logger.error(f"Error fetching user ideas for user {user_id}: {e}")
+        return []
+
+
 def get_latest_articles_from_idea_bank(
     supabase_client: Client,
     user_id: str,
@@ -120,11 +165,12 @@ def get_latest_articles_from_idea_bank(
 
         response = (
             supabase_client.table("idea_banks")
-            .select("id, data, created_at, posts!left(id)")
+            .select("id, data, created_at, posts!idea_bank_id!left(id)")
             .eq("user_id", user_id)
-            .eq("data->>type", "article")
+            .eq("data->>type", "url")
+            .eq("data->>ai_suggested", "true")
             .gte("created_at", twelve_hours_ago)
-            .is_("posts.id", "null")
+            .is_("posts", "null")
             .order("created_at", desc=True)
             .execute()
         )
@@ -182,7 +228,7 @@ def save_candidate_posts_to_idea_banks(
         else:
             # URL doesn't exist, create new entry
             data = {
-                "type": "article",
+                "type": "url",
                 "value": post_url,
                 "title": post.get("title", ""),
                 "time_sensitive": post.get("time_sensitive", False),
@@ -283,7 +329,6 @@ Encourage Conversation: End your post with a clear call-to-action or an open-end
 Write for Readability: Use short paragraphs, single-sentence lines, and bullet points to break up large blocks of text. This makes the post easier to scan and digest on a mobile device.
 Provide Genuine Value: The core of the text should offer insights, tips, or a personal story that is valuable to your target audience. Avoid pure self-promotion and focus on sharing expertise or relatable experiences.
 Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
-Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the end of your post. These should act as keywords for your topic (e.g., #ProjectManagementTips instead of just #Management) to connect with interested communities.
     """
 
     try:
@@ -397,9 +442,14 @@ def generate_suggestions(request):
         # Get writing style
         writing_style = get_writing_style(supabase, user_id)
 
-        candidate_posts = []
+        # Get user ideas
+        user_ideas = get_user_ideas(supabase, user_id)
+        logger.debug(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
 
-        # Get latest
+        # initialize candidate posts with user ideas first
+        candidate_posts = user_ideas
+
+        # Get latest articles suggested by AI and saved in the idea banks
         latest_substack_linkedin_posts = get_latest_articles_from_idea_bank(
             supabase, user_id
         )
@@ -457,7 +507,7 @@ def generate_suggestions(request):
 
         linkedin_post_strategy = get_content_strategy(supabase, user_id)
 
-        generated_posts = posts_generator.generate_posts(
+        generated_posts = posts_generator.generate_posts_from_articles(
             user_id,
             candidate_posts,
             bio,
@@ -466,11 +516,6 @@ def generate_suggestions(request):
             number_of_posts_to_generate,
             linkedin_post_strategy,
         )
-
-        # Save generated posts to file
-        output_file = f"generated_posts_{len(generated_posts)}_posts.json"
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(generated_posts, f, indent=2, ensure_ascii=False)
 
         # Add the post_id to the generated posts
         for post in generated_posts:

@@ -202,6 +202,66 @@ resource "google_cloud_run_service" "backend" {
             }
           }
         }
+
+        env {
+          name = "OPENROUTER_MODEL_PRIMARY"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_model_primary_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "OPENROUTER_MODELS_FALLBACK"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_models_fallback_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "OPENROUTER_MODEL_TEMPERATURE"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_model_temperature_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "OPENROUTER_LARGE_MODEL_PRIMARY"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_large_model_primary_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "OPENROUTER_LARGE_MODELS_FALLBACK"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_large_models_fallback_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "OPENROUTER_LARGE_MODEL_TEMPERATURE"
+          value_from {
+            secret_key_ref {
+              name = var.openrouter_large_model_temperature_name
+              key  = "latest"
+            }
+          }
+        }
       }
     }
   }

@@ -46,6 +46,10 @@ jobs:
           echo "SUPABASE_SERVICE_KEY=test-service-key" >> .env
           echo "ENVIRONMENT=test" >> .env
           echo "DEBUG=True" >> .env
+          echo "OPENROUTER_API_KEY=test-openrouter-api-key" >> .env
+          echo "OPENROUTER_LARGE_MODEL_PRIMARY=google/gemini-2.0-flash-001" >> .env
+          echo "OPENROUTER_LARGE_MODELS_FALLBACK=google/gemini-2.0-flash-001" >> .env
+          echo "OPENROUTER_LARGE_MODEL_TEMPERATURE=0.7" >> .env
 
       - name: Run linting
         working-directory: ./backend
@@ -87,7 +91,18 @@ jobs:
         working-directory: ./backend
         run: |
           # Run a quick test to ensure the container starts
-          docker run --rm -d --name test-container -p 8001:8000 backend-test:latest
+          docker run --rm -d --name test-container -p 8001:8000 \
+            -e JWT_SECRET_KEY=test-jwt-secret-key-for-testing-only \
+            -e SUPABASE_URL=https://test.supabase.co \
+            -e SUPABASE_KEY=test-anon-key \
+            -e SUPABASE_SERVICE_KEY=test-service-key \
+            -e ENVIRONMENT=test \
+            -e DEBUG=True \
+            -e OPENROUTER_API_KEY=test-openrouter-api-key \
+            -e OPENROUTER_LARGE_MODEL_PRIMARY=google/gemini-2.0-flash-001 \
+            -e OPENROUTER_LARGE_MODELS_FALLBACK=google/gemini-2.0-flash-001 \
+            -e OPENROUTER_LARGE_MODEL_TEMPERATURE=0.7 \
+            backend-test:latest
           sleep 10
           # Test health endpoint (assuming you have one)
           curl -f http://localhost:8001/health || (docker logs test-container && exit 1)

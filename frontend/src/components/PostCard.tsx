@@ -178,7 +178,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
           ) : (
             <>
-              <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap p-2">
                 {renderContentWithNewlines(post.content)}
               </p>
               {onStartEditing && (
@@ -196,13 +196,6 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-          <div className="flex items-center gap-2 text-gray-600">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span>
-              Recommendation score:{" "}
-              <strong>{post.recommendation_score}/100</strong>
-            </span>
-          </div>
           <div className="flex items-center gap-2 text-gray-600">
             <Clock className="w-4 h-4 text-blue-500" />
             <span>
