@@ -159,10 +159,7 @@ export const SocialConnections: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Substack Connection Component */}
-        <SubstackConnection />
-
-        {/* Other Platform Connections */}
+        {/* Platform Connections */}
         {platforms.map((platform) => (
           <div
             key={platform.key}
@@ -234,6 +231,9 @@ export const SocialConnections: React.FC = () => {
             </div>
           </div>
         ))}
+
+        {/* Substack Connection Component */}
+        <SubstackConnection />
       </CardContent>
 
       <AnalysisOptionsModal

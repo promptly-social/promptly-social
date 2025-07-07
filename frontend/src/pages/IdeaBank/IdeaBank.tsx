@@ -92,6 +92,9 @@ const IdeaBankPage: React.FC = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingIdeaBank, setEditingIdeaBank] =
     useState<IdeaBankWithPost | null>(null);
+  const [editFormData, setEditFormData] = useState<
+    IdeaBankCreate["data"] | null
+  >(null);
   const [ideaToGenerate, setIdeaToGenerate] = useState<IdeaBankWithPost | null>(
     null
   );
@@ -226,31 +229,29 @@ const IdeaBankPage: React.FC = () => {
     setEditingIdeaBank(ideaBankWithPost);
     const ideaBank = ideaBankWithPost.idea_bank;
 
-    setFormData({
-      data: {
-        type: ideaBank.data.type,
-        value: ideaBank.data.value,
-        title: ideaBank.data.title || "",
-        product_name: ideaBank.data.product_name || "",
-        product_description: ideaBank.data.product_description || "",
-        time_sensitive: ideaBank.data.time_sensitive || false,
-        ai_suggested: ideaBank.data.ai_suggested || false,
-      },
+    setEditFormData({
+      type: ideaBank.data.type,
+      value: ideaBank.data.value,
+      title: ideaBank.data.title || "",
+      product_name: ideaBank.data.product_name || "",
+      product_description: ideaBank.data.product_description || "",
+      time_sensitive: ideaBank.data.time_sensitive || false,
+      ai_suggested: ideaBank.data.ai_suggested || false,
     });
     setShowEditDialog(true);
   };
 
   const handleUpdate = async () => {
-    if (!editingIdeaBank) return;
+    if (!editingIdeaBank || !editFormData) return;
 
     try {
       await ideaBankApi.update(editingIdeaBank.idea_bank.id, {
-        data: formData.data,
+        data: editFormData,
       });
       toast.success("Idea bank updated successfully");
       setShowEditDialog(false);
       setEditingIdeaBank(null);
-      resetFormData();
+      setEditFormData(null);
       loadIdeaBanks();
     } catch (error) {
       console.error("Failed to update idea bank:", error);
@@ -1138,7 +1139,7 @@ const IdeaBankPage: React.FC = () => {
           setShowEditDialog(isOpen);
           if (!isOpen) {
             setEditingIdeaBank(null);
-            resetFormData();
+            setEditFormData(null);
           }
         }}
       >
@@ -1147,162 +1148,166 @@ const IdeaBankPage: React.FC = () => {
             <DialogTitle>Edit Idea</DialogTitle>
             <DialogDescription>Update your idea bank entry.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-type">Type</Label>
-              <Select
-                value={formData.data.type}
-                onValueChange={(value: "url" | "text" | "product") =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: {
-                      ...prev.data,
-                      type: value,
-                      title: value === "text" ? "" : prev.data.title,
-                      product_name:
-                        value === "product" ? prev.data.product_name : "",
-                      product_description:
-                        value === "product"
-                          ? prev.data.product_description
-                          : "",
-                    },
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url">URL</SelectItem>
-                  <SelectItem value="text">Text</SelectItem>
-                  <SelectItem value="product">Product</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {formData.data.type === "url" && (
-              <div className="space-y-2">
-                <Label htmlFor="edit-title">Title (Optional)</Label>
-                <Input
-                  id="edit-title"
-                  placeholder="Enter an optional title for this link..."
-                  value={formData.data.title || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: { ...prev.data, title: e.target.value },
-                    }))
-                  }
-                />
+          {editFormData && (
+            <>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Type</Label>
+                  <Select
+                    value={editFormData.type}
+                    onValueChange={(newType: "url" | "text" | "product") => {
+                      setEditFormData((prev) => {
+                        if (!prev) return null;
+                        return {
+                          ...prev,
+                          type: newType,
+                          value: "",
+                          title: newType !== "url" ? "" : prev.title,
+                          product_name:
+                            newType !== "product" ? "" : prev.product_name,
+                          product_description:
+                            newType !== "product"
+                              ? ""
+                              : prev.product_description,
+                        };
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="url">URL</SelectItem>
+                      <SelectItem value="text">Text</SelectItem>
+                      <SelectItem value="product">Product</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editFormData.type === "url" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-title">Title (Optional)</Label>
+                    <Input
+                      id="edit-title"
+                      placeholder="Enter an optional title for this link..."
+                      value={editFormData.title || ""}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({
+                          ...prev!,
+                          title: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+                {editFormData.type === "product" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-product-name">
+                        Product Name (Optional)
+                      </Label>
+                      <Input
+                        id="edit-product-name"
+                        placeholder="Enter the product name..."
+                        value={editFormData.product_name || ""}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({
+                            ...prev!,
+                            product_name: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-product-description">
+                        Product Description (Optional)
+                      </Label>
+                      <Textarea
+                        id="edit-product-description"
+                        placeholder="Enter the product description..."
+                        value={editFormData.product_description || ""}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({
+                            ...prev!,
+                            product_description: e.target.value,
+                          }))
+                        }
+                        rows={3}
+                        className="min-h-[80px] resize-none"
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-value">
+                    {editFormData.type === "url"
+                      ? "URL"
+                      : editFormData.type === "product"
+                      ? "Product URL"
+                      : "Content"}
+                  </Label>
+                  {editFormData.type === "url" ||
+                  editFormData.type === "product" ? (
+                    <Input
+                      key="value-input"
+                      id="edit-value"
+                      type="url"
+                      placeholder={
+                        editFormData.type === "url"
+                          ? "https://example.com/url"
+                          : "https://example.com/product"
+                      }
+                      value={editFormData.value}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({
+                          ...prev!,
+                          value: e.target.value,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <Textarea
+                      key="value-textarea"
+                      id="edit-value"
+                      placeholder="Enter your idea or text content..."
+                      value={editFormData.value}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({
+                          ...prev!,
+                          value: e.target.value,
+                        }))
+                      }
+                      rows={4}
+                      className="min-h-[100px] resize-none"
+                    />
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="edit-time-sensitive"
+                    checked={editFormData.time_sensitive}
+                    onCheckedChange={(checked) =>
+                      setEditFormData((prev) => ({
+                        ...prev!,
+                        time_sensitive: checked,
+                      }))
+                    }
+                  />
+                  <Label htmlFor="edit-time-sensitive">Trending</Label>
+                </div>
               </div>
-            )}
-            {formData.data.type === "product" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-product-name">
-                    Product Name (Optional)
-                  </Label>
-                  <Input
-                    id="edit-product-name"
-                    placeholder="Enter the product name..."
-                    value={formData.data.product_name || ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: { ...prev.data, product_name: e.target.value },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-product-description">
-                    Product Description (Optional)
-                  </Label>
-                  <Textarea
-                    id="edit-product-description"
-                    placeholder="Enter the product description..."
-                    value={formData.data.product_description || ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          product_description: e.target.value,
-                        },
-                      }))
-                    }
-                    rows={3}
-                    className="min-h-[80px] resize-none"
-                  />
-                </div>
-              </>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="edit-value">
-                {formData.data.type === "url"
-                  ? "URL"
-                  : formData.data.type === "product"
-                  ? "Product URL"
-                  : "Content"}
-              </Label>
-              {formData.data.type === "url" ||
-              formData.data.type === "product" ? (
-                <Input
-                  id="edit-value"
-                  type="url"
-                  placeholder={
-                    formData.data.type === "url"
-                      ? "https://example.com/url"
-                      : "https://example.com/product"
-                  }
-                  value={formData.data.value}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: { ...prev.data, value: e.target.value },
-                    }))
-                  }
-                />
-              ) : (
-                <Textarea
-                  id="edit-value"
-                  placeholder="Enter your idea or text content..."
-                  value={formData.data.value}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: { ...prev.data, value: e.target.value },
-                    }))
-                  }
-                  rows={4}
-                  className="min-h-[100px] resize-none"
-                />
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="edit-time-sensitive"
-                checked={formData.data.time_sensitive}
-                onCheckedChange={(checked) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, time_sensitive: checked },
-                  }))
-                }
-              />
-              <Label htmlFor="edit-time-sensitive">Trending</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleUpdate}
-              disabled={!formData.data.value.trim()}
-            >
-              Update
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  onClick={handleUpdate}
+                  disabled={!editFormData.value.trim()}
+                >
+                  Update
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
