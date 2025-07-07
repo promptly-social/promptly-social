@@ -34,6 +34,10 @@ os.environ.update(
         "LOG_LEVEL": "DEBUG",
         "LOG_FORMAT": "console",
         # OpenRouter Configuration
+        "OPENROUTER_API_KEY": "test-openrouter-api-key",
+        "OPENROUTER_MODEL_PRIMARY": "google/gemini-2.5-pro",
+        "OPENROUTER_MODEL_TEMPERATURE": "0.0",
+        "OPENROUTER_MODELS_FALLBACK": "anthropic/claude-sonnet-4",
         "OPENROUTER_LARGE_MODEL_TEMPERATURE": "0.0",
         "OPENROUTER_LARGE_MODEL_PRIMARY": "google/gemini-2.5-pro",
         "OPENROUTER_LARGE_MODELS_FALLBACK": "anthropic/claude-sonnet-4",
