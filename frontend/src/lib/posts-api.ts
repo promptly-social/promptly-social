@@ -50,6 +50,10 @@ export interface UpdatePostRequest {
   scheduled_at?: string;
 }
 
+export interface PostBatchUpdateRequest {
+  posts: UpdatePostRequest[];
+}
+
 export interface PostFeedbackRequest {
   feedback_type: "positive" | "negative";
   comment?: string;
@@ -120,6 +124,22 @@ class PostsAPI {
       method: "PUT",
       body: JSON.stringify(data),
     });
+    return response;
+  }
+
+  /**
+   * Batch update posts
+   */
+  async batchUpdatePosts(
+    data: PostBatchUpdateRequest
+  ): Promise<PostsListResponse> {
+    const response = await apiClient.request<PostsListResponse>(
+      "/posts/batch-update",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
     return response;
   }
 

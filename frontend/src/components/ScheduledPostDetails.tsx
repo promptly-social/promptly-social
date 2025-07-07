@@ -21,8 +21,6 @@ interface ScheduledPostDetailsProps {
   onDelete?: (post: Post) => void;
   isProcessing?: boolean;
   isNewPost?: boolean;
-  getSourceIcon?: (platform: string) => React.ReactNode;
-  getSourceLabel?: (platform: string) => string;
   formatDateTime?: (dateString: string) => string;
 }
 
@@ -35,8 +33,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
   onDelete,
   isProcessing = false,
   isNewPost = false,
-  getSourceIcon,
-  getSourceLabel,
   formatDateTime,
 }) => {
   const defaultFormatDateTime = (dateString: string) => {

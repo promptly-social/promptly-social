@@ -78,11 +78,6 @@ export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
           >
             {date.getDate()}
           </span>
-          {posts.length > 0 && (
-            <Badge variant="outline" className="text-xs">
-              {posts.length}
-            </Badge>
-          )}
         </div>
 
         <div

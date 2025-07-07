@@ -19,6 +19,7 @@ from app.schemas.posts import (
     PostResponse,
     PostUpdate,
     PostFeedback,
+    PostBatchUpdate,
 )
 from app.services.posts import PostsService
 from app.core.config import settings
@@ -135,6 +136,27 @@ async def update_post(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update post",
+        )
+
+
+@router.post("/batch-update", response_model=PostListResponse)
+async def batch_update_posts(
+    posts: PostBatchUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Batch update posts."""
+    try:
+        service = PostsService(db)
+        posts = await service.batch_update_posts(current_user.id, posts)
+        return PostListResponse.model_validate(posts)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error batch updating posts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to batch update posts",
         )
 
 

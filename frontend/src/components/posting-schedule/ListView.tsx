@@ -8,7 +8,6 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 interface PostListViewProps {
   posts: Post[];
   title: string;
-  onRefresh: () => void;
   onPostClick: (post: Post) => void;
   isDragDropEnabled: boolean;
   onNavigate?: (direction: "prev" | "next") => void;
@@ -18,7 +17,6 @@ interface PostListViewProps {
 const PostListView: React.FC<PostListViewProps> = ({
   posts,
   title,
-  onRefresh,
   onPostClick,
   isDragDropEnabled,
   onNavigate,
@@ -82,14 +80,12 @@ const PostListView: React.FC<PostListViewProps> = ({
 
 interface ListViewProps {
   posts: Post[];
-  onRefresh: () => void;
   onPostClick: (post: Post) => void;
   isDragDropEnabled: boolean;
 }
 
 export const ListView: React.FC<ListViewProps> = ({
   posts,
-  onRefresh,
   onPostClick,
   isDragDropEnabled,
 }) => {
@@ -97,7 +93,6 @@ export const ListView: React.FC<ListViewProps> = ({
     <PostListView
       posts={posts}
       title="Upcoming Posts"
-      onRefresh={onRefresh}
       onPostClick={onPostClick}
       isDragDropEnabled={isDragDropEnabled}
     />

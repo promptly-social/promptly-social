@@ -30,6 +30,7 @@ class PostCreate(PostBase):
 class PostUpdate(BaseModel):
     """Schema for updating posts."""
 
+    id: Optional[UUID] = None
     title: Optional[str] = None
     content: Optional[str] = None
     platform: Optional[str] = None
@@ -37,6 +38,12 @@ class PostUpdate(BaseModel):
     recommendation_score: Optional[int] = Field(None, ge=0, le=100)
     status: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+
+
+class PostBatchUpdate(BaseModel):
+    """Schema for batch updating posts."""
+
+    posts: List[PostUpdate]
 
 
 class PostFeedback(BaseModel):
