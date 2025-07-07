@@ -1311,6 +1311,7 @@ const IdeaBankPage: React.FC = () => {
         idea={ideaToGenerate}
         open={!!ideaToGenerate}
         onOpenChange={(isOpen) => !isOpen && setIdeaToGenerate(null)}
+        onScheduleComplete={loadIdeaBanks}
       />
 
       {/* Generated Post Details Modal */}

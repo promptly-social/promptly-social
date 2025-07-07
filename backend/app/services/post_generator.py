@@ -53,29 +53,88 @@ class PostGeneratorService:
         """
 
         prompt = f"""
-        You are an expert at generating posts for LinkedIn to gain the most engagement.
-        Your task is to create a LinkedIn post based on the provided content idea and user profile information.
+            You are an expert at generating posts for LinkedIn to gain the most engagement.
+            Your task is to create a LinkedIn post based on the provided content idea and user profile information.
 
-        Content Idea:
-        ---
-        {idea_content}
-        ---
+            Content Idea:
+            ---
+            {idea_content}
+            ---
 
-        User Profile:
-        - Bio: {bio}
-        - Writing Style: {writing_style}
-        - LinkedIn Post Strategy: {linkedin_post_strategy}
+            User Profile:
+            - Bio: {bio}
+            - Writing Style: {writing_style}
+            - LinkedIn Post Strategy: {linkedin_post_strategy}
 
-        Instructions:
-        1. Generate a LinkedIn-appropriate post that is engaging and likely to get high engagement.
-        2. The post should be plain text, without any markdown or special characters like em-dashes or arrows, that might suggest AI generation.
-        3. If the content idea is a URL, do not include the link in the post, but cite the source of the post in the post.
-       
-        Return the generated post in plain text.
-        """
+            Instructions:
+            1. Generate a LinkedIn-appropriate post that is engaging and likely to get high engagement.
+            2. The post should be plain text, without any markdown or special characters like em-dashes or arrows, that might suggest AI generation.
+            3. If the content idea is a URL, do not include the link in the post, but cite the source of the post in the post.
+           
+            Return the generated post in plain text.
+            """
 
         # Use streaming to start generating immediately and allow future extension.
-        async with self.agent.run_stream(prompt) as run_result:
+        async with self.agent.run_stream(
+            prompt,
+        ) as run_result:
+            final_text = ""
+            async for text_chunk in run_result.stream_text():
+                final_text = text_chunk  # stream_text returns cumulative text
+
+            return final_text
+
+    async def revise_post(
+        self,
+        idea_content: str,
+        bio: Optional[str],
+        writing_style: Optional[str],
+        linkedin_post_strategy: Optional[str],
+        previous_draft: Optional[str] = None,
+        user_feedback: Optional[str] = None,
+    ) -> str:
+        """Revises a LinkedIn post based on user feedback."""
+
+        prompt = f"""
+            You are an expert copy editor revising a LinkedIn post based on user feedback.
+            Your task is to apply the user's feedback to the 'previous draft' by making targeted edits.
+            Do not rewrite the entire post unless the user explicitly asks for it. Your goal is to preserve the original post's structure and content as much as possible, only making changes based on the feedback.
+
+            The original idea for the post was:
+            ---
+            {idea_content}
+            ---
+
+            Here is the previous draft:
+            ---
+            {previous_draft}
+            ---
+
+            Here is the user's feedback:
+            ---
+            {user_feedback}
+            ---
+            
+            User Profile (for context):
+            - Bio: {bio}
+            - Writing Style: {writing_style}
+            - LinkedIn Post Strategy: {linkedin_post_strategy}
+
+            Instructions:
+            1. Carefully analyze the user's feedback.
+            2. Apply the requested changes directly to the 'previous draft'.
+            3. Maintain the original tone and style unless the feedback specifies a change.
+            4. The revised post should still be engaging and likely to get high engagement on LinkedIn.
+            5. The post should be plain text, without any markdown or special characters like em-dashes or arrows, that might suggest AI generation.
+            6. If the content idea is a URL, do not include the link in the post, but cite the source of the post in the post.
+           
+            ONLY return the revised draft content as plain text. Do not include your thoughts, summaries, or any other text.
+            """
+
+        # Use streaming to start generating immediately and allow future extension.
+        async with self.agent.run_stream(
+            prompt,
+        ) as run_result:
             final_text = ""
             async for text_chunk in run_result.stream_text():
                 final_text = text_chunk  # stream_text returns cumulative text
@@ -99,11 +158,7 @@ async def generate_linkedin_post_tool(
         description="The user's LinkedIn post strategy."
     ),
 ) -> str:
-    """Tool wrapper for generating a LinkedIn post.
-
-    This tool should only be used when the agent has gathered enough information.
-    It calls the `PostGeneratorService` and returns a JSON string of the generated post.
-    """
+    """Tool wrapper for generating a LinkedIn post."""
 
     post = await ctx.deps.generate_post(
         idea_content=idea_content,
@@ -112,4 +167,38 @@ async def generate_linkedin_post_tool(
         linkedin_post_strategy=linkedin_post_strategy,
     )
 
+    print("GENERATING a new post")
+
+    return post
+
+
+@post_generator_service.agent.tool
+async def revise_linkedin_post_tool(
+    ctx: RunContext[PostGeneratorService],
+    idea_content: str = Field(
+        description="The content of the post idea, this is the main topic of the post."
+    ),
+    bio: str = Field(description="The user's biography."),
+    writing_style: str = Field(description="The user's writing style."),
+    linkedin_post_strategy: str = Field(
+        description="The user's LinkedIn post strategy."
+    ),
+    previous_draft: Optional[str] = Field(
+        default=None, description="The previous draft of the post to revise."
+    ),
+    user_feedback: Optional[str] = Field(
+        default=None, description="The user's feedback on the previous draft."
+    ),
+) -> str:
+    """Tool wrapper for revising a LinkedIn post."""
+    post = await ctx.deps.revise_post(
+        idea_content=idea_content,
+        bio=bio,
+        writing_style=writing_style,
+        linkedin_post_strategy=linkedin_post_strategy,
+        previous_draft=previous_draft,
+        user_feedback=user_feedback,
+    )
+
+    print("REVISING a post")
     return post

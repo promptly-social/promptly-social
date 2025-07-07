@@ -34,6 +34,7 @@ from app.schemas.chat import (
 )
 from app.services.post_generator import (
     generate_linkedin_post_tool,
+    revise_linkedin_post_tool,
     PostGeneratorService,
 )
 
@@ -67,7 +68,7 @@ class ChatService:
 
         return Agent[PostGeneratorService, str](
             model,
-            tools=[generate_linkedin_post_tool],
+            tools=[generate_linkedin_post_tool, revise_linkedin_post_tool],
             model_settings=OpenAIModelSettings(
                 temperature=settings.openrouter_model_temperature,
                 extra_body={"models": fallback_models},
@@ -186,6 +187,8 @@ class ChatService:
             elif msg.role == "assistant":
                 history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
             # system messages and other roles are ignored here; adjust if needed
+            elif msg.role == "tool":
+                history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
         return history
 
     async def stream_chat_response(
@@ -207,30 +210,48 @@ class ChatService:
             conversation.id, user_message.role, user_message.content
         )
 
+        # Check for a previous draft in the conversation history
+        previous_draft = None
+        # Check messages before the current user message
+        for msg in reversed(messages[:-1]):
+            if msg.role == "tool":
+                previous_draft = msg.content
+                break
+
         profile_data = await self._get_user_profile_data(user.id)
         bio = profile_data["bio"]
         writing_style = profile_data["writing_style"]
         linkedin_post_strategy = profile_data["linkedin_post_strategy"]
         idea_content = idea_bank.data.get("value") or idea_bank.data.get("title", "")
 
-        system_prompt = f"""You are a helpful writing assistant for LinkedIn.
-        Your goal is to help the user generate a post based on an idea they've provided.
-        DO NOT generate a post until you have gathered enough information from the user.
+        user_feedback = user_message.content
 
-        Here is the user's profile information, use it to inform the conversation and post generation:
-        - Bio: {bio}
-        - Writing Style: {writing_style}
-        - LinkedIn Post Strategy: {linkedin_post_strategy}
+        # Determine which prompt to use
+        if previous_draft:
+            # Revision prompt
+            system_prompt = f"""You are a copy editor. Your only task is to revise a LinkedIn post based on user feedback.
+            - Previous Draft: {previous_draft}
+            - User Feedback: {user_feedback}
+            - Post Idea: {idea_content}
+            - User Bio: {bio}
+            - User Writing Style: {writing_style}
+            - User LinkedIn Strategy: {linkedin_post_strategy}
 
-        The user wants to write a post about: "{idea_content}"
+            You MUST use the 'revise_linkedin_post_tool' to revise the draft.
+            Do not ask questions. Do not add any extra text. ONLY return the revised draft.
+            """
+        else:
+            # Generation prompt
+            system_prompt = f"""You are a writing assistant. Your task is to help a user create a LinkedIn post.
+            - Post Idea: {idea_content}
+            - User Bio: {bio}
+            - User Writing Style: {writing_style}
+            - User LinkedIn Strategy: {linkedin_post_strategy}
 
-        Your task is to have a conversation with the user to refine the post.
-        1. Ask one follow-up question at a time to understand what perspective or angle they want to write from.
-        2. Keep your questions concise and clear.
-        3. Once you have enough information, use the 'generate_linkedin_post_tool' to create a draft.
-           You MUST pass all the required parameters to the tool.
-        4. When the tool returns the generated post, present it to the user.
-        """
+            If you have enough information, use the 'generate_linkedin_post_tool'.
+            If not, ask one clarifying question to better understand the user's needs.
+            Keep your questions concise.
+            """
 
         # Convert prior messages (exclude the latest user message) to the correct datatype
         history = self._convert_to_message_history(messages[:-1])
@@ -245,18 +266,6 @@ class ChatService:
                 deps=deps,
                 message_history=history,
             ) as result:
-                # Handle any immediate tool calls / returns that occur before text is streamed
-                for message in result.new_messages():
-                    for part in message.parts:
-                        # Forward tool results to the client as soon as they arrive
-                        if isinstance(part, ToolReturnPart):
-                            # Emit the tool output as a normal chat message so existing
-                            # frontend code (which expects `type == "message"`) will
-                            # display it without additional logic.
-                            yield ChatStreamResponse(
-                                type="message", content=str(part.content)
-                            )
-
                 full_response = ""
                 last_len = 0
                 async for text in result.stream_text():
@@ -269,14 +278,6 @@ class ChatService:
                     # Keep track of the full accumulated response so we can persist it
                     full_response = text
 
-                    # Check if any new tool return messages arrived since the last iteration
-                    for msg in result.new_messages():
-                        for p in msg.parts:
-                            if isinstance(p, ToolReturnPart):
-                                yield ChatStreamResponse(
-                                    type="message", content=str(p.content)
-                                )
-
                 # Persist the assistant's final reply
                 if full_response:
                     await self._add_message_to_db(
@@ -287,8 +288,12 @@ class ChatService:
                 for msg in result.new_messages():
                     for p in msg.parts:
                         if isinstance(p, ToolReturnPart):
+                            tool_output = str(p.content)
+                            await self._add_message_to_db(
+                                conversation.id, "tool", tool_output
+                            )
                             yield ChatStreamResponse(
-                                type="message", content=str(p.content)
+                                type="tool_output", content=tool_output
                             )
 
                 # Signal the end of the stream to the client

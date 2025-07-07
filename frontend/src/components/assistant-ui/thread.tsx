@@ -4,6 +4,8 @@ import {
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  useMessage,
+  type ToolCallContentPart,
 } from "@assistant-ui/react";
 
 import type { FC } from "react";
@@ -15,8 +17,17 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { useMemo } from "react";
+import { usePostScheduling } from "../chat/PostGenerationChatDialog";
 
 export const Thread: FC<{ placeholder?: string; initialText?: string }> = ({
   placeholder = "Write a message...",
@@ -176,11 +187,50 @@ const EditComposer: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
+  const message = useMessage();
+  const { onSchedule } = usePostScheduling();
+
+  const isToolOutput = useMemo(
+    () => message.content[0]?.type === "tool-call",
+    [message.content]
+  );
+
+  const toolCallContent =
+    isToolOutput && message.content[0].type === "tool-call"
+      ? (message.content[0] as ToolCallContentPart & { result?: string })
+      : null;
+
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5">
-        <MessagePrimitive.Content components={{ Text: MarkdownText }} />
-        <MessageError />
+        {toolCallContent ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Preview</CardTitle>
+            </CardHeader>
+            <CardContent className="prose dark:prose-invert text-sm py-4 px-6">
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {toolCallContent.result as string}
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={() => {
+                  if (toolCallContent.result) {
+                    onSchedule(toolCallContent.result);
+                  }
+                }}
+              >
+                Schedule this post
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          <>
+            <MessagePrimitive.Content components={{ Text: MarkdownText }} />
+            <MessageError />
+          </>
+        )}
       </div>
 
       <AssistantActionBar />

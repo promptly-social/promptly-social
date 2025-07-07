@@ -80,8 +80,8 @@ class ChatRequest(BaseModel):
 class ChatStreamResponse(BaseModel):
     """Schema for streaming chat responses."""
 
-    type: Literal["message", "tool_result", "error", "end"] = Field(
-        ..., description="Response type: message, tool_result, error, or end"
+    type: Literal["message", "tool_output", "error", "end"] = Field(
+        ..., description="Response type: message, tool_output, error, or end"
     )
     content: Optional[str] = Field(None, description="The response content")
     tool_name: Optional[str] = Field(None, description="The name of the tool used")

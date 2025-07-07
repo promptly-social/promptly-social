@@ -9,36 +9,138 @@ import {
   AssistantRuntimeProvider,
   useLocalRuntime,
   type ChatModelAdapter,
+  type TextContentPart,
   type ThreadMessage,
+  type ToolCallContentPart,
 } from "@assistant-ui/react";
 import { Thread } from "@/components/assistant-ui/thread";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { createOrGetConversation } from "@/lib/chat-api";
 import { Conversation, ConversationMessage } from "@/types/chat";
+import { Post, postsApi } from "@/lib/posts-api";
+import { PostScheduleModal } from "../PostScheduleModal";
+import { useToast } from "../ui/use-toast";
+
+type PostSchedulingContextType = {
+  onSchedule: (content: string) => void;
+};
+
+const PostSchedulingContext = createContext<PostSchedulingContextType | null>(
+  null
+);
+
+export const usePostScheduling = () => {
+  const context = useContext(PostSchedulingContext);
+  if (!context) {
+    throw new Error(
+      "usePostScheduling must be used within a PostSchedulingProvider"
+    );
+  }
+  return context;
+};
 
 type PostGenerationChatDialogProps = {
   idea: IdeaBankWithPost | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onScheduleComplete: () => void;
 };
 
-const ChatDialogContent = ({ idea }: { idea: IdeaBankWithPost }) => {
+const ChatDialogContent = ({
+  idea,
+  onScheduleComplete,
+  onClose,
+}: {
+  idea: IdeaBankWithPost;
+  onScheduleComplete: () => void;
+  onClose: () => void;
+}) => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [initialMessages, setInitialMessages] = useState<ThreadMessage[]>([]);
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
+
+  const [postToSchedule, setPostToSchedule] = useState<Post | null>(null);
+  const { toast } = useToast();
+
+  const fetchScheduledPosts = async () => {
+    try {
+      const response = await postsApi.getPosts({ status: ["scheduled"] });
+      setScheduledPosts(response.items);
+    } catch (error) {
+      console.error("Failed to fetch scheduled posts", error);
+      toast({
+        title: "Error",
+        description: "Failed to load scheduled posts.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleScheduleGeneratedPost = async (content: string) => {
+    try {
+      const newPost = await postsApi.createPost({
+        content,
+        idea_bank_id: idea.idea_bank.id,
+        status: "draft",
+      });
+      setPostToSchedule(newPost);
+    } catch (error) {
+      console.error("Failed to create post", error);
+      toast({
+        title: "Error",
+        description: "Failed to create post for scheduling.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSchedule = async (postId: string, scheduledAt: string) => {
+    setIsScheduling(true);
+    try {
+      await postsApi.schedulePost(postId, scheduledAt);
+      toast({
+        title: "Success",
+        description: "Post scheduled successfully.",
+      });
+      setPostToSchedule(null); // Close modal on success
+      fetchScheduledPosts();
+      onScheduleComplete();
+      onClose();
+    } catch (error) {
+      console.error("Failed to schedule post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScheduling(false);
+    }
+  };
 
   useEffect(() => {
     if (idea) {
+      fetchScheduledPosts();
       createOrGetConversation(idea.idea_bank.id).then((conv) => {
         setConversation(conv);
         const messages: ThreadMessage[] = conv.messages.map(
-          (m: ConversationMessage) =>
-            ({
+          (m: ConversationMessage) => {
+            const isTool = (m.role as string) === "tool";
+            return {
               id: m.id,
-              role: m.role,
-              content: [{ type: "text", text: m.content }],
+              role: isTool ? "assistant" : m.role,
+              content: [
+                {
+                  type: isTool ? "tool-call" : "text",
+                  text: m.content,
+                  result: isTool ? m.content : undefined,
+                },
+              ],
               createdAt: new Date(m.created_at),
               status: m.role === "assistant" ? "done" : undefined,
-            } as unknown as ThreadMessage)
+            } as unknown as ThreadMessage;
+          }
         );
         setInitialMessages(messages);
       });
@@ -59,12 +161,24 @@ const ChatDialogContent = ({ idea }: { idea: IdeaBankWithPost }) => {
   const prefillText = `I want to write a post about "${ideaText}"`;
 
   return (
-    <ChatThreadRuntime
-      conversation={conversation}
-      initialMessages={initialMessages}
-      initialText={initialMessages.length === 0 ? prefillText : undefined}
-      placeholder="Write a message..."
-    />
+    <PostSchedulingContext.Provider
+      value={{ onSchedule: handleScheduleGeneratedPost }}
+    >
+      <ChatThreadRuntime
+        conversation={conversation}
+        initialMessages={initialMessages}
+        initialText={initialMessages.length === 0 ? prefillText : undefined}
+        placeholder="Write a message..."
+      />
+      <PostScheduleModal
+        isOpen={!!postToSchedule}
+        onClose={() => setPostToSchedule(null)}
+        post={postToSchedule}
+        scheduledPosts={scheduledPosts}
+        onSchedule={handleSchedule}
+        isScheduling={isScheduling}
+      />
+    </PostSchedulingContext.Provider>
   );
 };
 
@@ -80,15 +194,29 @@ const ChatThreadRuntime = ({
   initialText?: string;
 }) => {
   const modelAdapter: ChatModelAdapter = {
-    async *run({ messages }) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    async *run({ messages, getThread }) {
       if (!conversation) return;
 
-      const apiMessages = messages.map((m) => ({
-        role: m.role,
-        content: m.content
-          .map((c) => (c.type === "text" ? c.text : ""))
-          .join("\n"),
-      }));
+      const apiMessages = messages.flatMap((m: ThreadMessage) => {
+        const parts: { role: string; content: string }[] = [];
+        let textContent = "";
+
+        m.content.forEach((c) => {
+          if (c.type === "text") {
+            textContent += `${c.text}\n`;
+          } else if (c.type === "tool-call") {
+            parts.push({ role: "tool", content: c.text });
+          }
+        });
+
+        if (textContent.trim()) {
+          parts.unshift({ role: m.role, content: textContent.trim() });
+        }
+
+        return parts;
+      });
 
       const token = localStorage.getItem("access_token");
 
@@ -130,8 +258,17 @@ const ChatThreadRuntime = ({
                   };
                   lastYieldedText = accumulatedText;
                 }
-              } else if (json.type !== "message") {
-                // ignore other event types
+              } else if (json.type === "tool_output") {
+                yield {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "tool-call",
+                      text: json.content,
+                      result: json.content,
+                    },
+                  ],
+                };
               } else if (json.type === "error") {
                 console.error("Stream error:", json.error);
                 yield {
@@ -175,10 +312,17 @@ export const PostGenerationChatDialog = ({
   idea,
   open,
   onOpenChange,
+  onScheduleComplete,
 }: PostGenerationChatDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {idea && <ChatDialogContent idea={idea} />}
+      {idea && (
+        <ChatDialogContent
+          idea={idea}
+          onScheduleComplete={onScheduleComplete}
+          onClose={() => onOpenChange(false)}
+        />
+      )}
     </Dialog>
   );
 };
