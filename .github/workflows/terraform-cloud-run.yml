@@ -76,7 +76,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init && terraform state pull
 
       - name: Terraform Plan
         id: plan
