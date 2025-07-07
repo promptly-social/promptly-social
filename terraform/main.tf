@@ -377,19 +377,6 @@ resource "google_secret_manager_secret_version" "zyte_api_key_initial_version" {
   secret_data = "placeholder"
 }
 
-resource "google_secret_manager_secret" "openrouter_api_key" {
-  secret_id = "OPENROUTER_API_KEY"
-
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "openrouter_api_key_initial_version" {
-  secret      = google_secret_manager_secret.openrouter_api_key.id
-  secret_data = "placeholder"
-}
-
 resource "google_secret_manager_secret" "openrouter_model_primary" {
   secret_id = "OPENROUTER_MODEL_PRIMARY"
 
