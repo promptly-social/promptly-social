@@ -2,7 +2,7 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Post } from "@/lib/posts-api";
-import { DraggablePostCard } from "./DraggablePostCard";
+import { MonthViewPostCard } from "./MonthViewPostCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DroppableMonthDayProps {
@@ -85,9 +85,12 @@ export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
           )}
         </div>
 
-        <div className="space-y-1">
-          {posts.slice(0, maxPostsToShow).map((post) => (
-            <DraggablePostCard
+        <div
+          className="space-y-1.5 p-1"
+          style={{ maxHeight: "120px", overflowY: "auto" }}
+        >
+          {posts.map((post) => (
+            <MonthViewPostCard
               key={post.id}
               post={post}
               onClick={() => onPostClick?.(post)}

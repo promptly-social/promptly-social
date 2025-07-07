@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,8 +23,8 @@ import {
 import AppLayout from "@/components/AppLayout";
 import { RescheduleModal } from "@/components/RescheduleModal";
 import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
-import { DraggablePostCard } from "@/components/DraggablePostCard";
-import { DroppableMonthDay } from "@/components/DroppableMonthDay";
+import { DraggablePostCard } from "@/components/posting-schedule/DraggablePostCard";
+import { DroppableMonthDay } from "@/components/posting-schedule/DroppableMonthDay";
 import { toast } from "@/hooks/use-toast";
 import { postsApi, Post } from "@/lib/posts-api";
 import {
@@ -40,6 +40,8 @@ import {
   ArrowDown,
   Shuffle,
 } from "lucide-react";
+import { ListView } from "@/components/posting-schedule/ListView";
+import { MonthView } from "@/components/posting-schedule/MonthView";
 
 const PostingSchedule: React.FC = () => {
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
@@ -95,10 +97,48 @@ const PostingSchedule: React.FC = () => {
     });
   };
 
+  const fetchScheduledPosts = useCallback(async () => {
+    try {
+      setLoading(true);
+      let after_date: string | undefined;
+      let before_date: string | undefined;
+
+      if (viewMode === "list") {
+        after_date = new Date().toISOString();
+      } else {
+        // Fetch a 3-month window for the calendar view (prev, current, next month)
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month + 2, 0);
+        after_date = startDate.toISOString();
+        before_date = endDate.toISOString();
+      }
+
+      const response = await postsApi.getPosts({
+        status: ["scheduled"],
+        after_date,
+        before_date,
+        order_by: "scheduled_at",
+        order_direction: "asc",
+        size: 100, // Increased size for month view
+      });
+      setScheduledPosts(sortPostsByScheduledAt(response.items));
+    } catch (error) {
+      console.error("Error fetching scheduled posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load scheduled posts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [viewMode, currentDate]);
+
   useEffect(() => {
     fetchScheduledPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchScheduledPosts]);
 
   useEffect(() => {
     if (!isDropActionModalOpen) {
@@ -127,31 +167,6 @@ const PostingSchedule: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [isRescheduleModalOpen]);
-
-  const fetchScheduledPosts = async () => {
-    try {
-      setLoading(true);
-      const response = await postsApi.getPosts({
-        status: ["scheduled"],
-        after_date: new Date(
-          new Date().setDate(new Date().getDate() + 1)
-        ).toISOString(),
-        order_by: "scheduled_at",
-        order_direction: "asc",
-        size: 100,
-      });
-      setScheduledPosts(sortPostsByScheduledAt(response.items));
-    } catch (error) {
-      console.error("Error fetching scheduled posts:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load scheduled posts. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleReschedulePost = async (
     postId: string,
@@ -288,26 +303,17 @@ const PostingSchedule: React.FC = () => {
     if (!isDragDropEnabled()) return;
 
     const { active } = event;
+    const post = scheduledPosts.find((p) => p.id === active.id);
 
-    // Get the correct posts array based on view mode
-    let postsToSearch = scheduledPosts;
-    if (viewMode === "month") {
-      postsToSearch = getPostsForPeriod("month", currentDate);
-    }
-
-    const post = postsToSearch.find((p) => p.id === active.id);
     if (post) {
       setActivePost(post);
 
-      // Only capture dimensions if we're in list view (where dimensions match)
-      // For calendar views, let the drag overlay use its natural size
       if (viewMode === "list" && active.rect.current.initial) {
         setActivePostStyle({
           width: active.rect.current.initial.width,
           height: active.rect.current.initial.height,
         });
       } else {
-        // Clear any previous dimensions for calendar views
         setActivePostStyle({});
       }
     }
@@ -327,16 +333,10 @@ const PostingSchedule: React.FC = () => {
     const postId = active.id as string;
     const overId = over.id as string;
 
-    // Get the correct posts array based on view mode
-    let postsToSearch = scheduledPosts;
-    if (viewMode === "month") {
-      postsToSearch = getPostsForPeriod("month", currentDate);
-    }
-
     // Handle dropping on another post in list view
     if (viewMode === "list" && overId !== postId) {
-      const draggedPost = postsToSearch.find((p) => p.id === postId);
-      const targetPost = postsToSearch.find((p) => p.id === overId);
+      const draggedPost = scheduledPosts.find((p) => p.id === postId);
+      const targetPost = scheduledPosts.find((p) => p.id === overId);
 
       if (draggedPost && targetPost) {
         setDropActionData({
@@ -360,7 +360,7 @@ const PostingSchedule: React.FC = () => {
     const [year, month, day] = dateMatch[1].split("-").map(Number);
     const newDate = new Date(year, month - 1, day); // month is 0-indexed
 
-    const post = postsToSearch.find((p) => p.id === postId);
+    const post = scheduledPosts.find((p) => p.id === postId);
 
     if (!post || !post.scheduled_at) {
       return;
@@ -589,185 +589,6 @@ const PostingSchedule: React.FC = () => {
     setCurrentDate(newDate);
   };
 
-  // Shared Post List View Component - Reusable across all views for consistent list display
-  const PostListView: React.FC<{
-    posts: Post[];
-    title: string;
-    onRefresh: () => void;
-    onNavigate?: (direction: "prev" | "next") => void;
-    showNavigation?: boolean;
-  }> = ({ posts, title, onRefresh, onNavigate, showNavigation = false }) => {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          {showNavigation && onNavigate ? (
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onNavigate("prev")}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <h3 className="text-lg font-semibold">{title}</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onNavigate("next")}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          ) : (
-            <h3 className="text-lg font-semibold">{title}</h3>
-          )}
-        </div>
-
-        {posts.length > 0 ? (
-          <div className="space-y-3">
-            {posts.map((post) => (
-              <DraggablePostCard
-                key={post.id}
-                post={post}
-                onClick={() => {
-                  setSelectedPost(post);
-                  setIsExpanded(true);
-                }}
-                className="hover:shadow-md transition-shadow"
-                showDragHandle={isDragDropEnabled()}
-                compact={false} // Always use full display for list views
-              />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium mb-2">No Scheduled Posts</h3>
-              <p className="text-gray-600">
-                {showNavigation
-                  ? "No posts scheduled for this period."
-                  : "Your scheduled posts will appear here. Start by scheduling some posts!"}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
-  };
-
-  // Main list view using the reusable PostListView component
-  const renderListView = () => {
-    return (
-      <PostListView
-        posts={scheduledPosts}
-        title="Upcoming Posts"
-        onRefresh={fetchScheduledPosts}
-      />
-    );
-  };
-
-  const getMonthCalendarDays = (baseDate: Date) => {
-    const year = baseDate.getFullYear();
-    const month = baseDate.getMonth();
-
-    // First day of the month
-    const firstDay = new Date(year, month, 1);
-    // Last day of the month
-    const lastDay = new Date(year, month + 1, 0);
-
-    // Start from the Sunday before the first day of the month
-    const startDate = new Date(firstDay);
-    startDate.setDate(firstDay.getDate() - firstDay.getDay());
-
-    // End on the Saturday after the last day of the month
-    const endDate = new Date(lastDay);
-    endDate.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
-
-    const days = [];
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-      days.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return days;
-  };
-
-  const renderMonthView = () => {
-    const calendarDays = getMonthCalendarDays(currentDate);
-    const currentMonth = currentDate.getMonth();
-    const today = new Date();
-    const monthTitle = currentDate.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigateMonth("prev")}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <h3 className="text-lg font-semibold">{monthTitle}</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigateMonth("next")}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Calendar Grid - Full Width */}
-        <div className="bg-white rounded-lg border">
-          {/* Day headers */}
-          <div className="grid grid-cols-7 border-b">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div
-                key={day}
-                className="p-3 text-center text-sm font-medium text-gray-600 border-r last:border-r-0"
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar days */}
-          <div className="grid grid-cols-7">
-            {calendarDays.map((date, idx) => {
-              const postsForDate = getPostsForDate(date);
-              const isCurrentMonth = date.getMonth() === currentMonth;
-              const isToday = date.toDateString() === today.toDateString();
-
-              return (
-                <DroppableMonthDay
-                  key={idx}
-                  date={date}
-                  posts={postsForDate}
-                  isCurrentMonth={isCurrentMonth}
-                  isToday={isToday}
-                  onPostClick={(post) => {
-                    setSelectedPost(post);
-                    setIsExpanded(true);
-                  }}
-                  showDropZone={isDragDropEnabled()}
-                />
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <AppLayout title="Posting Schedule" emailBreakpoint="md">
@@ -822,8 +643,29 @@ const PostingSchedule: React.FC = () => {
                 </Tabs>
               </div>
 
-              {viewMode === "list" && renderListView()}
-              {viewMode === "month" && renderMonthView()}
+              {viewMode === "list" && (
+                <ListView
+                  posts={scheduledPosts}
+                  onRefresh={fetchScheduledPosts}
+                  onPostClick={(post) => {
+                    setSelectedPost(post);
+                    setIsExpanded(true);
+                  }}
+                  isDragDropEnabled={isDragDropEnabled()}
+                />
+              )}
+              {viewMode === "month" && (
+                <MonthView
+                  currentDate={currentDate}
+                  posts={scheduledPosts}
+                  onNavigateMonth={navigateMonth}
+                  onPostClick={(post) => {
+                    setSelectedPost(post);
+                    setIsExpanded(true);
+                  }}
+                  isDragDropEnabled={isDragDropEnabled()}
+                />
+              )}
             </div>
           </div>
         </main>

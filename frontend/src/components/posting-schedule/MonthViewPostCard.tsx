@@ -3,7 +3,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, GripVertical } from "lucide-react";
+import { Clock } from "lucide-react";
 import { Post } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -18,7 +18,7 @@ interface DraggablePostCardProps {
   enableDroppable?: boolean;
 }
 
-export const DraggablePostCard: React.FC<DraggablePostCardProps> = ({
+export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
   post,
   onClick,
   className = "",
@@ -29,6 +29,9 @@ export const DraggablePostCard: React.FC<DraggablePostCardProps> = ({
   enableDroppable = true,
 }) => {
   const isMobile = useIsMobile();
+  const isPast = post.scheduled_at
+    ? new Date(post.scheduled_at) < new Date()
+    : false;
 
   const {
     attributes,
@@ -42,12 +45,12 @@ export const DraggablePostCard: React.FC<DraggablePostCardProps> = ({
       type: "post",
       post,
     },
-    disabled: !showDragHandle,
+    disabled: !showDragHandle || isPast,
   });
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: post.id,
-    disabled: !showDragHandle || !enableDroppable,
+    disabled: !showDragHandle || !enableDroppable || isPast,
   });
 
   // Combine the refs
