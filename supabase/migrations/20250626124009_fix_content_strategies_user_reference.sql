@@ -4,6 +4,10 @@
 ALTER TABLE public.content_strategies
 DROP CONSTRAINT IF EXISTS content_strategies_user_id_fkey;
 
+-- Clean up orphaned content strategies before adding the new constraint
+DELETE FROM public.content_strategies
+WHERE user_id NOT IN (SELECT id FROM public.users);
+
 -- Add the new foreign key constraint to reference public.users
 ALTER TABLE public.content_strategies
 ADD CONSTRAINT content_strategies_user_id_fkey 

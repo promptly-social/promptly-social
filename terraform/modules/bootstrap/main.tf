@@ -19,6 +19,12 @@ resource "google_project_service" "iam_credentials_api" {
   disable_dependent_services = true
 }
 
+resource "google_project_service" "cloudscheduler_api" {
+  project                    = var.project_id
+  service                    = "cloudscheduler.googleapis.com"
+  disable_dependent_services = true
+}
+
 # 2. Create the Workload Identity Pool. This is the trust boundary.
 resource "google_iam_workload_identity_pool" "github_pool" {
   project                   = var.project_id
@@ -216,4 +222,12 @@ resource "google_service_account_iam_member" "terraform_sa_impersonate_compute_s
   service_account_id = "projects/${var.project_id}/serviceAccounts/${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.terraform_sa.email}"
+}
+
+# Grant the App SA permission to manage Cloud Scheduler jobs
+resource "google_project_iam_member" "app_sa_scheduler_admin" {
+  project    = var.project_id
+  role       = "roles/cloudscheduler.admin"
+  member     = "serviceAccount:${google_service_account.app_sa.email}"
+  depends_on = [google_project_service.cloudscheduler_api]
 }
