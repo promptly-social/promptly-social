@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     unipile_access_token: Optional[str] = Field(default=None)
 
     # OpenRouter LLM Configuration
-    openrouter_api_key: Optional[str] = Field(default=None)
+    openrouter_api_key: Optional[str] = Field(default="dummy-openrouter-api-key")
     openrouter_model_primary: str = Field(default="google/gemini-2.5-flash")
     openrouter_models_fallback: str = Field(default="deepseek/deepseek-chat-v3-0324")
     openrouter_model_temperature: float = Field(default=0.0)
