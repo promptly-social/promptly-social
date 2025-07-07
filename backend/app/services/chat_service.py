@@ -229,10 +229,11 @@ class ChatService:
         # Determine which prompt to use
         if previous_draft:
             # Revision prompt
-            system_prompt = f"""You are a copy editor. Your only task is to revise a LinkedIn post based on user feedback.
+            system_prompt = f"""
+            You are an expert copy editor revising a LinkedIn post based on user feedback.
             - Previous Draft: {previous_draft}
             - User Feedback: {user_feedback}
-            - Post Idea: {idea_content}
+            - Post Idea (can be a URL or text): {idea_content}
             - User Bio: {bio}
             - User Writing Style: {writing_style}
             - User LinkedIn Strategy: {linkedin_post_strategy}
@@ -242,14 +243,16 @@ class ChatService:
             """
         else:
             # Generation prompt
-            system_prompt = f"""You are a writing assistant. Your task is to help a user create a LinkedIn post.
-            - Post Idea: {idea_content}
+            system_prompt = f"""
+            You are an expert at generating posts for LinkedIn to gain the most engagement.
+            Your task is to create a LinkedIn post based on the provided content idea and user profile information.
+            - Post Idea (can be a URL or text): {idea_content}
             - User Bio: {bio}
             - User Writing Style: {writing_style}
             - User LinkedIn Strategy: {linkedin_post_strategy}
 
             If you have enough information, use the 'generate_linkedin_post_tool'.
-            If not, ask one clarifying question to better understand the user's needs.
+            If not, ask clarifying questions one at a time to better understand the user's needs, perspective, anecdtoe, and angle, etc.
             Keep your questions concise.
             """
 

@@ -168,8 +168,6 @@ async def generate_linkedin_post_tool(
         linkedin_post_strategy=linkedin_post_strategy,
     )
 
-    print("GENERATING a new post")
-
     return post
 
 
@@ -201,5 +199,4 @@ async def revise_linkedin_post_tool(
         user_feedback=user_feedback,
     )
 
-    print("REVISING a post")
     return post

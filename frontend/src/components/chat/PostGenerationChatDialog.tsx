@@ -157,8 +157,8 @@ const ChatDialogContent = ({
     );
   }
 
-  const ideaText = idea.idea_bank.data.title || idea.idea_bank.data.value;
-  const prefillText = `I want to write a post about "${ideaText}"`;
+  const ideaText = idea.idea_bank.data.value;
+  const prefillText = `Help me draft a LinkedIn post and here is the idea: "${ideaText}"`;
 
   return (
     <PostSchedulingContext.Provider
