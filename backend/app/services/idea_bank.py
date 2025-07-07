@@ -44,105 +44,99 @@ class IdeaBankService:
             # Build filters
             filters = [IdeaBank.user_id == user_id]
 
-            # Note: JSON field filtering is handled in Python after retrieval
-            # since our custom JSONType doesn't support SQLAlchemy JSON operators
-
             # For has_post and post_status filters, we need to join with posts
             join_posts = has_post is not None or post_status is not None
 
+            # Determine if we need to filter in-memory for JSON fields
+            in_memory_filter = ai_suggested is not None or evergreen is not None
+
             if join_posts:
-                # Build the main query with join
                 query_base = select(IdeaBank).join(
-                    Post,
-                    IdeaBank.id == Post.idea_bank_id,
-                    isouter=True,
+                    Post, IdeaBank.id == Post.idea_bank_id, isouter=True
                 )
-                count_query_base = select(func.count(IdeaBank.id.distinct())).join(
-                    Post,
-                    IdeaBank.id == Post.idea_bank_id,
-                    isouter=True,
-                )
-
                 if has_post is not None:
-                    if has_post:
-                        filters.append(Post.id.isnot(None))
-                    else:
-                        filters.append(Post.id.is_(None))
-
+                    filters.append(
+                        Post.id.isnot(None) if has_post else Post.id.is_(None)
+                    )
                 if post_status:
                     filters.append(Post.status == post_status)
             else:
                 query_base = select(IdeaBank)
-                count_query_base = select(func.count()).select_from(IdeaBank)
 
-            # Build query for total count
-            count_query = count_query_base.where(and_(*filters))
-            count_result = await self.db.execute(count_query)
-            total = count_result.scalar()
+            query = query_base.where(and_(*filters))
 
-            # Build main query with pagination
+            if in_memory_filter:
+                # Fetch all results from DB if we have in-memory filters
+                result = await self.db.execute(query.distinct())
+                all_idea_banks = result.scalars().all()
+
+                # In-memory filtering
+                filtered_idea_banks = []
+                for idea_bank in all_idea_banks:
+                    data = idea_bank.data or {}
+                    # AI suggested filter
+                    if ai_suggested is not None:
+                        bank_ai_suggested = data.get("ai_suggested", False)
+                        if isinstance(bank_ai_suggested, str):
+                            bank_ai_suggested = bank_ai_suggested.lower() == "true"
+                        if bank_ai_suggested != ai_suggested:
+                            continue
+                    # Evergreen filter
+                    if evergreen is not None:
+                        bank_time_sensitive = data.get("time_sensitive", False)
+                        if isinstance(bank_time_sensitive, str):
+                            bank_time_sensitive = bank_time_sensitive.lower() == "true"
+                        if (evergreen and bank_time_sensitive) or (
+                            not evergreen and not bank_time_sensitive
+                        ):
+                            continue
+                    filtered_idea_banks.append(idea_bank)
+
+                # In-memory sorting
+                reverse = order_direction.lower() == "desc"
+                filtered_idea_banks.sort(
+                    key=lambda ib: getattr(ib, order_by, ib.updated_at),
+                    reverse=reverse,
+                )
+
+                # In-memory pagination
+                total = len(filtered_idea_banks)
+                offset = (page - 1) * size
+                paginated_banks = filtered_idea_banks[offset : offset + size]
+
+                return {
+                    "items": paginated_banks,
+                    "total": total,
+                    "page": page,
+                    "size": size,
+                    "has_next": total > page * size,
+                }
+
+            # Original path (no in-memory filtering)
+            count_query_base = select(
+                func.count(IdeaBank.id.distinct() if join_posts else IdeaBank.id)
+            ).select_from(query.subquery())
+            count_result = await self.db.execute(count_query_base)
+            total = count_result.scalar() or 0
+
             offset = (page - 1) * size
-
-            # Order by
             order_column = getattr(IdeaBank, order_by, IdeaBank.updated_at)
             if order_direction.lower() == "desc":
                 order_column = desc(order_column)
 
-            query = (
-                query_base.where(and_(*filters))
-                .order_by(order_column)
-                .offset(offset)
-                .limit(size)
-            )
-
+            paginated_query = query.order_by(order_column).offset(offset).limit(size)
             if join_posts:
-                query = query.distinct()
+                paginated_query = paginated_query.distinct()
 
-            result = await self.db.execute(query)
+            result = await self.db.execute(paginated_query)
             idea_banks = result.scalars().all()
 
-            # Apply JSON field filtering in Python since our JSONType doesn't support SQL operators
-            filtered_idea_banks = []
-            for idea_bank in idea_banks:
-                data = idea_bank.data or {}
-
-                # Filter by AI suggested
-                if ai_suggested is not None:
-                    bank_ai_suggested = data.get("ai_suggested", False)
-                    if isinstance(bank_ai_suggested, str):
-                        bank_ai_suggested = bank_ai_suggested.lower() == "true"
-                    if bank_ai_suggested != ai_suggested:
-                        continue
-
-                # Filter by evergreen (inverse of time_sensitive)
-                if evergreen is not None:
-                    bank_time_sensitive = data.get("time_sensitive", False)
-                    if isinstance(bank_time_sensitive, str):
-                        bank_time_sensitive = bank_time_sensitive.lower() == "true"
-
-                    if (
-                        evergreen and bank_time_sensitive
-                    ):  # Want evergreen but it's time sensitive
-                        continue
-                    if (
-                        not evergreen and not bank_time_sensitive
-                    ):  # Want time sensitive but it's evergreen
-                        continue
-
-                filtered_idea_banks.append(idea_bank)
-
-            # Recalculate pagination for filtered results
-            filtered_total = len(filtered_idea_banks)
-            start_idx = (page - 1) * size
-            end_idx = start_idx + size
-            paginated_banks = filtered_idea_banks[start_idx:end_idx]
-
             return {
-                "items": paginated_banks,
-                "total": filtered_total,
+                "items": idea_banks,
+                "total": total,
                 "page": page,
                 "size": size,
-                "has_next": filtered_total > page * size,
+                "has_next": total > page * size,
             }
 
         except Exception as e:
@@ -157,17 +151,12 @@ class IdeaBankService:
         order_by: str = "updated_at",
         order_direction: str = "desc",
         ai_suggested: Optional[bool] = None,
-        evergreen: Optional[bool] = None,
         has_post: Optional[bool] = None,
-        post_status: Optional[List[str]] = None,
     ) -> Dict:
         """Get idea banks with their latest suggested posts."""
         try:
             # Build filters for idea banks
             filters = [IdeaBank.user_id == user_id]
-
-            # Note: JSON field filtering is handled in Python after retrieval
-            # since our custom JSONType doesn't support SQLAlchemy JSON operators
 
             # Build subquery for latest posts
             latest_post_subquery = (
@@ -202,21 +191,57 @@ class IdeaBankService:
                 else:
                     filters.append(Post.id.is_(None))
 
-            if post_status and len(post_status) > 0:
-                # Include idea banks without posts OR with posts matching the status
-                filters.append(
-                    or_(
-                        Post.id.is_(None),  # No posts
-                        Post.status.in_(post_status),  # Posts with matching status
-                    )
+            # Base query with filters
+            query = query_base.where(and_(*filters))
+
+            # If filtering on a JSON field, we must fetch all, then filter/sort/paginate in memory.
+            if ai_suggested is not None:
+                result = await self.db.execute(query.distinct())
+                all_rows = result.all()
+
+                # In-memory filtering
+                items = []
+                for row in all_rows:
+                    idea_bank, post = row[0], row[1] if len(row) > 1 else None
+                    data = idea_bank.data or {}
+
+                    # Filter by AI suggested
+                    bank_ai_suggested = data.get("ai_suggested", False)
+                    if isinstance(bank_ai_suggested, str):
+                        bank_ai_suggested = bank_ai_suggested.lower() == "true"
+                    if bank_ai_suggested != ai_suggested:
+                        continue
+
+                    items.append({"idea_bank": idea_bank, "latest_post": post})
+
+                # In-memory sorting
+                reverse = order_direction.lower() == "desc"
+                items.sort(
+                    key=lambda x: getattr(
+                        x["idea_bank"], order_by, x["idea_bank"].updated_at
+                    ),
+                    reverse=reverse,
                 )
 
-            # Count query
+                # In-memory pagination
+                total = len(items)
+                offset = (page - 1) * size
+                paginated_items = items[offset : offset + size]
+
+                return {
+                    "items": paginated_items,
+                    "total": total,
+                    "page": page,
+                    "size": size,
+                    "has_next": total > page * size,
+                }
+
+            # Original path (no JSON filtering)
             count_query = select(func.count(IdeaBank.id.distinct())).select_from(
-                query_base.where(and_(*filters)).subquery()
+                query.subquery()
             )
             count_result = await self.db.execute(count_query)
-            total = count_result.scalar()
+            total = count_result.scalar() or 0
 
             # Main query with pagination
             offset = (page - 1) * size
@@ -224,60 +249,25 @@ class IdeaBankService:
             if order_direction.lower() == "desc":
                 order_column = desc(order_column)
 
-            query = (
-                query_base.where(and_(*filters))
-                .order_by(order_column)
-                .offset(offset)
-                .limit(size)
-                .distinct()
+            paginated_query = (
+                query.order_by(order_column).offset(offset).limit(size).distinct()
             )
 
-            result = await self.db.execute(query)
+            result = await self.db.execute(paginated_query)
             rows = result.all()
 
-            # Format the response and apply JSON field filtering in Python
-            items = []
-            for row in rows:
-                idea_bank = row[0]  # First element is IdeaBank
-                post = row[1] if len(row) > 1 else None  # Second element is Post
-
-                # Apply JSON field filtering since our JSONType doesn't support SQL operators
-                data = idea_bank.data or {}
-
-                # Filter by AI suggested
-                if ai_suggested is not None:
-                    bank_ai_suggested = data.get("ai_suggested", False)
-                    if isinstance(bank_ai_suggested, str):
-                        bank_ai_suggested = bank_ai_suggested.lower() == "true"
-                    if bank_ai_suggested != ai_suggested:
-                        continue
-
-                # Filter by evergreen (inverse of time_sensitive)
-                if evergreen is not None:
-                    bank_time_sensitive = data.get("time_sensitive", False)
-                    if isinstance(bank_time_sensitive, str):
-                        bank_time_sensitive = bank_time_sensitive.lower() == "true"
-
-                    if (
-                        evergreen and bank_time_sensitive
-                    ):  # Want evergreen but it's time sensitive
-                        continue
-                    if (
-                        not evergreen and not bank_time_sensitive
-                    ):  # Want time sensitive but it's evergreen
-                        continue
-
-                items.append({"idea_bank": idea_bank, "latest_post": post})
-
-            # Recalculate total for filtered results
-            filtered_total = len(items)
+            # Format the response
+            items = [
+                {"idea_bank": row[0], "latest_post": row[1] if len(row) > 1 else None}
+                for row in rows
+            ]
 
             return {
                 "items": items,
-                "total": filtered_total,
+                "total": total,
                 "page": page,
                 "size": size,
-                "has_next": filtered_total > page * size,
+                "has_next": total > page * size,
             }
 
         except Exception as e:
@@ -362,10 +352,7 @@ class IdeaBankService:
             update_data_dict = update_data.model_dump(exclude_unset=True)
 
             if "data" in update_data_dict:
-                if idea_bank.data:
-                    idea_bank.data.update(update_data_dict["data"])
-                else:
-                    idea_bank.data = update_data_dict["data"]
+                idea_bank.data = update_data_dict["data"]
                 # Required for JSON mutation to be detected by SQLAlchemy
                 idea_bank.updated_at = datetime.now(timezone.utc)
 

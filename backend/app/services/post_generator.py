@@ -71,7 +71,7 @@ class PostGeneratorService:
             2. The post should be plain text, without any markdown or special characters like em-dashes or arrows, that might suggest AI generation.
             3. If the content idea is a URL, do not include the link in the post, but cite the source of the post in the post.
            
-            Return the generated post in plain text.
+            Return the generated post in plain text. DO NOT INCLUDE MARKDOWN.
             """
 
         # Use streaming to start generating immediately and allow future extension.
@@ -127,8 +127,9 @@ class PostGeneratorService:
             4. The revised post should still be engaging and likely to get high engagement on LinkedIn.
             5. The post should be plain text, without any markdown or special characters like em-dashes or arrows, that might suggest AI generation.
             6. If the content idea is a URL, do not include the link in the post, but cite the source of the post in the post.
+            7. DO NOT INCLUDE MARKDOWN.
            
-            ONLY return the revised draft content as plain text. Do not include your thoughts, summaries, or any other text.
+            ONLY return the revised draft content as plain text. Do not include your thoughts, summaries, or any other text. 
             """
 
         # Use streaming to start generating immediately and allow future extension.

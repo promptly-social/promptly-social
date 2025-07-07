@@ -78,14 +78,8 @@ async def get_idea_banks_with_latest_posts(
     ai_suggested: Optional[bool] = Query(
         None, description="Filter by AI suggested ideas"
     ),
-    evergreen: Optional[bool] = Query(
-        None, description="Filter by evergreen (non-time-sensitive) ideas"
-    ),
     has_post: Optional[bool] = Query(
         None, description="Filter by whether the idea has associated posts"
-    ),
-    post_status: Optional[List[str]] = Query(
-        None, description="Filter by status of associated posts"
     ),
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
@@ -100,9 +94,7 @@ async def get_idea_banks_with_latest_posts(
             order_by=order_by,
             order_direction=order_direction,
             ai_suggested=ai_suggested,
-            evergreen=evergreen,
             has_post=has_post,
-            post_status=post_status,
         )
         return result
     except Exception as e:

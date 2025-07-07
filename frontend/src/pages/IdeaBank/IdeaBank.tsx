@@ -38,14 +38,8 @@ import {
   ExternalLink,
   Edit,
   RefreshCw,
-  Filter,
   Sparkles,
 } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   ideaBankApi,
   type IdeaBankWithPost,
@@ -107,8 +101,6 @@ const IdeaBankPage: React.FC = () => {
       type: "text",
       value: "",
       title: "",
-      product_name: "",
-      product_description: "",
       time_sensitive: false,
       ai_suggested: false,
     },
@@ -120,8 +112,6 @@ const IdeaBankPage: React.FC = () => {
         type: "text",
         value: "",
         title: "",
-        product_name: "",
-        product_description: "",
         time_sensitive: false,
         ai_suggested: false,
       },
@@ -151,12 +141,7 @@ const IdeaBankPage: React.FC = () => {
     try {
       setLoading(true);
       const filterParams: IdeaBankFilters = {
-        order_by:
-          sortConfig.key === "type" ||
-          sortConfig.key === "value" ||
-          sortConfig.key === "evergreen"
-            ? "updated_at"
-            : sortConfig.key,
+        order_by: "updated_at",
         order_direction: sortConfig.direction,
         size: 100,
         ...filters,
@@ -177,39 +162,6 @@ const IdeaBankPage: React.FC = () => {
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
-  };
-
-  const handlePendingFilterChange = (newFilters: Partial<Filters>) => {
-    setPendingFilters((prev) => ({ ...prev, ...newFilters }));
-  };
-
-  const applyFilters = () => {
-    setFilters(pendingFilters);
-  };
-
-  const clearPendingFilters = () => {
-    const defaultFilters: Filters = {
-      // Reset to default: exclude AI suggested content
-      ai_suggested: false,
-    };
-    setPendingFilters(defaultFilters);
-  };
-
-  const clearAllFilters = () => {
-    const defaultFilters: Filters = {
-      // Reset to default: exclude AI suggested content
-      ai_suggested: false,
-    };
-    setPendingFilters(defaultFilters);
-    setFilters(defaultFilters);
-  };
-
-  const getActiveFilterCount = () => {
-    let count = 0;
-    // Don't count ai_suggested filter as it's always applied by default
-    if (filters.evergreen !== undefined) count++;
-    if (filters.has_post !== undefined) count++;
-    return count;
   };
 
   const handleCreate = async () => {
@@ -233,8 +185,6 @@ const IdeaBankPage: React.FC = () => {
       type: ideaBank.data.type,
       value: ideaBank.data.value,
       title: ideaBank.data.title || "",
-      product_name: ideaBank.data.product_name || "",
-      product_description: ideaBank.data.product_description || "",
       time_sensitive: ideaBank.data.time_sensitive || false,
       ai_suggested: ideaBank.data.ai_suggested || false,
     });
@@ -335,18 +285,6 @@ const IdeaBankPage: React.FC = () => {
       let bValue: string | number | boolean;
 
       switch (sortConfig.key) {
-        case "type":
-          aValue = a.idea_bank.data.type;
-          bValue = b.idea_bank.data.type;
-          break;
-        case "value":
-          aValue = a.idea_bank.data.value;
-          bValue = b.idea_bank.data.value;
-          break;
-        case "evergreen":
-          aValue = !a.idea_bank.data.time_sensitive;
-          bValue = !b.idea_bank.data.time_sensitive;
-          break;
         case "updated_at":
           aValue = new Date(a.idea_bank.updated_at).getTime();
           bValue = new Date(b.idea_bank.updated_at).getTime();
@@ -403,34 +341,6 @@ const IdeaBankPage: React.FC = () => {
   };
 
   const renderIdeaBankContent = (ideaBank: IdeaBankWithPost["idea_bank"]) => {
-    if (ideaBank.data.type === "product") {
-      return (
-        <div className="space-y-1">
-          {ideaBank.data.product_name && (
-            <div className="font-medium text-sm text-gray-900">
-              {ideaBank.data.product_name}
-            </div>
-          )}
-          {ideaBank.data.product_description && (
-            <div className="text-sm text-gray-600 mb-1">
-              {ideaBank.data.product_description}
-            </div>
-          )}
-          {ideaBank.data.value && (
-            <a
-              href={ideaBank.data.value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
-            >
-              <span className="break-all">{ideaBank.data.value}</span>
-              <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
-            </a>
-          )}
-        </div>
-      );
-    }
-
     return (
       <div className="space-y-1">
         {ideaBank.data.title && (
@@ -529,112 +439,6 @@ const IdeaBankPage: React.FC = () => {
     </Button>
   );
 
-  const refreshButton = (
-    <Button
-      onClick={loadIdeaBanks}
-      disabled={loading}
-      variant="outline"
-      size="sm"
-    >
-      <RefreshCw
-        className={`w-4 h-4 ${loading ? "animate-spin" : ""} sm:mr-2`}
-      />
-      <span className="hidden sm:inline">Refresh</span>
-    </Button>
-  );
-
-  const filterButton = (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="relative">
-          <Filter className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Filter</span>
-          {getActiveFilterCount() > 0 && (
-            <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-              {getActiveFilterCount()}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium">Filters</h4>
-            <Button variant="ghost" size="sm" onClick={clearPendingFilters}>
-              Clear
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="evergreen-filter">Evergreen Topic</Label>
-              <Select
-                value={
-                  pendingFilters.evergreen === undefined
-                    ? "all"
-                    : pendingFilters.evergreen.toString()
-                }
-                onValueChange={(value) =>
-                  handlePendingFilterChange({
-                    evergreen: value === "all" ? undefined : value === "true",
-                  })
-                }
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="has-post-filter">Has Post</Label>
-              <Select
-                value={
-                  pendingFilters.has_post === undefined
-                    ? "all"
-                    : pendingFilters.has_post.toString()
-                }
-                onValueChange={(value) =>
-                  handlePendingFilterChange({
-                    has_post: value === "all" ? undefined : value === "true",
-                  })
-                }
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-3 border-t">
-            <Button onClick={applyFilters} size="sm" className="flex-1">
-              Apply Filters
-            </Button>
-            <Button
-              onClick={clearAllFilters}
-              variant="outline"
-              size="sm"
-              className="flex-1"
-            >
-              Clear All
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-
   const addButton = (
     <Dialog
       open={showCreateDialog}
@@ -663,17 +467,13 @@ const IdeaBankPage: React.FC = () => {
             <Label htmlFor="type">Type</Label>
             <Select
               value={formData.data.type}
-              onValueChange={(value: "url" | "text" | "product") =>
+              onValueChange={(value: "url" | "text") =>
                 setFormData((prev) => ({
                   ...prev,
                   data: {
                     ...prev.data,
                     type: value,
                     title: value === "text" ? "" : prev.data.title,
-                    product_name:
-                      value === "product" ? prev.data.product_name : "",
-                    product_description:
-                      value === "product" ? prev.data.product_description : "",
                   },
                 }))
               }
@@ -684,7 +484,6 @@ const IdeaBankPage: React.FC = () => {
               <SelectContent>
                 <SelectItem value="text">Text</SelectItem>
                 <SelectItem value="url">URL</SelectItem>
-                <SelectItem value="product">Product</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -704,63 +503,16 @@ const IdeaBankPage: React.FC = () => {
               />
             </div>
           )}
-          {formData.data.type === "product" && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="product-name">Product Name (Optional)</Label>
-                <Input
-                  id="product-name"
-                  placeholder="Enter the product name..."
-                  value={formData.data.product_name || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: { ...prev.data, product_name: e.target.value },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="product-description">
-                  Product Description (Optional)
-                </Label>
-                <Textarea
-                  id="product-description"
-                  placeholder="Enter the product description..."
-                  value={formData.data.product_description || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      data: {
-                        ...prev.data,
-                        product_description: e.target.value,
-                      },
-                    }))
-                  }
-                  rows={3}
-                  className="min-h-[80px] resize-none"
-                />
-              </div>
-            </>
-          )}
+
           <div className="space-y-2">
             <Label htmlFor="value">
-              {formData.data.type === "url"
-                ? "URL"
-                : formData.data.type === "product"
-                ? "Product URL"
-                : "Content"}
+              {formData.data.type === "url" ? "URL" : "Content"}
             </Label>
-            {formData.data.type === "url" ||
-            formData.data.type === "product" ? (
+            {formData.data.type === "url" ? (
               <Input
                 id="value"
                 type="url"
-                placeholder={
-                  formData.data.type === "url"
-                    ? "https://example.com/url"
-                    : "https://example.com/product"
-                }
+                placeholder={"https://example.com/url"}
                 value={formData.data.value}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -796,7 +548,6 @@ const IdeaBankPage: React.FC = () => {
                 }))
               }
             />
-            <Label htmlFor="time-sensitive">Trending</Label>
           </div>
         </div>
         <DialogFooter>
@@ -813,12 +564,12 @@ const IdeaBankPage: React.FC = () => {
 
   if (loading) {
     return (
-      <AppLayout title="Idea Bank" emailBreakpoint="md">
+      <AppLayout title="Ideas" emailBreakpoint="md">
         <main className="py-4 px-4 sm:py-8 sm:px-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center py-8">
               <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
-              <p className="text-gray-600">Loading idea banks...</p>
+              <p className="text-gray-600">Loading your ideas...</p>
             </div>
           </div>
         </main>
@@ -827,7 +578,7 @@ const IdeaBankPage: React.FC = () => {
   }
 
   return (
-    <AppLayout title="Idea Bank" emailBreakpoint="md">
+    <AppLayout title="Ideas" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
           {/* Page Header with Actions */}
@@ -838,8 +589,6 @@ const IdeaBankPage: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center justify-end sm:justify-end gap-2">
-              {refreshButton}
-              {filterButton}
               {addButton}
             </div>
           </div>
@@ -849,17 +598,8 @@ const IdeaBankPage: React.FC = () => {
             {/* Mobile Sort Info */}
             <div className="flex items-center justify-between text-sm text-gray-500 px-1">
               <span>
-                Sorted by:{" "}
-                {sortConfig.key === "type"
-                  ? "Type"
-                  : sortConfig.key === "value"
-                  ? "Value"
-                  : sortConfig.key === "evergreen"
-                  ? "Evergreen"
-                  : sortConfig.key === "updated_at"
-                  ? "Last Updated"
-                  : sortConfig.key}{" "}
-                ({sortConfig.direction === "asc" ? "↑" : "↓"})
+                Sorted by: {"Last Updated"} (
+                {sortConfig.direction === "asc" ? "↑" : "↓"})
               </span>
               <span>{getSortedData().length} ideas</span>
             </div>
@@ -879,34 +619,6 @@ const IdeaBankPage: React.FC = () => {
                     key={ideaBank.id}
                     className="bg-white rounded-lg border p-4 space-y-3"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="capitalize">
-                          {ideaBank.data.type}
-                        </Badge>
-                        {ideaBank.data.ai_suggested && (
-                          <Badge variant="secondary" className="text-xs">
-                            AI
-                          </Badge>
-                        )}
-                        <Badge
-                          variant={
-                            !ideaBank.data.time_sensitive
-                              ? "default"
-                              : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {!ideaBank.data.time_sensitive
-                            ? "Evergreen"
-                            : "Trending"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Actions ideaBankWithPost={ideaBankWithPost} />
-                      </div>
-                    </div>
-
                     <div className="space-y-2">
                       <div>
                         <span className="text-sm font-medium text-gray-500">
@@ -943,12 +655,7 @@ const IdeaBankPage: React.FC = () => {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[90px]">
-                    <SortButton column="type">Type</SortButton>
-                  </TableHead>
-                  <TableHead className="min-w-[200px]">
-                    <SortButton column="value">Content</SortButton>
-                  </TableHead>
+                  <TableHead className="min-w-[200px]">Content</TableHead>
                   <TableHead className="w-[150px]">
                     <SortButton column="updated_at">Last Updated</SortButton>
                   </TableHead>
@@ -971,30 +678,6 @@ const IdeaBankPage: React.FC = () => {
                     const latestPost = ideaBankWithPost.latest_post;
                     return (
                       <TableRow key={ideaBank.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="capitalize">
-                              {ideaBank.data.type}
-                            </Badge>
-                            {ideaBank.data.ai_suggested && (
-                              <Badge variant="secondary" className="text-xs">
-                                AI
-                              </Badge>
-                            )}
-                            <Badge
-                              variant={
-                                !ideaBank.data.time_sensitive
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {!ideaBank.data.time_sensitive
-                                ? "Evergreen"
-                                : "Trending"}
-                            </Badge>
-                          </div>
-                        </TableCell>
                         <TableCell className="min-w-0">
                           {renderIdeaBankContent(ideaBank)}
                         </TableCell>
@@ -1018,9 +701,6 @@ const IdeaBankPage: React.FC = () => {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[90px]">
-                    <SortButton column="type">Type</SortButton>
-                  </TableHead>
                   <TableHead className="min-w-[250px]">
                     <SortButton column="value">Content</SortButton>
                   </TableHead>
@@ -1046,35 +726,6 @@ const IdeaBankPage: React.FC = () => {
                     const latestPost = ideaBankWithPost.latest_post;
                     return (
                       <TableRow key={ideaBank.id}>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge
-                              variant="outline"
-                              className="capitalize text-xs w-fit"
-                            >
-                              {ideaBank.data.type}
-                            </Badge>
-                            <div className="flex gap-1">
-                              {ideaBank.data.ai_suggested && (
-                                <Badge variant="secondary" className="text-xs">
-                                  AI
-                                </Badge>
-                              )}
-                              <Badge
-                                variant={
-                                  !ideaBank.data.time_sensitive
-                                    ? "default"
-                                    : "secondary"
-                                }
-                                className="text-xs"
-                              >
-                                {!ideaBank.data.time_sensitive
-                                  ? "Evergreen"
-                                  : "Trending"}
-                              </Badge>
-                            </div>
-                          </div>
-                        </TableCell>
                         <TableCell className="min-w-0">
                           {renderIdeaBankContent(ideaBank)}
                         </TableCell>
@@ -1155,7 +806,7 @@ const IdeaBankPage: React.FC = () => {
                   <Label htmlFor="edit-type">Type</Label>
                   <Select
                     value={editFormData.type}
-                    onValueChange={(newType: "url" | "text" | "product") => {
+                    onValueChange={(newType: "url" | "text") => {
                       setEditFormData((prev) => {
                         if (!prev) return null;
                         return {
@@ -1163,12 +814,6 @@ const IdeaBankPage: React.FC = () => {
                           type: newType,
                           value: "",
                           title: newType !== "url" ? "" : prev.title,
-                          product_name:
-                            newType !== "product" ? "" : prev.product_name,
-                          product_description:
-                            newType !== "product"
-                              ? ""
-                              : prev.product_description,
                         };
                       });
                     }}
@@ -1179,7 +824,6 @@ const IdeaBankPage: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="url">URL</SelectItem>
                       <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="product">Product</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1199,63 +843,17 @@ const IdeaBankPage: React.FC = () => {
                     />
                   </div>
                 )}
-                {editFormData.type === "product" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-product-name">
-                        Product Name (Optional)
-                      </Label>
-                      <Input
-                        id="edit-product-name"
-                        placeholder="Enter the product name..."
-                        value={editFormData.product_name || ""}
-                        onChange={(e) =>
-                          setEditFormData((prev) => ({
-                            ...prev!,
-                            product_name: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-product-description">
-                        Product Description (Optional)
-                      </Label>
-                      <Textarea
-                        id="edit-product-description"
-                        placeholder="Enter the product description..."
-                        value={editFormData.product_description || ""}
-                        onChange={(e) =>
-                          setEditFormData((prev) => ({
-                            ...prev!,
-                            product_description: e.target.value,
-                          }))
-                        }
-                        rows={3}
-                        className="min-h-[80px] resize-none"
-                      />
-                    </div>
-                  </>
-                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="edit-value">
-                    {editFormData.type === "url"
-                      ? "URL"
-                      : editFormData.type === "product"
-                      ? "Product URL"
-                      : "Content"}
+                    {editFormData.type === "url" ? "URL" : "Content"}
                   </Label>
-                  {editFormData.type === "url" ||
-                  editFormData.type === "product" ? (
+                  {editFormData.type === "url" ? (
                     <Input
                       key="value-input"
                       id="edit-value"
                       type="url"
-                      placeholder={
-                        editFormData.type === "url"
-                          ? "https://example.com/url"
-                          : "https://example.com/product"
-                      }
+                      placeholder={"https://example.com/url"}
                       value={editFormData.value}
                       onChange={(e) =>
                         setEditFormData((prev) => ({
@@ -1292,7 +890,6 @@ const IdeaBankPage: React.FC = () => {
                       }))
                     }
                   />
-                  <Label htmlFor="edit-time-sensitive">Trending</Label>
                 </div>
               </div>
               <DialogFooter>

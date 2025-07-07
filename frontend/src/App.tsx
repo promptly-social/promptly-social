@@ -206,7 +206,7 @@ const App = () => (
               }
             />
             <Route
-              path="/idea-bank"
+              path="/ideas"
               element={
                 <ProtectedRoute>
                   <SidebarProvider>

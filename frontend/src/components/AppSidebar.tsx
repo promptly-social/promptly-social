@@ -36,8 +36,8 @@ const menuItems = [
     icon: List,
   },
   {
-    title: "Idea Bank",
-    url: "/idea-bank",
+    title: "Ideas",
+    url: "/ideas",
     icon: Lightbulb,
   },
   {
