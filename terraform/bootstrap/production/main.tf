@@ -18,10 +18,11 @@ module "bootstrap" {
   source = "../../modules/bootstrap"
 
   project_id                  = var.project_id
+  staging_project_id          = var.staging_project_id
   github_repo                 = var.github_repo
   app_name                    = var.app_name
   environment                 = "production"
-  terraform_state_bucket_name = "promptly-terraform-state"
+  terraform_state_bucket_name = "promptly-terraform-states"
   dns_reader_sds = [
     "promptly-tf-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
   ]

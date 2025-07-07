@@ -40,10 +40,6 @@ jobs:
           echo "SUPABASE_SERVICE_KEY=test-service-key" >> .env
           echo "ENVIRONMENT=test" >> .env
           echo "DEBUG=True" >> .env
-          echo "OPENROUTER_API_KEY=test-openrouter-api-key" >> .env
-          echo "OPENROUTER_LARGE_MODEL_PRIMARY=google/gemini-2.0-flash-001" >> .env
-          echo "OPENROUTER_LARGE_MODELS_FALLBACK=google/gemini-2.0-flash-001" >> .env
-          echo "OPENROUTER_LARGE_MODEL_TEMPERATURE=0.7" >> .env
 
       - name: Run tests with coverage
         working-directory: ./backend
