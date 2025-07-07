@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -26,23 +24,15 @@ import AppLayout from "@/components/AppLayout";
 import { RescheduleModal } from "@/components/RescheduleModal";
 import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
 import { DraggablePostCard } from "@/components/DraggablePostCard";
-import { DroppableCalendarDay } from "@/components/DroppableCalendarDay";
 import { DroppableMonthDay } from "@/components/DroppableMonthDay";
 import { toast } from "@/hooks/use-toast";
 import { postsApi, Post } from "@/lib/posts-api";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Calendar,
-  Clock,
-  Grid,
   List,
-  Edit3,
-  Bookmark,
-  Trash2,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  RefreshCw,
   Loader2,
   Share2,
   Globe,
@@ -77,8 +67,6 @@ const PostingSchedule: React.FC = () => {
     targetPost: Post;
     action: "swap" | "push" | "cancel";
   } | null>(null);
-
-  const isMobile = useIsMobile();
 
   // Check if drag and drop should be enabled
   const isDragDropEnabled = () => {
@@ -145,6 +133,9 @@ const PostingSchedule: React.FC = () => {
       setLoading(true);
       const response = await postsApi.getPosts({
         status: ["scheduled"],
+        after_date: new Date(
+          new Date().setDate(new Date().getDate() + 1)
+        ).toISOString(),
         order_by: "scheduled_at",
         order_direction: "asc",
         size: 100,
@@ -630,10 +621,6 @@ const PostingSchedule: React.FC = () => {
           ) : (
             <h3 className="text-lg font-semibold">{title}</h3>
           )}
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
         </div>
 
         {posts.length > 0 ? (
@@ -674,7 +661,7 @@ const PostingSchedule: React.FC = () => {
     return (
       <PostListView
         posts={scheduledPosts}
-        title="All Scheduled Posts"
+        title="Upcoming Posts"
         onRefresh={fetchScheduledPosts}
       />
     );
@@ -737,10 +724,6 @@ const PostingSchedule: React.FC = () => {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchScheduledPosts}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
         </div>
 
         {/* Calendar Grid - Full Width */}

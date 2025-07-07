@@ -4,6 +4,7 @@ Posts router with endpoints for posts management.
 
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from loguru import logger
@@ -31,6 +32,8 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 async def get_posts(
     platform: Optional[str] = Query(None),
     post_status: Optional[List[str]] = Query(None, alias="status"),
+    after_date: Optional[datetime] = Query(None),
+    before_date: Optional[datetime] = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     order_by: str = Query("created_at"),
@@ -45,6 +48,8 @@ async def get_posts(
             user_id=current_user.id,
             platform=platform,
             status=post_status,
+            after_date=after_date,
+            before_date=before_date,
             page=page,
             size=size,
             order_by=order_by,

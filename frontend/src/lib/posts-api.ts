@@ -2,7 +2,7 @@
  * Posts API client
  */
 
-import { apiClient } from './auth-api';
+import { apiClient } from "./auth-api";
 
 export interface Post {
   id: string;
@@ -51,17 +51,19 @@ export interface UpdatePostRequest {
 }
 
 export interface PostFeedbackRequest {
-  feedback_type: 'positive' | 'negative';
+  feedback_type: "positive" | "negative";
   comment?: string;
 }
 
 export interface GetPostsParams {
   platform?: string;
   status?: string[];
+  after_date?: string;
+  before_date?: string;
   page?: number;
   size?: number;
   order_by?: string;
-  order_direction?: 'asc' | 'desc';
+  order_direction?: "asc" | "desc";
 }
 
 class PostsAPI {
@@ -70,19 +72,23 @@ class PostsAPI {
    */
   async getPosts(params: GetPostsParams = {}): Promise<PostsListResponse> {
     const searchParams = new URLSearchParams();
-    
-    if (params.platform) searchParams.append('platform', params.platform);
+
+    if (params.platform) searchParams.append("platform", params.platform);
     if (params.status) {
-      params.status.forEach(s => searchParams.append('status', s));
+      params.status.forEach((s) => searchParams.append("status", s));
     }
-    if (params.page) searchParams.append('page', params.page.toString());
-    if (params.size) searchParams.append('size', params.size.toString());
-    if (params.order_by) searchParams.append('order_by', params.order_by);
-    if (params.order_direction) searchParams.append('order_direction', params.order_direction);
+    if (params.after_date) searchParams.append("after_date", params.after_date);
+    if (params.before_date)
+      searchParams.append("before_date", params.before_date);
+    if (params.page) searchParams.append("page", params.page.toString());
+    if (params.size) searchParams.append("size", params.size.toString());
+    if (params.order_by) searchParams.append("order_by", params.order_by);
+    if (params.order_direction)
+      searchParams.append("order_direction", params.order_direction);
 
     const queryString = searchParams.toString();
-    const url = `/posts/${queryString ? `?${queryString}` : ''}`;
-    
+    const url = `/posts/${queryString ? `?${queryString}` : ""}`;
+
     const response = await apiClient.request<PostsListResponse>(url);
     return response;
   }
@@ -99,8 +105,8 @@ class PostsAPI {
    * Create a new post
    */
   async createPost(data: CreatePostRequest): Promise<Post> {
-    const response = await apiClient.request<Post>('/posts/', {
-      method: 'POST',
+    const response = await apiClient.request<Post>("/posts/", {
+      method: "POST",
       body: JSON.stringify(data),
     });
     return response;
@@ -111,7 +117,7 @@ class PostsAPI {
    */
   async updatePost(postId: string, data: UpdatePostRequest): Promise<Post> {
     const response = await apiClient.request<Post>(`/posts/${postId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
     return response;
@@ -122,7 +128,7 @@ class PostsAPI {
    */
   async deletePost(postId: string): Promise<void> {
     await apiClient.request<void>(`/posts/${postId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   }
 
@@ -131,7 +137,7 @@ class PostsAPI {
    */
   async dismissPost(postId: string): Promise<Post> {
     const response = await apiClient.request<Post>(`/posts/${postId}/dismiss`, {
-      method: 'POST',
+      method: "POST",
     });
     return response;
   }
@@ -140,20 +146,29 @@ class PostsAPI {
    * Mark a post as posted
    */
   async markAsPosted(postId: string): Promise<Post> {
-    const response = await apiClient.request<Post>(`/posts/${postId}/mark-posted`, {
-      method: 'POST',
-    });
+    const response = await apiClient.request<Post>(
+      `/posts/${postId}/mark-posted`,
+      {
+        method: "POST",
+      }
+    );
     return response;
   }
 
   /**
    * Submit feedback for a post
    */
-  async submitFeedback(postId: string, feedback: PostFeedbackRequest): Promise<Post> {
-    const response = await apiClient.request<Post>(`/posts/${postId}/feedback`, {
-      method: 'POST',
-      body: JSON.stringify(feedback),
-    });
+  async submitFeedback(
+    postId: string,
+    feedback: PostFeedbackRequest
+  ): Promise<Post> {
+    const response = await apiClient.request<Post>(
+      `/posts/${postId}/feedback`,
+      {
+        method: "POST",
+        body: JSON.stringify(feedback),
+      }
+    );
     return response;
   }
 
@@ -161,10 +176,13 @@ class PostsAPI {
    * Schedule a post for publishing
    */
   async schedulePost(postId: string, scheduledAt: string): Promise<Post> {
-    const response = await apiClient.request<Post>(`/posts/${postId}/schedule`, {
-      method: 'POST',
-      body: JSON.stringify({ scheduled_at: scheduledAt }),
-    });
+    const response = await apiClient.request<Post>(
+      `/posts/${postId}/schedule`,
+      {
+        method: "POST",
+        body: JSON.stringify({ scheduled_at: scheduledAt }),
+      }
+    );
     return response;
   }
 
@@ -172,9 +190,12 @@ class PostsAPI {
    * Remove a post from schedule
    */
   async unschedulePost(postId: string): Promise<Post> {
-    const response = await apiClient.request<Post>(`/posts/${postId}/schedule`, {
-      method: "DELETE",
-    });
+    const response = await apiClient.request<Post>(
+      `/posts/${postId}/schedule`,
+      {
+        method: "DELETE",
+      }
+    );
     return response;
   }
 
@@ -182,11 +203,14 @@ class PostsAPI {
    * Generate new post suggestions
    */
   async generatePosts(): Promise<{ message: string }> {
-    const response = await apiClient.request<{ message: string }>("/posts/generate-suggestions", {
-      method: "POST",
-    });
+    const response = await apiClient.request<{ message: string }>(
+      "/posts/generate-suggestions",
+      {
+        method: "POST",
+      }
+    );
     return response;
   }
 }
 
-export const postsApi = new PostsAPI(); 
+export const postsApi = new PostsAPI();

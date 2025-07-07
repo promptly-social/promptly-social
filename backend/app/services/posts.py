@@ -25,9 +25,11 @@ class PostsService:
         user_id: UUID,
         platform: Optional[str] = None,
         status: Optional[List[str]] = None,
+        after_date: Optional[datetime] = None,
+        before_date: Optional[datetime] = None,
         page: int = 1,
         size: int = 20,
-        order_by: str = "created_at",
+        order_by: str = "scheduled_at",
         order_direction: str = "desc",
     ) -> Dict:
         """Get posts with filtering and pagination."""
@@ -40,6 +42,20 @@ class PostsService:
 
             if status:
                 filters.append(Post.status.in_(status))
+
+            if after_date:
+                if after_date.tzinfo is None:
+                    after_date = after_date.replace(
+                        tzinfo=datetime.now().astimezone().tzinfo
+                    )
+                filters.append(Post.scheduled_at >= after_date)
+
+            if before_date:
+                if before_date.tzinfo is None:
+                    before_date = before_date.replace(
+                        tzinfo=datetime.now().astimezone().tzinfo
+                    )
+                filters.append(Post.scheduled_at <= before_date)
 
             # Build query for total count
             count_query = select(func.count()).select_from(Post).where(and_(*filters))
