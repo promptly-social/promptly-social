@@ -448,7 +448,7 @@ class TestConfiguration:
         from app.core.config import settings
 
         assert settings.app_name == "Test API"
-        assert settings.environment == "testing"
+        assert settings.environment == "test"
         assert settings.debug is True
         assert isinstance(settings.get_cors_origins(), list)
 

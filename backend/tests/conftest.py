@@ -18,7 +18,7 @@ sys.path.insert(0, str(backend_dir))
 # Set test environment variables before importing app modules
 os.environ.update(
     {
-        "ENVIRONMENT": "testing",
+        "ENVIRONMENT": "test",
         "APP_NAME": "Test API",
         "DEBUG": "true",
         "DATABASE_URL": "sqlite:///./test.db",
