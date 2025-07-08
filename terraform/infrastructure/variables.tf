@@ -109,6 +109,12 @@ variable "production_project_id" {
   default     = null
 }
 
+variable "manage_dns_zone" {
+  description = "Whether to manage the DNS zone in this module"
+  type        = bool
+  default     = true
+}
+
 variable "manage_backend_load_balancer" {
   description = "Boolean flag to indicate if the backend load balancer infrastructure should be managed."
   type        = bool

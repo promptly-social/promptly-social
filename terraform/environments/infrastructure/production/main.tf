@@ -24,13 +24,13 @@ provider "google" {
   project                     = var.project_id
   region                      = var.region
   zone                        = var.zone
-  impersonate_service_account = var.terraform_service_account_email
+  # impersonate_service_account = var.terraform_service_account_email
 }
 
 provider "google" {
   alias                       = "dns"
   project                     = var.project_id
-  impersonate_service_account = var.terraform_service_account_email
+  # impersonate_service_account = var.terraform_service_account_email
 }
 
 # Deploy the infrastructure module

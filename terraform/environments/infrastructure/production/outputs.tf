@@ -1,29 +1,8 @@
-# Production Environment Outputs
 
 # Infrastructure module outputs
-output "cloud_run_service_url" {
-  description = "URL of the Cloud Run service"
-  value       = module.infrastructure.cloud_run_service_url
-}
-
 output "cloud_run_service_name" {
   description = "Name of the Cloud Run service"
   value       = module.infrastructure.cloud_run_service_name
-}
-
-output "frontend_bucket_name" {
-  description = "Name of the frontend storage bucket"
-  value       = module.infrastructure.frontend_bucket_name
-}
-
-output "frontend_bucket_url" {
-  description = "URL of the frontend storage bucket"
-  value       = module.infrastructure.frontend_bucket_url
-}
-
-output "cdn_url" {
-  description = "URL of the CDN"
-  value       = module.infrastructure.cdn_url
 }
 
 output "api_load_balancer_ip" {
@@ -31,12 +10,22 @@ output "api_load_balancer_ip" {
   value       = module.infrastructure.api_load_balancer_ip
 }
 
-output "dns_zone_nameservers" {
-  description = "Name servers for the DNS zone"
-  value       = module.infrastructure.dns_zone_nameservers
+output "api_url" {
+  description = "The URL of the backend API"
+  value       = module.infrastructure.api_url
 }
 
-output "artifact_registry_repository_url" {
+output "artifact_registry_repository" {
+  description = "Full name of the Artifact Registry repository"
+  value       = module.infrastructure.artifact_registry_repository
+}
+
+output "artifact_registry_url" {
   description = "URL of the Artifact Registry repository"
-  value       = module.infrastructure.artifact_registry_repository_url
+  value       = module.infrastructure.artifact_registry_url
+}
+
+output "app_service_account_email" {
+  description = "The email address of the service account created for the application"
+  value       = module.infrastructure.app_service_account_email
 }

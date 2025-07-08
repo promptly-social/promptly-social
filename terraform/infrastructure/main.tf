@@ -604,15 +604,14 @@ resource "google_compute_global_forwarding_rule" "frontend_forwarding_rule" {
 # NOTE: After running this, you must update the nameservers at your
 # domain registrar to the ones provided in the `dns_zone_nameservers` output.
 resource "google_dns_managed_zone" "frontend_zone" {
-  count = var.manage_frontend_infra && local.is_production ? 1 : 0
-
-  name        = "promptly-social-zone" # A name for the zone in GCP
-  dns_name    = "promptly.social."     # The actual domain name
-  project     = var.project_id
+  count       = var.manage_dns_zone ? 1 : 0
+  name        = "promptly-social-zone"
+  dns_name    = "promptly.social."
   description = "DNS zone for promptly.social"
+  project     = var.project_id
 
-  lifecycle {
-    prevent_destroy = true
+  cloud_logging_config {
+    enable_logging = false
   }
 }
 
@@ -736,4 +735,13 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
     project      = local.is_production ? var.project_id : var.production_project_id
   }
 
-# Terraform state bucket and its IAM permissions are managed by bootstrap module
+# # Creates a DNS A record for the backend API if an IP address is provided.
+# resource "google_dns_record_set" "api_cname_record" {
+#   count = var.manage_backend_load_balancer ? 1 : 0
+
+#   managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
+#   name         = "${local.backend_domain}."
+#   type         = "CNAME"
+#   ttl          = 300
+#   rrdatas      = ["ghs.googlehosted.com."]
+# }
