@@ -1,3 +1,6 @@
+# terraform/infrastructure/main.tf
+# This module manages application infrastructure, assuming bootstrap has created foundational resources
+
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -16,12 +19,14 @@ terraform {
   }
 }
 
+# Configure the default provider
 provider "google" {
   project = var.project_id
   region  = var.region
   zone    = var.zone
 }
 
+# Configure the DNS provider for cross-project DNS management
 provider "google" {
   alias   = "dns"
   project = local.is_production ? var.project_id : var.production_project_id
@@ -36,15 +41,16 @@ data "google_dns_managed_zone" "production_zone" {
   project = var.production_project_id # This var should be set in staging's .tfvars
 }
 
-# Enable required APIs
-resource "google_project_service" "apis" {
+# Enable application-specific APIs (foundational APIs are enabled by bootstrap)
+resource "google_project_service" "application_apis" {
   for_each = toset([
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
-    "iam.googleapis.com",
-    "compute.googleapis.com"
+    "compute.googleapis.com",
+    "dns.googleapis.com",
+    "cloudscheduler.googleapis.com"
   ])
 
   service            = each.value
@@ -58,113 +64,63 @@ resource "google_artifact_registry_repository" "backend_repo" {
   format        = "DOCKER"
   description   = "Docker repository for ${var.app_name} backend"
 
-  depends_on = [google_project_service.apis]
+  depends_on = [google_project_service.application_apis]
 }
 
-# Create the application service account
-resource "google_service_account" "app_sa" {
-  project      = var.project_id
-  account_id   = "${var.app_name}-app-sa-${var.environment}"
-  display_name = "Application Service Account (${var.app_name} ${var.environment})"
-  description  = "Service account for the ${var.app_name} application in ${var.environment}."
-
-  depends_on = [google_project_service.apis]
+# Reference service accounts created by bootstrap module
+data "google_service_account" "app_sa" {
+  account_id = "${var.app_name}-app-sa-${var.environment}"
+  project    = var.project_id
 }
 
-# Allow the Terraform SA to impersonate the Application SA.
-# This is necessary for deploying resources like Cloud Run services that run as the App SA.
-resource "google_service_account_iam_member" "tf_sa_impersonates_app_sa" {
-  service_account_id = google_service_account.app_sa.name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${var.terraform_service_account_email}"
+# Grant Artifact Registry writer role to the application service account
+resource "google_artifact_registry_repository_iam_member" "app_sa_artifact_registry_writer" {
+  provider   = google
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.backend_repo.name
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${data.google_service_account.app_sa.email}"
+  
+  # Explicitly depend on the repository being created first
+  depends_on = [
+    google_artifact_registry_repository.backend_repo,
+    google_project_service.application_apis["artifactregistry.googleapis.com"]
+  ]
+  
+  # Add a lifecycle block to handle cases where the repository might be created outside of Terraform
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to the repository name in case it's managed elsewhere
+      repository,
+    ]
+  }
 }
 
-# Grant necessary permissions to the service account
-resource "google_project_iam_member" "cloud_run_permissions" {
+data "google_service_account" "terraform_sa" {
+  account_id = "${var.app_name}-tf-sa-${var.environment}"
+  project    = var.project_id
+}
+
+# Grant application-specific permissions to the App SA
+# (Bootstrap handles foundational permissions for Terraform SA)
+resource "google_project_iam_member" "app_sa_runtime_permissions" {
   for_each = toset([
     "roles/secretmanager.secretAccessor",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/cloudtrace.agent",
     "roles/run.developer",
-    "roles/compute.loadBalancerAdmin",
-    "roles/artifactregistry.writer"
+    "roles/artifactregistry.reader",
+    "roles/cloudscheduler.jobRunner"
   ])
 
   project = var.project_id
   role    = each.value
-  member  = "serviceAccount:${google_service_account.app_sa.email}"
+  member  = "serviceAccount:${data.google_service_account.app_sa.email}"
 }
 
-# Allow the service account to push to the Artifact Registry repository
-resource "google_artifact_registry_repository_iam_member" "writer" {
-  location   = google_artifact_registry_repository.backend_repo.location
-  repository = google_artifact_registry_repository.backend_repo.repository_id
-  role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${google_service_account.app_sa.email}"
-}
-
-# Workload Identity Federation for GitHub Actions
-resource "google_iam_workload_identity_pool" "github_pool" {
-  workload_identity_pool_id = "${var.app_name}-github-pool-${var.environment}"
-  display_name              = "${var.app_name} WIF Pool (${var.environment})"
-  description               = "WIF pool for ${var.app_name} (${var.environment})"
-
-  depends_on = [google_project_service.apis]
-}
-
-resource "google_iam_workload_identity_pool_provider" "github_provider" {
-  workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
-  workload_identity_pool_provider_id = "github-provider"
-  display_name                       = "GitHub OIDC Provider"
-  description                        = "OIDC provider for GitHub Actions"
-  attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.repository" = "assertion.repository"
-  }
-  attribute_condition = "assertion.repository_owner == 'promptly-social'"
-  oidc {
-    issuer_uri = "https://token.actions.githubusercontent.com"
-  }
-}
-
-# Grant the application service account permission to act as itself.
-# This is required for Cloud Run to deploy a new revision with this SA.
-resource "google_service_account_iam_binding" "app_sa_user_binding" {
-  service_account_id = google_service_account.app_sa.name
-  role               = "roles/iam.serviceAccountUser"
-  members = [
-    "serviceAccount:${google_service_account.app_sa.email}"
-  ]
-}
-
-# Allow GitHub Actions to impersonate the Application Service Account
-resource "google_service_account_iam_binding" "app_sa_wif_binding" {
-  service_account_id = google_service_account.app_sa.name
-  role               = "roles/iam.workloadIdentityUser"
-  members = [
-    # Allow workflows from your GitHub repository to impersonate this SA
-    "principalSet://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
-  ]
-
-  depends_on = [
-    google_iam_workload_identity_pool_provider.github_provider
-  ]
-}
-
-# Also grant the GitHub Actions principal the ability to create tokens for the SA.
-resource "google_service_account_iam_binding" "app_sa_token_creator_binding" {
-  service_account_id = google_service_account.app_sa.name
-  role               = "roles/iam.serviceAccountTokenCreator"
-  members = [
-    # Allow workflows from your GitHub repository to impersonate this SA
-    "principalSet://iam.googleapis.com/projects/${data.google_project.current.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github_pool.workload_identity_pool_id}/attribute.repository/${var.github_repo}"
-  ]
-
-  depends_on = [
-    google_iam_workload_identity_pool_provider.github_provider
-  ]
-}
+# Workload Identity Federation and service account impersonation are handled by the bootstrap module
 
 # Secret Manager secrets
 
@@ -479,12 +435,12 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
 
   secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.app_sa.email}"
+  member    = "serviceAccount:${data.google_service_account.app_sa.email}"
 }
 
 module "cloud_run_service" {
   count  = var.manage_cloud_run_service ? 1 : 0
-  source = "../../modules/cloud-run-service"
+  source = "../modules/cloud-run-service"
 
   project_id                 = var.project_id
   region                     = var.region
@@ -494,7 +450,7 @@ module "cloud_run_service" {
   cloud_run_max_instances    = var.cloud_run_max_instances
   cloud_run_cpu              = var.cloud_run_cpu
   cloud_run_memory           = var.cloud_run_memory
-  service_account_email      = google_service_account.app_sa.email
+  service_account_email      = data.google_service_account.app_sa.email
   docker_registry_location   = var.docker_registry_location
   backend_repo_repository_id = google_artifact_registry_repository.backend_repo.repository_id
   cors_origins               = var.cors_origins
@@ -554,7 +510,7 @@ resource "google_storage_bucket" "frontend_bucket" {
 
   uniform_bucket_level_access = true
 
-  depends_on = [google_project_service.apis]
+  depends_on = [google_project_service.application_apis]
 }
 
 # 2. Grant public read access to the bucket objects for the CDN
@@ -660,19 +616,7 @@ resource "google_dns_managed_zone" "frontend_zone" {
   }
 }
 
-resource "google_project_iam_member" "dns_readers" {
-  for_each = toset(local.is_production ? var.dns_reader_service_accounts : [])
-  project  = var.project_id
-  role     = "roles/dns.reader"
-  member   = "serviceAccount:${each.key}"
-}
-
-resource "google_project_iam_member" "dns_admins" {
-  for_each = toset(local.is_production ? var.dns_admin_service_accounts : [])
-  project  = var.project_id
-  role     = "roles/dns.admin"
-  member   = "serviceAccount:${each.key}"
-}
+# DNS IAM permissions are managed by bootstrap module
 
 resource "google_dns_record_set" "frontend_a_record" {
   count = var.manage_frontend_infra ? 1 : 0
@@ -792,11 +736,4 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
     project      = local.is_production ? var.project_id : var.production_project_id
   }
 
-# Grant read-only access to the Terraform state bucket for specified service accounts
-# This is typically used to allow staging environments to read production state.
-resource "google_storage_bucket_iam_member" "state_readers" {
-  for_each = toset(var.environment == "production" ? var.terraform_state_reader_service_accounts : [])
-  bucket   = "promptly-terraform-state" # This bucket is managed outside of this configuration.
-  role     = "roles/storage.objectViewer"
-  member   = "serviceAccount:${each.key}"
-}
+# Terraform state bucket and its IAM permissions are managed by bootstrap module

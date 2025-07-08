@@ -109,34 +109,10 @@ variable "production_project_id" {
   default     = null
 }
 
-variable "dns_editor_service_accounts" {
-  description = "A list of service accounts to grant DNS editor role in the production project"
-  type        = list(string)
-  default     = []
-}
-
-variable "terraform_state_reader_service_accounts" {
-  description = "A list of service accounts to grant read-only access to the terraform state bucket."
-  type        = list(string)
-  default     = []
-}
-
 variable "manage_backend_load_balancer" {
   description = "Boolean flag to indicate if the backend load balancer infrastructure should be managed."
   type        = bool
   default     = true
-}
-
-variable "dns_reader_service_accounts" {
-  description = "A list of service accounts to grant DNS reader role in the production project"
-  type        = list(string)
-  default     = []
-}
-
-variable "dns_admin_service_accounts" {
-  description = "A list of service accounts to grant DNS admin role in the production project"
-  type        = list(string)
-  default     = []
 }
 
 variable "image_tag" {

@@ -13,7 +13,7 @@ provider "google" {
 }
 
 module "bootstrap" {
-  source = "../../modules/bootstrap"
+  source = "../../../modules/bootstrap"
 
   project_id                  = var.project_id
   github_repo                 = var.github_repo

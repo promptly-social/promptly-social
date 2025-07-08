@@ -20,8 +20,8 @@ variable "app_name" {
   default     = "promptly"
 }
 
-variable "dns_reader_sds" {
-  description = "List of service accounts to grant dns.reader role to"
+variable "dns_reader_service_accounts" {
+  description = "List of service accounts to grant dns.reader role to (production only)"
   type        = list(string)
   default     = []
 }
@@ -39,4 +39,10 @@ variable "environment" {
 variable "bootstrap_admins" {
   type        = list(string)
   description = "Users allowed to impersonate the Terraform SA locally"
+}
+
+variable "state_bucket_location" {
+  description = "Location for the Terraform state bucket"
+  type        = string
+  default     = "US"
 }

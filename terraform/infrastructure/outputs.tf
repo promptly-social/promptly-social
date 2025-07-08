@@ -35,7 +35,7 @@ output "artifact_registry_url" {
 
 output "app_service_account_email" {
   description = "The email address of the service account created for the application."
-  value       = google_service_account.app_sa.email
+  value       = data.google_service_account.app_sa.email
 }
 
 output "secret_manager_secrets" {

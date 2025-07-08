@@ -20,7 +20,7 @@ variable "app_name" {
   default     = "promptly"
 }
 
-variable "dns_reader_sds" {
+variable "dns_reader_service_accounts" {
   description = "List of service accounts to grant dns.reader role to"
   type        = list(string)
   default     = []

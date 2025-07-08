@@ -1,148 +1,151 @@
 # terraform/modules/bootstrap/main.tf
+# This module handles foundational setup: service accounts, WIF, state bucket, and basic IAM
 
-# 1. Enable required APIs for this setup.
-resource "google_project_service" "iam_api" {
+# 1. Enable required APIs for bootstrap setup
+resource "google_project_service" "required_apis" {
+  for_each = toset([
+    "iam.googleapis.com",
+    "storage.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "cloudresourcemanager.googleapis.com"
+  ])
+
   project                    = var.project_id
-  service                    = "iam.googleapis.com"
-  disable_dependent_services = true
+  service                    = each.value
+  disable_dependent_services = false
 }
 
-resource "google_project_service" "storage_api" {
-  project                    = var.project_id
-  service                    = "storage.googleapis.com"
-  disable_dependent_services = true
-}
-
-resource "google_project_service" "iam_credentials_api" {
-  project                    = var.project_id
-  service                    = "iamcredentials.googleapis.com"
-  disable_dependent_services = true
-}
-
-resource "google_project_service" "cloudscheduler_api" {
-  project                    = var.project_id
-  service                    = "cloudscheduler.googleapis.com"
-  disable_dependent_services = true
-}
-
-# 2. Create the Workload Identity Pool. This is the trust boundary.
+# 2. Create the Workload Identity Pool for GitHub Actions authentication
 resource "google_iam_workload_identity_pool" "github_pool" {
   project                   = var.project_id
-  workload_identity_pool_id = "${var.app_name}-github-pool-${var.environment}"
-  display_name              = "${var.app_name} WIF Pool (${var.environment})"
-  description               = "Allows GitHub Actions to securely authenticate with GCP for ${var.environment}"
-  depends_on                = [google_project_service.iam_api]
+  workload_identity_pool_id = "github-pool-${var.environment}"
+  display_name              = "GitHub WIF Pool (${var.environment})"
+  description               = "Workload Identity Federation pool for GitHub Actions in ${var.environment}"
+  
+  depends_on = [google_project_service.required_apis]
 }
 
-# 3. Create the OIDC Provider for the pool, specifying GitHub as the trusted issuer.
+# 3. Create the OIDC Provider for GitHub Actions
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
-  workload_identity_pool_provider_id = "github-provider"
-  display_name                       = "GitHub Actions Provider"
-  description                        = "OIDC provider for GitHub Actions"
+  workload_identity_pool_provider_id = "gh-provider"
+  display_name                       = "GitHub Actions OIDC Provider"
+  description                        = "OIDC provider for GitHub Actions authentication"
+  
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
     "attribute.repository" = "assertion.repository"
+    "attribute.actor"      = "assertion.actor"
+    "attribute.ref"        = "assertion.ref"
   }
+  
   attribute_condition = "assertion.repository_owner == 'promptly-social'"
+  
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
+  
+  depends_on = [google_iam_workload_identity_pool.github_pool]
 }
 
-# Create GCS bucket to store Terraform state
+# 4. Create GCS bucket for Terraform state storage
 resource "google_storage_bucket" "terraform_state" {
   project       = var.project_id
   name          = var.terraform_state_bucket_name
-  location      = "US" # Or another location of your choice
+  location      = var.state_bucket_location
   storage_class = "STANDARD"
 
-  # It's best practice to enable versioning on state buckets
+  # Enable versioning for state file history
   versioning {
     enabled = true
   }
 
-  # Prevent accidental deletion of the state bucket
+  # Prevent accidental deletion
   force_destroy = false
 
-  # Use uniform bucket-level access for simpler and more secure IAM
+  # Use uniform bucket-level access for better security
   uniform_bucket_level_access = true
 
-  # Ensure the bucket is created after the necessary API is enabled
-  depends_on = [google_project_service.storage_api]
+  # Enable object lifecycle management
+  lifecycle_rule {
+    condition {
+      age = 30
+      num_newer_versions = 5
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  depends_on = [google_project_service.required_apis]
 }
 
-# 4. Create a dedicated Service Account for Terraform to use in CI/CD.
+# 5. Create dedicated service accounts
+# Terraform Service Account for CI/CD operations
 resource "google_service_account" "terraform_sa" {
   project      = var.project_id
   account_id   = "${var.app_name}-tf-sa-${var.environment}"
-  display_name = "Terraform CI/CD SA (${var.environment})"
-  depends_on   = [google_project_service.iam_api]
+  display_name = "Terraform CI/CD Service Account (${var.environment})"
+  description  = "Service account used by Terraform for infrastructure management in ${var.environment}"
+  
+  depends_on = [google_project_service.required_apis]
 }
 
-# Create a dedicated Service Account for the application to run as.
+# Application Service Account for runtime operations
 resource "google_service_account" "app_sa" {
   project      = var.project_id
   account_id   = "${var.app_name}-app-sa-${var.environment}"
-  display_name = "Application SA (${var.environment})"
-  depends_on   = [google_project_service.iam_api]
+  display_name = "Application Service Account (${var.environment})"
+  description  = "Service account used by the application runtime in ${var.environment}"
+  
+  depends_on = [google_project_service.required_apis]
 }
 
-# Grant the Terraform SA permissions to manage the state bucket
+# 6. Grant Terraform SA access to state bucket
 resource "google_storage_bucket_iam_member" "terraform_sa_state_bucket_admin" {
   bucket = google_storage_bucket.terraform_state.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 
-# Allow the Terraform SA to impersonate the App SA. This is necessary for deploying
-# resources like Cloud Run services that run as the App SA.
+# 7. Allow Terraform SA to impersonate Application SA
+# This enables Terraform to deploy resources that run as the App SA
 resource "google_service_account_iam_member" "terraform_sa_impersonates_app_sa" {
   service_account_id = google_service_account.app_sa.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 
-# 5. Grant the Terraform SA the necessary permissions to manage your project's resources.
-# Using granular roles instead of the overly broad 'roles/owner' for better security.
+# Allow Terraform SA to create access tokens for App SA
 resource "google_project_iam_member" "terraform_sa_roles" {
   for_each = toset([
-    # Core project management
-    "roles/serviceusage.serviceUsageAdmin",     # Manage API services
-
+    # Core project and API management
+    "roles/serviceusage.serviceUsageAdmin",     # Enable/disable APIs
+    "roles/resourcemanager.projectIamAdmin",    # Manage project IAM
+    
     # Service Account management
     "roles/iam.serviceAccountAdmin",            # Create/manage service accounts
-    "roles/iam.serviceAccountKeyAdmin",         # Manage service account keys
-    "roles/iam.securityAdmin",                  # Manage IAM policies and bindings
-    "roles/iam.workloadIdentityPoolAdmin",      # Manage Workload Identity pools
-
-    # Artifact Registry
-    "roles/artifactregistry.admin",             # Manage Artifact Registry repositories
-    "roles/artifactregistry.writer",            # Write Artifact Registry repositories
-
-    # Secret Manager
-    "roles/secretmanager.admin",                # Create and manage secrets
-
-    # Cloud Run
-    "roles/run.admin",                          # Manage Cloud Run services
-
-    # Cloud Functions (for the separate GCP function)
-    "roles/cloudfunctions.admin",               # Manage Cloud Functions
-    "roles/cloudbuild.builds.editor",           # Build functions
-
-    # Storage (for function source code)
-    "roles/storage.admin",                      # Manage Cloud Storage buckets
-
-    # Compute (for domain mappings and networking)
-    "roles/compute.networkAdmin",               # Manage networking resources
-
-    # DNS (for managing domain records)
-    "roles/dns.admin",                          # Manage Cloud DNS zones and records
-
-    # Monitoring and Logging (for observability resources)
-    "roles/logging.admin",                      # Manage logging resources
-    "roles/monitoring.admin"                    # Manage monitoring resources
+    "roles/iam.serviceAccountUser",             # Impersonate service accounts
+    "roles/iam.serviceAccountTokenCreator",     # Create access tokens
+    "roles/iam.workloadIdentityUser",           # Use Workload Identity
+    
+    # Application infrastructure
+    "roles/run.admin",                          # Cloud Run services
+    "roles/secretmanager.admin",                # Secret Manager
+    "roles/artifactregistry.admin",             # Artifact Registry
+    "roles/cloudbuild.builds.editor",           # Cloud Build
+    "roles/storage.admin",                      # Cloud Storage
+    
+    # Networking and DNS
+    "roles/compute.networkAdmin",               # Networking resources
+    "roles/compute.loadBalancerAdmin",          # Load balancers
+    "roles/dns.admin",                          # DNS management
+    
+    # Monitoring and operations
+    "roles/logging.admin",                      # Cloud Logging
+    "roles/monitoring.admin",                   # Cloud Monitoring
+    "roles/cloudscheduler.admin"                # Cloud Scheduler
   ])
 
   project = var.project_id
@@ -150,84 +153,64 @@ resource "google_project_iam_member" "terraform_sa_roles" {
   member  = "serviceAccount:${google_service_account.terraform_sa.email}"
 }
 
-# 6. Allow GitHub Actions from your repository to impersonate the Terraform Service Account.
+# 9. Configure Workload Identity Federation for GitHub Actions
+# Allow GitHub Actions to impersonate Terraform SA
 resource "google_service_account_iam_binding" "terraform_sa_wif_binding" {
   service_account_id = google_service_account.terraform_sa.name
   role               = "roles/iam.workloadIdentityUser"
   members = [
     "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}",
   ]
+  
   depends_on = [
-    google_project_service.iam_credentials_api,
     google_iam_workload_identity_pool_provider.github_provider,
   ]
 }
 
-# This binding allows the WIF principal to generate access tokens for the SA,
-# which is required for operations like `gcloud auth configure-docker`.
+# Allow GitHub Actions to generate access tokens for Terraform SA
 resource "google_service_account_iam_binding" "terraform_sa_token_creator" {
   service_account_id = google_service_account.terraform_sa.name
   role               = "roles/iam.serviceAccountTokenCreator"
   members = [
     "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}",
   ]
+  
   depends_on = [
     google_service_account_iam_binding.terraform_sa_wif_binding,
   ]
 }
 
+# 10. Cross-project DNS access (production only)
 resource "google_project_iam_member" "dns_readers" {
-  count    = var.environment == "production" ? length(var.dns_reader_sds) : 0
-  project  = var.project_id
-  role     = "roles/dns.reader"
-  member   = "serviceAccount:${var.dns_reader_sds[count.index]}"
+  count   = var.environment == "production" ? length(var.dns_reader_service_accounts) : 0
+  project = var.project_id
+  role    = "roles/dns.reader"
+  member  = "serviceAccount:${var.dns_reader_service_accounts[count.index]}"
 }
 
-# Grant the Terraform SA permission to create access tokens for the App SA.
-# The ServiceAccountUser role (impersonation) was already granted above in
-# `terraform_sa_impersonates_app_sa`.  Add the complementary
-# ServiceAccountTokenCreator role so the TF SA can mint OAuth2 tokens for the
-# App SA when needed (e.g., when Terraform uses `impersonate_service_account`).
-
-resource "google_service_account_iam_member" "terraform_sa_token_creator_app_sa" {
-  service_account_id = google_service_account.app_sa.name
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${google_service_account.terraform_sa.email}"
-}
-
+# 11. Allow bootstrap admins to impersonate Terraform SA locally
 resource "google_service_account_iam_member" "tf_sa_admin_user" {
-  for_each          = toset(var.bootstrap_admins)
+  for_each           = toset(var.bootstrap_admins)
   service_account_id = google_service_account.terraform_sa.name
   role               = "roles/iam.serviceAccountUser"
   member             = "user:${each.value}"
 }
 
 resource "google_service_account_iam_member" "tf_sa_admin_token_creator" {
-  for_each          = toset(var.bootstrap_admins)
+  for_each           = toset(var.bootstrap_admins)
   service_account_id = google_service_account.terraform_sa.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "user:${each.value}"
 }
 
-# Get the project number to construct the Compute Engine default SA email
-
+# 12. Allow Terraform SA to impersonate Compute Engine default SA
+# Required for Cloud Build and other services that use the default compute SA
 data "google_project" "project" {
   project_id = var.project_id
 }
 
-# Allow the Terraform SA to impersonate the Compute Engine default Service Account. This is
-# required because Cloud Functions builds often run under that SA and the caller must have
-# iam.serviceAccountUser (actAs) on it.
 resource "google_service_account_iam_member" "terraform_sa_impersonate_compute_sa" {
   service_account_id = "projects/${var.project_id}/serviceAccounts/${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.terraform_sa.email}"
-}
-
-# Grant the App SA permission to manage Cloud Scheduler jobs
-resource "google_project_iam_member" "app_sa_scheduler_admin" {
-  project    = var.project_id
-  role       = "roles/cloudscheduler.admin"
-  member     = "serviceAccount:${google_service_account.app_sa.email}"
-  depends_on = [google_project_service.cloudscheduler_api]
 }
