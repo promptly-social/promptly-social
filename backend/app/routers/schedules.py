@@ -24,7 +24,7 @@ async def get_schedule(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    service = DailySuggestionScheduleService(db)
+    service = DailySuggestionScheduleService(db, current_user.id)
     schedule = await service.get_schedule(current_user.id)
     return (
         DailySuggestionScheduleResponse.model_validate(schedule) if schedule else None
@@ -75,7 +75,7 @@ async def delete_schedule(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    service = DailySuggestionScheduleService(db)
+    service = DailySuggestionScheduleService(db, current_user.id)
     deleted = await service.delete_schedule(current_user.id)
     if not deleted:
         raise HTTPException(

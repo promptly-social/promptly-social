@@ -13,14 +13,14 @@ Backend FastAPI ----HTTP----> GCP Cloud Function ----Updates----> Supabase Datab
 
 Supported Platforms:
 - Substack: RSS feed + API analysis
-- LinkedIn: Unipile API integration
+- LinkedIn: Web scraping solution (APIFY for MVP)
 ```
 
 ## 📁 Files
 
 - `main.py` - Main Cloud Function code
 - `substack_analyzer.py` - Substack content analysis module
-- `linkedin_analyzer.py` - LinkedIn content analysis module (via Unipile)
+- `linkedin_analyzer.py` - LinkedIn content analysis module (via APIFY)
 - `requirements.txt` - Python dependencies
 - `env.example` - Environment variables template
 - `test_analyzer_local.py` - Substack analyzer local test script
@@ -101,8 +101,7 @@ Set these in the GCP Console or via gcloud:
 | `SUPABASE_URL`                  | Your Supabase project URL                   | Yes      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key                   | Yes      |
 | `OPENROUTER_API_KEY`            | OpenRouter API key for LLM analysis         | Yes      |
-| `UNIPILE_DSN`                   | Unipile DSN hostname for LinkedIn           | Yes      |
-| `UNIPILE_ACCESS_TOKEN`          | Unipile access token for LinkedIn           | Yes      |
+| `APIFY_API_KEY`                 | Apify API Key                               | Yes      |
 | `MAX_POSTS_TO_ANALYZE`          | Max Substack posts to analyze (default: 10) | No       |
 | `MAX_POSTS_TO_ANALYZE_LINKEDIN` | Max LinkedIn posts to analyze (default: 20) | No       |
 
@@ -131,8 +130,7 @@ GCP_ANALYSIS_FUNCTION_URL=https://us-central1-your-project.cloudfunctions.net/an
    export SUPABASE_URL="your_supabase_url"
    export SUPABASE_SERVICE_ROLE_KEY="your_service_key"
    export OPENROUTER_API_KEY="your_openrouter_api_key"
-   export UNIPILE_DSN="your_unipile_dsn"
-   export UNIPILE_ACCESS_TOKEN="your_unipile_token"
+   export APIFY_KEY='your_apify_key'
    ```
 
 3. **Run locally**:
@@ -156,7 +154,7 @@ GCP_ANALYSIS_FUNCTION_URL=https://us-central1-your-project.cloudfunctions.net/an
    ```bash
    curl -X POST http://localhost:8080 \
      -H "Content-Type: application/json" \
-     -d '{"user_id": "test-uuid", "platform": "linkedin", "platform_username": "unipile-account-id", "content_to_analyze": ["bio", "writing_style"]}'
+     -d '{"user_id": "test-uuid", "platform": "linkedin", "platform_username": "linkedin_", "content_to_analyze": ["bio", "writing_style"]}'
    ```
 
 5. **Test import sample analyzer**:
@@ -172,7 +170,7 @@ GCP_ANALYSIS_FUNCTION_URL=https://us-central1-your-project.cloudfunctions.net/an
    python test_analyzer_local.py stratechery
 
    # Test LinkedIn analyzer
-   python test_linkedin_analyzer_local.py your-unipile-account-id
+   python test_linkedin_analyzer_local.py linkedin_public_account
    ```
 
 ### Function Logs
@@ -189,7 +187,7 @@ gcloud functions logs tail analyze-substack --region=us-central1
 2. **Validation**: Function validates user and connection exist
 3. **Analysis**:
    - **Substack**: Fetches RSS feed, parses recent posts
-   - **LinkedIn**: Fetches posts via Unipile API
+   - **LinkedIn**: Fetches posts via Apify API
    - Analyzes writing style using NLP (OpenRouter/OpenAI)
    - Extracts topics and content patterns
 4. **Storage**: Updates Supabase with results and completion timestamp

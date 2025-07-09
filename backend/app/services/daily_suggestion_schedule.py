@@ -76,28 +76,42 @@ class DailySuggestionScheduleService:
         )  # bytes for body
 
         name = f"{self._parent_path()}/jobs/{_get_job_name(schedule.user_id)}"
-        http_target_kwargs = {
-            "http_method": scheduler_v1.HttpMethod.POST,
-            "uri": settings.gcp_generate_suggestions_function_url,
-            "headers": {"Content-Type": "application/json"},
-            "body": payload,
+
+        # Create the job configuration
+        job = {
+            "name": name,
+            "schedule": schedule.cron_expression,
+            "time_zone": schedule.timezone,
+            "http_target": {
+                "http_method": "POST",
+                "uri": settings.gcp_generate_suggestions_function_url,
+                "headers": {"Content-Type": "application/json"},
+                "body": payload,
+            },
         }
 
+        # Add OIDC token if service account email is set
         if settings.gcp_app_service_account_email:
-            http_target_kwargs["oidc_token"] = scheduler_v1.OidcToken(
-                service_account_email=settings.gcp_app_service_account_email
-            )
-
-        job = scheduler_v1.Job(
-            name=name,
-            schedule=schedule.cron_expression,
-            time_zone=schedule.timezone,
-            http_target=scheduler_v1.HttpTarget(**http_target_kwargs),
-        )
+            job["http_target"]["oidc_token"] = {
+                "service_account_email": settings.gcp_app_service_account_email
+            }
 
         try:
+            # Try to get the existing job
             client.get_job(name=name)
-            client.update_job(job=job)
+            # If we get here, the job exists - update it with all fields
+            update_mask = {
+                "paths": [
+                    "schedule",
+                    "time_zone",
+                    "http_target.http_method",
+                    "http_target.uri",
+                    "http_target.headers",
+                    "http_target.body",
+                    "http_target.oidc_token.service_account_email",
+                ]
+            }
+            client.update_job(job=job, update_mask=update_mask)
             logger.info(f"Updated Cloud Scheduler job {name}")
         except Exception:
             client.create_job(parent=self._parent_path(), job=job)

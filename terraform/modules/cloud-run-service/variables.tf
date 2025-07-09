@@ -160,21 +160,6 @@ variable "database_url_name" {
   type        = string
 }
 
-variable "unipile_dsn_name" {
-  description = "The name of the Secret Manager secret for the Unipile DSN."
-  type        = string
-}
-
-variable "unipile_access_token_name" {
-  description = "The name of the Secret Manager secret for the Unipile access token."
-  type        = string
-}
-
-variable "use_unipile_for_linkedin_name" {
-  description = "The name of the Secret Manager secret for the USE_UNIPILE_FOR_LINKEDIN flag."
-  type        = string
-}
-
 variable "openrouter_model_primary_name" {
   description = "The name of the Secret Manager secret for the OpenRouter model primary."
   type        = string

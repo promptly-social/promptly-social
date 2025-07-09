@@ -338,7 +338,8 @@ class SupabaseClient:
                     json={
                         "code": code,
                         "grant_type": "pkce",
-                        "redirect_uri": redirect_to or f"{settings.frontend_url}/auth/callback"
+                        "redirect_uri": redirect_to
+                        or f"{settings.frontend_url}/auth/callback",
                     },
                 )
 

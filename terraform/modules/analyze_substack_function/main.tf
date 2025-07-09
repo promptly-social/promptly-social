@@ -172,28 +172,13 @@ resource "google_cloudfunctions2_function" "function" {
       version    = "latest"
     }
 
-    secret_environment_variables {
-      key        = "UNIPILE_ACCESS_TOKEN"
-      project_id = var.project_id
-      secret     = "UNIPILE_ACCESS_TOKEN"
-      version    = "latest"
-    }
-
-    secret_environment_variables {
-      key        = "UNIPILE_DSN"
-      project_id = var.project_id
-      secret     = "UNIPILE_DSN"
-      version    = "latest"
-    }
+  
   }
 
   depends_on = [
     google_secret_manager_secret_iam_member.secret_access_supabase_url,
     google_secret_manager_secret_iam_member.secret_access_supabase_key,
     google_secret_manager_secret_iam_member.secret_access_openrouter_key,
-    google_secret_manager_secret_iam_member.secret_access_unipile_token,
-    google_secret_manager_secret_iam_member.secret_access_unipile_dsn,
-    google_secret_manager_secret_iam_member.secret_access_unipile_dsn,
     google_project_iam_member.cloudbuild_storage_admin,
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
@@ -235,13 +220,6 @@ data "google_secret_manager_secret" "gcp_analysis_function_url" {
   secret_id = "GCP_ANALYSIS_FUNCTION_URL"
 }
 
-data "google_secret_manager_secret" "unipile_access_token" {
-  secret_id = "UNIPILE_ACCESS_TOKEN"
-}
-
-data "google_secret_manager_secret" "unipile_dsn" {
-  secret_id = "UNIPILE_DSN"
-}
 
 # Save the Cloud Function URL to Secret Manager
 resource "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
@@ -276,19 +254,6 @@ resource "google_secret_manager_secret_iam_member" "secret_access_openrouter_key
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "secret_access_unipile_token" {
-  project   = data.google_secret_manager_secret.unipile_access_token.project
-  secret_id = data.google_secret_manager_secret.unipile_access_token.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.function_sa.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "secret_access_unipile_dsn" {
-  project   = data.google_secret_manager_secret.unipile_dsn.project
-  secret_id = data.google_secret_manager_secret.unipile_dsn.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.function_sa.email}"
-}
 
 # Grant the function's service account permission to write to the GCP analysis function URL secret
 resource "google_secret_manager_secret_iam_member" "secret_access_gcp_function_url" {

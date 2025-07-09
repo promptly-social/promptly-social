@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import DailySuggestionSchedule from "@/components/DailySuggestionSchedule";
 import {
   Select,
   SelectContent,
@@ -83,54 +85,73 @@ export const ContentScheduleSettings: React.FC = () => {
     }
   };
 
+  const headerSection = (
+    <CardHeader>
+      <CardTitle>Content Schedule Settings</CardTitle>
+      <CardDescription></CardDescription>
+    </CardHeader>
+  );
+
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <Card>
+        {headerSection}
+        <CardContent>
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-4 w-1/2" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Content Schedule Settings</CardTitle>
-        <CardDescription>
-          Choose your preferred time and timezone for daily content posts. This
-          will be used as the default when scheduling new posts.
-        </CardDescription>
-      </CardHeader>
+      {headerSection}
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Daily Suggestions Schedule */}
+        <DailySuggestionSchedule />
+
+        <div className="w-full gap-4 mt-2">
           <div className="space-y-2">
             <Label htmlFor="posting-time">Preferred Posting Time</Label>
-            <Input
-              id="posting-time"
-              type="time"
-              value={preferences.preferred_posting_time || ""}
-              onChange={(e) =>
-                setPreferences((p) => ({
-                  ...p,
-                  preferred_posting_time: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select
-              value={preferences.timezone || ""}
-              onValueChange={(value) =>
-                setPreferences((p) => ({ ...p, timezone: value }))
-              }
-            >
-              <SelectTrigger id="timezone">
-                <SelectValue placeholder="Select a timezone" />
-              </SelectTrigger>
-              <SelectContent>
-                {timezones.map((tz) => (
-                  <SelectItem key={tz} value={tz}>
-                    {tz}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <p className="text-sm text-gray-500">
+              The default values in your datepicker when scheduling new posts.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                id="posting-time"
+                type="time"
+                value={preferences.preferred_posting_time || ""}
+                onChange={(e) =>
+                  setPreferences((p) => ({
+                    ...p,
+                    preferred_posting_time: e.target.value,
+                  }))
+                }
+              />
+              <Select
+                value={preferences.timezone || ""}
+                onValueChange={(value) =>
+                  setPreferences((p) => ({ ...p, timezone: value }))
+                }
+              >
+                <SelectTrigger id="timezone">
+                  <SelectValue placeholder="Select a timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timezones.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         <Button onClick={handleSave} disabled={isSaving}>
