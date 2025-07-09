@@ -66,7 +66,6 @@ module "infrastructure" {
   cloud_run_cpu          = var.cloud_run_cpu
 
   # Other configuration
-  cors_origins               = var.cors_origins
   image_tag                 = var.image_tag
   enable_deletion_protection = var.enable_deletion_protection
 }

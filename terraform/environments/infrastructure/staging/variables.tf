@@ -76,12 +76,6 @@ variable "enable_deletion_protection" {
   default     = false
 }
 
-variable "cors_origins" {
-  description = "CORS origins for the application"
-  type        = list(string)
-  default     = ["https://staging.promptly.social"]
-}
-
 variable "github_repo" {
   description = "The GitHub repository in 'owner/repo' format"
   type        = string
@@ -101,6 +95,12 @@ variable "manage_cloud_run_service" {
   description = "Boolean flag to indicate if cloud run service should be managed"
   type        = bool
   default     = true
+}
+
+variable "cors_origins" {
+  description = "CORS origins for the application"
+  type        = list(string)
+  default     = []  # Will use the default from the infrastructure module
 }
 
 variable "allow_unauthenticated_invocations" {

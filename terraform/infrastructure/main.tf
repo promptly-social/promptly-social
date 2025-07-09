@@ -453,7 +453,7 @@ module "cloud_run_service" {
   service_account_email      = data.google_service_account.app_sa.email
   docker_registry_location   = var.docker_registry_location
   backend_repo_repository_id = google_artifact_registry_repository.backend_repo.repository_id
-  cors_origins               = var.cors_origins
+  cors_origins               = local.cors_origins
   frontend_url               = local.frontend_url
   backend_url                = local.backend_url
   jwt_secret_name            = google_secret_manager_secret.jwt_secret.secret_id
@@ -488,6 +488,15 @@ locals {
   backend_domain  = "api.${var.frontend_domain_name}"
   frontend_url    = "https://${var.frontend_domain_name}"
   backend_url     = "https://api.${var.frontend_domain_name}"
+  
+  # Default CORS origins if none provided
+  cors_origins = concat(
+    ["https://${var.frontend_domain_name}"],
+    var.environment == "staging" ? [
+      # Include additional domains for staging
+      "https://staging.${var.frontend_domain_name}",
+    ] : []
+  )
 }
 
 # 1. Cloud Storage bucket to host static files

@@ -63,12 +63,6 @@ variable "enable_deletion_protection" {
   default     = true
 }
 
-variable "cors_origins" {
-  description = "CORS origins for the application"
-  type        = list(string)
-  default     = ["https://promptly.social"]
-}
-
 variable "github_repo" {
   description = "The GitHub repository in 'owner/repo' format (e.g., 'my-org/my-repo')"
   type        = string
