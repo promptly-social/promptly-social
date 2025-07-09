@@ -70,6 +70,9 @@ export interface SocialConnectionUpdate {
   platform_username?: string;
   connection_data?: unknown;
   is_active?: boolean;
+  access_token?: string | null;
+  refresh_token?: string | null;
+  expires_at?: string | null;
 }
 
 export interface PlatformAnalysisResponse {

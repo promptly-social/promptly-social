@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import DailySuggestionSchedule from "@/components/DailySuggestionSchedule";
+import DailySuggestionSchedule from "@/components/preferences/DailySuggestionSchedule";
 import {
   Select,
   SelectContent,

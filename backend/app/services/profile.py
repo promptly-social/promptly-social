@@ -349,7 +349,6 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
 
         # Store all auth data in connection_data JSON field
         connection_data = SocialConnectionUpdate(
-            platform_username=user_info.get("name"),
             is_active=True,
             connection_data={
                 "auth_method": "native",
@@ -606,9 +605,8 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
                 )
             elif platform == "linkedin":
                 # For LinkedIn, we need the account_id from connection_data
-                if (
-                    not connection.connection_data
-                    or not connection.connection_data.get("account_id")
+                if not connection.connection_data or not connection.connection_data.get(
+                    "account_id"
                 ):
                     raise ValueError(
                         f"{platform} connection has no account_id configured"

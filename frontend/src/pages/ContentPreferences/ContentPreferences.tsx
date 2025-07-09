@@ -1,8 +1,8 @@
 import React from "react";
-import { ContentStrategies } from "@/components/ContentStrategies";
-import { UserPreferences } from "@/components/UserPreferences";
+import { ContentStrategies } from "@/components/preferences/ContentStrategies";
+import { UserPreferences } from "@/components/preferences/UserPreferences";
 import AppLayout from "@/components/AppLayout";
-import { ContentScheduleSettings } from "@/components/ContentScheduleSettings";
+import { ContentScheduleSettings } from "@/components/preferences/ContentScheduleSettings";
 
 const ContentPreferences: React.FC = () => {
   return (
