@@ -112,7 +112,7 @@ resource "google_project_iam_member" "app_sa_runtime_permissions" {
     "roles/cloudtrace.agent",
     "roles/run.developer",
     "roles/artifactregistry.reader",
-    "roles/cloudscheduler.jobRunner"
+    "roles/cloudscheduler.admin"
   ])
 
   project = var.project_id
