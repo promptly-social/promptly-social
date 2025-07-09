@@ -25,6 +25,9 @@ cloud_run_cpu          = "1000m"
 # Security & Backup
 enable_deletion_protection = false  # Allow easier cleanup in staging
 
+# DNS Configuration
+manage_dns_zone = false  # Use shared production DNS zone
+
 # CORS Configuration
 cors_origins = [
   "https://staging.promptly.social"
