@@ -43,7 +43,16 @@ resource "google_cloud_run_service" "backend" {
           value = var.environment
         }
 
-      
+        env {
+          name  = "GCP_PROJECT_ID"
+          value = var.gcp_project_id
+        }
+
+        env {
+          name  = "GCP_LOCATION"
+          value = var.gcp_location
+        }
+
         env {
           name  = "CORS_ORIGINS"
           value = join(",", var.cors_origins)
@@ -141,6 +150,12 @@ resource "google_cloud_run_service" "backend" {
         env {
           name  = "BACKEND_URL"
           value = var.backend_url
+        }
+
+        # Expose the service account email so backend can use it for OIDC tokens
+        env {
+          name  = "APP_SERVICE_ACCOUNT_EMAIL"
+          value = var.service_account_email
         }
 
         env {

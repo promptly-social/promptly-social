@@ -136,6 +136,7 @@ resource "google_project_iam_member" "terraform_sa_roles" {
     "roles/artifactregistry.admin",             # Artifact Registry
     "roles/cloudbuild.builds.editor",           # Cloud Build
     "roles/storage.admin",                      # Cloud Storage
+    "roles/cloudfunctions.admin",              # Cloud Functions admin (read/manage functions)
     
     # Networking and DNS
     "roles/compute.networkAdmin",               # Networking resources
@@ -146,6 +147,8 @@ resource "google_project_iam_member" "terraform_sa_roles" {
     "roles/logging.admin",                      # Cloud Logging
     "roles/monitoring.admin",                   # Cloud Monitoring
     "roles/cloudscheduler.admin"                # Cloud Scheduler
+
+    
   ])
 
   project = var.project_id

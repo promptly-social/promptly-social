@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     backend_url: str = Field(default="http://localhost:8000")
     frontend_url: str = Field(default="http://localhost:8080")
 
+    # GCP
+    gcp_project_id: str = Field(default="promptly-social-staging")
+    gcp_location: str = Field(default="us-central1")
+
+    # Service account email for Cloud Scheduler OIDC token
+    gcp_app_service_account_email: Optional[str] = Field(
+        default=None, alias="APP_SERVICE_ACCOUNT_EMAIL"
+    )
+
     # Database
     database_url: str = Field(default="sqlite:///./app.db")
 

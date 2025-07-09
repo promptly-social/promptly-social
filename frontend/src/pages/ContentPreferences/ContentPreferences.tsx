@@ -3,6 +3,7 @@ import { ContentStrategies } from "@/components/ContentStrategies";
 import { UserPreferences } from "@/components/UserPreferences";
 import AppLayout from "@/components/AppLayout";
 import { ContentScheduleSettings } from "@/components/ContentScheduleSettings";
+import DailySuggestionSchedule from "@/components/DailySuggestionSchedule";
 
 const ContentPreferences: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ const ContentPreferences: React.FC = () => {
           <div className="space-y-6 sm:space-y-8">
             <ContentStrategies />
             <ContentScheduleSettings />
+            <DailySuggestionSchedule />
             <UserPreferences />
           </div>
         </div>

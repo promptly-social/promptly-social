@@ -456,6 +456,8 @@ module "cloud_run_service" {
   cors_origins               = local.cors_origins
   frontend_url               = local.frontend_url
   backend_url                = local.backend_url
+  gcp_project_id             = var.project_id
+  gcp_location               = var.region
   jwt_secret_name            = google_secret_manager_secret.jwt_secret.secret_id
   supabase_url_name          = google_secret_manager_secret.supabase_url.secret_id
   supabase_key_name          = google_secret_manager_secret.supabase_key.secret_id
@@ -744,13 +746,38 @@ resource "google_compute_global_forwarding_rule" "api_forwarding_rule" {
     project      = local.is_production ? var.project_id : var.production_project_id
   }
 
-# # Creates a DNS A record for the backend API if an IP address is provided.
-# resource "google_dns_record_set" "api_cname_record" {
-#   count = var.manage_backend_load_balancer ? 1 : 0
+# Grant Cloud Scheduler SA permission to invoke Cloud Run backend
+resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
+  count    = var.manage_cloud_run_service ? 1 : 0
 
-#   managed_zone = local.is_production ? google_dns_managed_zone.frontend_zone[0].name : data.google_dns_managed_zone.production_zone[0].name
-#   name         = "${local.backend_domain}."
-#   type         = "CNAME"
-#   ttl          = 300
-#   rrdatas      = ["ghs.googlehosted.com."]
-# }
+  project  = var.project_id
+  location = module.cloud_run_service[0].service_location
+  service  = module.cloud_run_service[0].service_name
+
+  role   = "roles/run.invoker"
+  member = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+
+  depends_on = [module.cloud_run_service]
+}
+
+# Allow Cloud Scheduler SA to impersonate the App service account for OIDC token generation
+resource "google_service_account_iam_member" "scheduler_impersonates_app_sa" {
+  count = var.manage_cloud_run_service ? 1 : 0
+
+  service_account_id = data.google_service_account.app_sa.name
+  member             = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+  role               = "roles/iam.serviceAccountTokenCreator"
+}
+
+# Allow App service account to actAs itself (needed when it creates Scheduler jobs with oidc_token)
+resource "google_service_account_iam_member" "app_sa_self_actas" {
+  service_account_id = data.google_service_account.app_sa.name
+  member             = "serviceAccount:${data.google_service_account.app_sa.email}"
+  role               = "roles/iam.serviceAccountUser"
+}
+
+resource "google_project_iam_member" "scheduler_logging_writer" {
+  project = var.project_id
+  role = "roles/logging.logWriter"
+  member = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+}

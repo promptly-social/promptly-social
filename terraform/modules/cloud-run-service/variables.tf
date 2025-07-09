@@ -62,6 +62,16 @@ variable "backend_repo_repository_id" {
   type        = string
 }
 
+variable "gcp_project_id" {
+  description = "The GCP project ID."
+  type        = string
+}
+
+variable "gcp_location" {
+  description = "The GCP location."
+  type        = string
+}
+
 variable "cors_origins" {
   description = "A list of allowed CORS origins."
   type        = list(string)

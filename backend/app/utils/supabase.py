@@ -328,6 +328,7 @@ class SupabaseClient:
             logger.info("Attempting direct API call to exchange code")
 
             async with httpx.AsyncClient() as http_client:
+                # For PKCE flow, we need to send the code with grant_type=pkce
                 response = await http_client.post(
                     f"{self.url}/auth/v1/token",
                     headers={
@@ -335,8 +336,9 @@ class SupabaseClient:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "auth_code": code,
-                        "grant_type": "authorization_code",
+                        "code": code,
+                        "grant_type": "pkce",
+                        "redirect_uri": redirect_to or f"{settings.frontend_url}/auth/callback"
                     },
                 )
 
