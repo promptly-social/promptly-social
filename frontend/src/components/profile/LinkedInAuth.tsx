@@ -25,17 +25,13 @@ import {
   SocialConnection,
 } from "@/lib/profile-api";
 import { AlertCircle, CheckCircle, Loader2, XCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface LinkedInAuthProps {
   onConnectionUpdate?: (connection: SocialConnection | null) => void;
 }
 
-type ConnectionStatus =
-  | "idle"
-  | "connecting"
-  | "polling"
-  | "connected"
-  | "error";
+type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
 export const LinkedInAuth: React.FC<LinkedInAuthProps> = ({
   onConnectionUpdate,
@@ -44,6 +40,7 @@ export const LinkedInAuth: React.FC<LinkedInAuthProps> = ({
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("idle");
   const [connection, setConnection] = useState<SocialConnection | null>(null);
+  const [isConnectionLoading, setIsConnectionLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const { toast } = useToast();
@@ -64,6 +61,7 @@ export const LinkedInAuth: React.FC<LinkedInAuthProps> = ({
   };
 
   const loadExistingConnection = async () => {
+    setIsConnectionLoading(true);
     try {
       const existingConnection = await profileApi.getSocialConnection(
         "linkedin"
@@ -75,6 +73,8 @@ export const LinkedInAuth: React.FC<LinkedInAuthProps> = ({
       // No existing connection, which is fine
       setConnection(null);
       onConnectionUpdate?.(null);
+    } finally {
+      setIsConnectionLoading(false);
     }
   };
 
@@ -135,19 +135,35 @@ export const LinkedInAuth: React.FC<LinkedInAuthProps> = ({
     }
   };
 
-  if (!authInfo) {
+  if (!authInfo || isConnectionLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin" />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded-full" />
+            <Skeleton className="h-5 w-40" />
+          </CardTitle>
+          <CardDescription>
+            <Skeleton className="h-4 w-64" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="p-3 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <Skeleton className="h-9 w-24 rounded-md" />
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   const isConnected = connectionStatus === "connected" && connection;
-  const isLoading =
-    connectionStatus === "connecting" || connectionStatus === "polling";
+  const isLoading = connectionStatus === "connecting";
 
   return (
     <Card>
@@ -181,9 +197,6 @@ export const LinkedInAuth: React.FC<LinkedInAuthProps> = ({
             </AlertDescription>
           </Alert>
         )}
-
-        {/* The polling state was only required for popup flow. Since the
-            authentication now occurs in the same tab, it is no longer used. */}
 
         {isConnected ? (
           <div className="p-3 bg-green-50 rounded-lg border border-green-200">
