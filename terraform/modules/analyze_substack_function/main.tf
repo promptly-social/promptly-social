@@ -172,6 +172,12 @@ resource "google_cloudfunctions2_function" "function" {
       version    = "latest"
     }
 
+    secret_environment_variables {
+      key        = "APIFY_API_KEY"
+      project_id = var.project_id
+      secret     = "APIFY_API_KEY"
+      version    = "latest"
+    }
   
   }
 
@@ -179,6 +185,7 @@ resource "google_cloudfunctions2_function" "function" {
     google_secret_manager_secret_iam_member.secret_access_supabase_url,
     google_secret_manager_secret_iam_member.secret_access_supabase_key,
     google_secret_manager_secret_iam_member.secret_access_openrouter_key,
+    google_secret_manager_secret_iam_member.secret_access_apify_key,
     google_project_iam_member.cloudbuild_storage_admin,
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
@@ -213,6 +220,10 @@ data "google_secret_manager_secret" "supabase_service_key" {
 
 data "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
+}
+
+data "google_secret_manager_secret" "apify_api_key" {
+  secret_id = "APIFY_API_KEY"
 }
 
 # Data source for the GCP analysis function URL secret
@@ -254,6 +265,12 @@ resource "google_secret_manager_secret_iam_member" "secret_access_openrouter_key
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "secret_access_apify_key" {
+  project   = data.google_secret_manager_secret.apify_api_key.project
+  secret_id = data.google_secret_manager_secret.apify_api_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.function_sa.email}"
+}
 
 # Grant the function's service account permission to write to the GCP analysis function URL secret
 resource "google_secret_manager_secret_iam_member" "secret_access_gcp_function_url" {

@@ -56,7 +56,6 @@ def fetch_content(
 
     elif platform == "linkedin":
         max_posts = int(os.getenv("MAX_POSTS_TO_ANALYZE_LINKEDIN", "20"))
-        # TODO: Implement Apify solution for this
         analyzer = LinkedInAnalyzer(
             max_posts=max_posts,
             openrouter_api_key=openrouter_api_key,

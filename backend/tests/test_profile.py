@@ -438,31 +438,6 @@ class TestProfileEndpoints:
                     assert "Database error" in response.json()["detail"]
                     mock_rollback.assert_called_once()
 
-    # TODO: a user should be allowed to re-run the analysis
-    # def test_run_substack_analysis_completed_analysis(
-    #     self, test_client, mock_current_user, mock_db
-    # ):
-    #     """Test running Substack analysis when analysis is already complete."""
-    #     with patch(
-    #         "app.services.profile.ProfileService.get_social_connection_for_analysis"
-    #     ) as mock_get_connection:
-    #         mock_connection = SocialConnection(
-    #             id=uuid4(),
-    #             user_id=mock_current_user.id,
-    #             platform="substack",
-    #             platform_username="testuser",
-    #             is_active=True,
-    #             analysis_completed_at=datetime.now(timezone.utc),
-    #         )
-    #         mock_get_connection.return_value = mock_connection
-
-    #         response = test_client.post(
-    #             "/api/v1/profile/analyze-substack",
-    #             headers={"Authorization": "Bearer test_token"},
-    #         )
-    #         assert response.status_code == status.HTTP_400_BAD_REQUEST
-    #         assert "already been completed" in response.json()["detail"]
-
     def test_run_substack_analysis_no_username(
         self, test_client, mock_current_user, mock_db
     ):

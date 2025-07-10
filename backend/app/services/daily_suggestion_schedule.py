@@ -88,6 +88,7 @@ class DailySuggestionScheduleService:
                 "headers": {"Content-Type": "application/json"},
                 "body": payload,
             },
+            "attempt_deadline": "10m",
         }
 
         # Add OIDC token if service account email is set

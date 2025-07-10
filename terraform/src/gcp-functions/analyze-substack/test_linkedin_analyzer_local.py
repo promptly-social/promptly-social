@@ -23,7 +23,6 @@ def test_analysis(account_id: str):
     analyzer = LinkedInAnalyzer(
         max_posts=5,
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
-        apify_api_key=os.getenv("APIFY_API_KEY"),
     )
     try:
         result = analyzer.analyze_linkedin(
@@ -58,6 +57,9 @@ def main():
     # Set test environment variables if needed
     if not os.getenv("MAX_POSTS_TO_ANALYZE_LINKEDIN"):
         os.environ["MAX_POSTS_TO_ANALYZE_LINKEDIN"] = "5"
+
+    if not os.getenv("APIFY_API_KEY"):
+        os.environ["APIFY_API_KEY"] = "apify_api_key"
 
     test_analysis(account_id)
 

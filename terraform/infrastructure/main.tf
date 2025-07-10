@@ -371,6 +371,19 @@ resource "google_secret_manager_secret_version" "openrouter_large_model_temperat
   secret_data = "0.0"
 }
 
+resource "google_secret_manager_secret" "apify_api_key" {
+  secret_id = "APIFY_API_KEY"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "apify_api_key_initial_version" {
+  secret      = google_secret_manager_secret.apify_api_key.id
+  secret_data = "placeholder"
+}
+
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
@@ -388,6 +401,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     linkedin_client_secret = google_secret_manager_secret.linkedin_client_secret
     database_url          = google_secret_manager_secret.database_url
     zyte_api_key          = google_secret_manager_secret.zyte_api_key
+    apify_api_key         = google_secret_manager_secret.apify_api_key
   }
 
   secret_id = each.value.secret_id

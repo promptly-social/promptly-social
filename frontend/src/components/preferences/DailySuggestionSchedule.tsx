@@ -44,6 +44,7 @@ const DailySuggestionSchedule: React.FC = () => {
 
   useEffect(() => {
     fetchSchedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const buildCron = (time: string) => {
@@ -97,7 +98,7 @@ const DailySuggestionSchedule: React.FC = () => {
 
   if (loading && !schedule) {
     return (
-      <div className="p-2 space-y-4 bg-white">
+      <div className="space-y-4 bg-white">
         <Skeleton className="h-6 w-1/2" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
@@ -107,7 +108,7 @@ const DailySuggestionSchedule: React.FC = () => {
   }
 
   return (
-    <div className="p-1 space-y-4 bg-white">
+    <div className="space-y-4 bg-white">
       <div className="flex flex-col">
         <div className="space-y-2">
           <Label htmlFor="suggestion-time">Daily Suggestions Time</Label>
