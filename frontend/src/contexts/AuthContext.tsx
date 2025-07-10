@@ -32,6 +32,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   forceAuthRefresh: () => Promise<void>;
   updateUser: (userData: UserUpdate) => Promise<{ error: Error | null }>;
+  deleteAccount: () => Promise<{ error: Error | null }>;
   clearPendingVerification: () => void;
 }
 
@@ -253,7 +254,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const deleteAccount = async () => {
+    try {
+      await apiClient.deleteAccount();
+      // After successful deletion, sign the user out
+      await signOut();
+      return { error: null };
+    } catch (error) {
+      console.error("Delete account failed:", error);
+      return {
+        error:
+          error instanceof ApiError
+            ? new Error(error.message)
+            : new Error("Failed to delete account"),
+      };
+    }
+  };
+
   const updateUser = async (userData: UserUpdate) => {
+    if (!user) {
+      return { error: new Error("User not authenticated") };
+    }
     try {
       const updatedUser = await apiClient.updateUser(userData);
       setUser(updatedUser);
@@ -287,6 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         refreshUser,
         forceAuthRefresh,
         updateUser,
+        deleteAccount,
         clearPendingVerification,
       }}
     >

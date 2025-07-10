@@ -11,7 +11,7 @@ import { User, Bell, AlertTriangle, Trash2 } from "lucide-react";
 import type { UserUpdate } from "@/types/auth";
 
 const Settings: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, deleteAccount } = useAuth();
   const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -83,17 +83,26 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (
       window.confirm(
         "Are you sure you want to delete your account? This action cannot be undone."
       )
     ) {
-      toast({
-        title: "Account Deletion",
-        description: "Account deletion is not implemented yet",
-        variant: "destructive",
-      });
+      const { error } = await deleteAccount();
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been successfully deleted.",
+        });
+        // The user will be redirected to the login page by the AuthContext
+      }
     }
   };
 

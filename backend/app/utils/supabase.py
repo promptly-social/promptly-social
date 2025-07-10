@@ -24,6 +24,7 @@ class SupabaseClient:
     def __init__(self):
         """Initialize Supabase client wrapper."""
         self._client: Optional[Client] = None
+        self._admin_client: Optional[Client] = None
         self.url = settings.supabase_url
         self.key = settings.supabase_key
         self.service_key = settings.supabase_service_key
@@ -44,6 +45,13 @@ class SupabaseClient:
             )
             self._client = create_client(self.url, self.key, options)
         return self._client
+
+    @property
+    def admin_client(self) -> Client:
+        """Lazy initialization of Supabase admin client."""
+        if self._admin_client is None:
+            self._admin_client = create_client(self.url, self.service_key)
+        return self._admin_client
 
     async def sign_up(self, email: str, password: str, **kwargs) -> Dict[str, Any]:
         """
@@ -239,6 +247,25 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"User update error: {str(e)}")
             return {"user": None, "error": str(e)}
+
+    async def delete_user(self, user_id: str) -> Dict[str, Any]:
+        """
+        Delete a user from Supabase Auth. This requires service_role key.
+
+        Args:
+            user_id: The ID of the user to delete (from auth.users).
+
+        Returns:
+            Dictionary containing success status or error.
+        """
+        try:
+            logger.info(f"Attempting to delete user from Supabase Auth: {user_id}")
+            response = self.admin_client.auth.admin.delete_user(user_id)
+            logger.info(f"User deleted from Supabase Auth successfully: {user_id}")
+            return {"data": response, "error": None}
+        except Exception as e:
+            logger.error(f"Supabase Auth delete user error for {user_id}: {str(e)}")
+            return {"data": None, "error": str(e)}
 
     async def sign_in_with_oauth(
         self, provider: str, redirect_to: Optional[str] = None

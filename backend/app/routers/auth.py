@@ -276,29 +276,32 @@ async def update_current_user(
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Update current user information.
-
-    Updates the authenticated user's profile information.
+    Update current user's information.
     """
-    try:
-        auth_service = AuthService(db)
-        updated_user = await auth_service.update_user(current_user.id, user_data)
-
-        if not updated_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-
-        return updated_user
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Update user endpoint error: {e}")
+    auth_service = AuthService(db)
+    updated_user = await auth_service.update_user(current_user.id, user_data)
+    if not updated_user:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update user profile",
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
+    return updated_user
+
+
+@router.delete("/me", response_model=SuccessResponse)
+async def delete_current_user(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Delete the current user's account and all associated data.
+    """
+    auth_service = AuthService(db)
+    result = await auth_service.delete_account(current_user.id)
+    if result["error"]:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result["error"]
+        )
+    return SuccessResponse(message="Account deleted successfully")
 
 
 @router.post("/password/reset", response_model=SuccessResponse)

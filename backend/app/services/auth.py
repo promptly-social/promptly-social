@@ -6,10 +6,16 @@ Integrates Supabase auth with local database operations.
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from loguru import logger
 
 from app.models.user import User, UserSession
+from app.models.idea_bank import IdeaBank
+from app.models.posts import Post
+from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
+from app.models.content_strategies import ContentStrategy
+from app.models.daily_suggestion_schedule import DailySuggestionSchedule
+from app.models.chat import Conversation
 from app.schemas.auth import (
     UserCreate,
     UserLogin,
@@ -225,6 +231,72 @@ class AuthService:
         except Exception as e:
             logger.error(f"Google OAuth sign in failed: {e}")
             return {"error": "OAuth sign in failed", "url": None}
+
+    async def delete_account(self, user_id: str) -> Dict[str, Any]:
+        """
+        Delete a user's account and all associated data.
+
+        Args:
+            user_id: The ID of the user to delete.
+
+        Returns:
+            Dict indicating success or failure.
+        """
+        user = await self._get_user_by_id(user_id)
+        if not user:
+            return {"error": "User not found", "success": False}
+
+        try:
+            logger.info(f"Starting account deletion for user_id: {user_id}")
+
+            # Delete related data. Order doesn't strictly matter here but it's good practice
+            # to delete child objects before parent objects if there are dependencies without ON DELETE CASCADE.
+            # In our case, we are deleting everything related to a user.
+
+            # These models have a direct relationship with the user.
+            # The order matters here due to foreign key constraints that are not set to cascade on delete.
+            # Specifically, Posts and Conversations must be deleted before IdeaBanks.
+            models_to_delete = [
+                Post,
+                Conversation,
+                IdeaBank,
+                SocialConnection,
+                UserPreferences,
+                WritingStyleAnalysis,
+                ContentStrategy,
+                DailySuggestionSchedule,
+                UserSession,
+            ]
+
+            for model in models_to_delete:
+                stmt = delete(model).where(model.user_id == user.id)
+                await self.db.execute(stmt)
+                logger.info(f"Deleted {model.__tablename__} for user_id: {user_id}")
+
+            # Now delete the user from public.users
+            await self.db.delete(user)
+            logger.info(f"Deleted user object for user_id: {user_id}")
+
+            # Finally, delete user from Supabase auth
+            # This is last, so if it fails, the DB transaction can be rolled back.
+            if user.supabase_user_id:
+                supabase_response = await supabase_client.delete_user(
+                    user.supabase_user_id
+                )
+                if supabase_response["error"]:
+                    # This will trigger a rollback of the DB operations
+                    raise Exception(
+                        f"Supabase deletion failed: {supabase_response['error']}"
+                    )
+
+            await self.db.commit()
+            logger.info(f"Successfully deleted account for user_id: {user_id}")
+            return {"success": True, "error": None}
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Account deletion failed for {user_id}: {e}")
+            return {"error": "Account deletion failed", "success": False}
 
     async def sign_out(self, access_token: str) -> Dict[str, Any]:
         """
