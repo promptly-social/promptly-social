@@ -43,7 +43,16 @@ resource "google_cloud_run_service" "backend" {
           value = var.environment
         }
 
-      
+        env {
+          name  = "GCP_PROJECT_ID"
+          value = var.gcp_project_id
+        }
+
+        env {
+          name  = "GCP_LOCATION"
+          value = var.gcp_location
+        }
+
         env {
           name  = "CORS_ORIGINS"
           value = join(",", var.cors_origins)
@@ -143,6 +152,12 @@ resource "google_cloud_run_service" "backend" {
           value = var.backend_url
         }
 
+        # Expose the service account email so backend can use it for OIDC tokens
+        env {
+          name  = "APP_SERVICE_ACCOUNT_EMAIL"
+          value = var.service_account_email
+        }
+
         env {
           name = "LINKEDIN_CLIENT_ID"
           value_from {
@@ -168,36 +183,6 @@ resource "google_cloud_run_service" "backend" {
           value_from {
             secret_key_ref {
               name = var.database_url_name
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "UNIPILE_DSN"
-          value_from {
-            secret_key_ref {
-              name = var.unipile_dsn_name
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "UNIPILE_ACCESS_TOKEN"
-          value_from {
-            secret_key_ref {
-              name = var.unipile_access_token_name
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "USE_UNIPILE_FOR_LINKEDIN"
-          value_from {
-            secret_key_ref {
-              name = var.use_unipile_for_linkedin_name
               key  = "latest"
             }
           }

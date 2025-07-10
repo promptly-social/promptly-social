@@ -4,6 +4,7 @@ Posts router with endpoints for posts management.
 
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from loguru import logger
@@ -18,6 +19,7 @@ from app.schemas.posts import (
     PostResponse,
     PostUpdate,
     PostFeedback,
+    PostBatchUpdate,
 )
 from app.services.posts import PostsService
 from app.core.config import settings
@@ -31,6 +33,8 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 async def get_posts(
     platform: Optional[str] = Query(None),
     post_status: Optional[List[str]] = Query(None, alias="status"),
+    after_date: Optional[datetime] = Query(None),
+    before_date: Optional[datetime] = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     order_by: str = Query("created_at"),
@@ -45,6 +49,8 @@ async def get_posts(
             user_id=current_user.id,
             platform=platform,
             status=post_status,
+            after_date=after_date,
+            before_date=before_date,
             page=page,
             size=size,
             order_by=order_by,
@@ -130,6 +136,27 @@ async def update_post(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update post",
+        )
+
+
+@router.post("/batch-update", response_model=PostListResponse)
+async def batch_update_posts(
+    posts: PostBatchUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Batch update posts."""
+    try:
+        service = PostsService(db)
+        posts = await service.batch_update_posts(current_user.id, posts)
+        return PostListResponse.model_validate(posts)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error batch updating posts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to batch update posts",
         )
 
 

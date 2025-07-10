@@ -36,6 +36,11 @@ from .posts import (
     PostResponse,
     PostUpdate,
 )
+from .daily_suggestion_schedule import (
+    DailySuggestionScheduleCreate,
+    DailySuggestionScheduleUpdate,
+    DailySuggestionScheduleResponse,
+)
 
 __all__ = [
     # Auth schemas
@@ -77,4 +82,8 @@ __all__ = [
     "PostingPatterns",
     "EngagementInsights",
     "PlatformAnalysisResponse",
+    # Daily suggestion schedule schemas
+    "DailySuggestionScheduleCreate",
+    "DailySuggestionScheduleUpdate",
+    "DailySuggestionScheduleResponse",
 ]

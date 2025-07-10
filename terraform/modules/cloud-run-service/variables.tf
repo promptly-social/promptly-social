@@ -62,6 +62,16 @@ variable "backend_repo_repository_id" {
   type        = string
 }
 
+variable "gcp_project_id" {
+  description = "The GCP project ID."
+  type        = string
+}
+
+variable "gcp_location" {
+  description = "The GCP location."
+  type        = string
+}
+
 variable "cors_origins" {
   description = "A list of allowed CORS origins."
   type        = list(string)
@@ -147,21 +157,6 @@ variable "linkedin_client_secret_name" {
 
 variable "database_url_name" {
   description = "The name of the Secret Manager secret for the database URL."
-  type        = string
-}
-
-variable "unipile_dsn_name" {
-  description = "The name of the Secret Manager secret for the Unipile DSN."
-  type        = string
-}
-
-variable "unipile_access_token_name" {
-  description = "The name of the Secret Manager secret for the Unipile access token."
-  type        = string
-}
-
-variable "use_unipile_for_linkedin_name" {
-  description = "The name of the Secret Manager secret for the USE_UNIPILE_FOR_LINKEDIN flag."
   type        = string
 }
 

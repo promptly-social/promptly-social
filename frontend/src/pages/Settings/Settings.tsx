@@ -197,13 +197,13 @@ const Settings: React.FC = () => {
                     Email Notifications
                   </Label>
                   <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                    Receive email updates about your content
+                    FEATURE COMING SOON!
                   </p>
                 </div>
-                <Switch
+                {/* <Switch
                   checked={emailNotifications}
                   onCheckedChange={setEmailNotifications}
-                />
+                /> */}
               </div>
             </CardContent>
           </Card>

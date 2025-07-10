@@ -42,7 +42,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform/environments/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/environments/infrastructure/${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout code

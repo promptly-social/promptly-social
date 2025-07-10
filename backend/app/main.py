@@ -14,8 +14,8 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from app.core.config import settings
-from app.core.database import close_db, init_db, async_engine as engine, Base
-from app.routers import auth, chat, idea_bank, profile, posts
+from app.core.database import close_db, init_db
+from app.routers import auth, chat, idea_bank, profile, posts, schedules
 
 
 # Configure logging
@@ -240,6 +240,7 @@ app.include_router(profile.router, prefix="/api/v1")
 app.include_router(idea_bank.router, prefix="/api/v1")
 app.include_router(posts.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
+app.include_router(schedules.router, prefix="/api/v1")
 
 
 # Root endpoint

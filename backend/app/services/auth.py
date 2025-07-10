@@ -282,7 +282,10 @@ class AuthService:
 
             # Update session
             await self._update_session_tokens(
-                user.id, tokens.access_token, tokens.refresh_token
+                user.id,
+                tokens.access_token,
+                tokens.refresh_token,
+                old_refresh_token=refresh_token,
             )
 
             logger.info(f"Token refreshed successfully for user: {user_id}")
@@ -759,22 +762,29 @@ class AuthService:
         await self.db.commit()
 
     async def _update_session_tokens(
-        self, user_id: str, access_token: str, refresh_token: str
+        self,
+        user_id: str,
+        access_token: str,
+        refresh_token: str,
+        old_refresh_token: Optional[str] = None,
     ) -> None:
         """Update session tokens."""
         expires_at = datetime.utcnow() + timedelta(
             minutes=settings.access_token_expire_minutes
         )
 
-        stmt = (
-            update(UserSession)
-            .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
-            .values(
-                session_token=access_token,
-                refresh_token=refresh_token,
-                expires_at=expires_at,
-                last_used_at=datetime.utcnow(),
-            )
+        stmt = update(UserSession).where(
+            UserSession.user_id == user_id, UserSession.revoked_at.is_(None)
+        )
+
+        if old_refresh_token:
+            stmt = stmt.where(UserSession.refresh_token == old_refresh_token)
+
+        stmt = stmt.values(
+            session_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            last_used_at=datetime.utcnow(),
         )
         await self.db.execute(stmt)
         await self.db.commit()

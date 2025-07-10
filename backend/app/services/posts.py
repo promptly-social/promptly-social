@@ -11,7 +11,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.posts import Post
-from app.schemas.posts import PostCreate, PostUpdate
+from app.schemas.posts import PostCreate, PostUpdate, PostBatchUpdate
 
 
 class PostsService:
@@ -20,14 +20,22 @@ class PostsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def _get_post_by_ids(self, post_ids: List[UUID]) -> List[Post]:
+        """Get a post by id."""
+        query = select(Post).where(Post.id.in_(post_ids))
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
     async def get_posts_list(
         self,
         user_id: UUID,
         platform: Optional[str] = None,
         status: Optional[List[str]] = None,
+        after_date: Optional[datetime] = None,
+        before_date: Optional[datetime] = None,
         page: int = 1,
         size: int = 20,
-        order_by: str = "created_at",
+        order_by: str = "scheduled_at",
         order_direction: str = "desc",
     ) -> Dict:
         """Get posts with filtering and pagination."""
@@ -40,6 +48,20 @@ class PostsService:
 
             if status:
                 filters.append(Post.status.in_(status))
+
+            if after_date:
+                if after_date.tzinfo is None:
+                    after_date = after_date.replace(
+                        tzinfo=datetime.now().astimezone().tzinfo
+                    )
+                filters.append(Post.scheduled_at >= after_date)
+
+            if before_date:
+                if before_date.tzinfo is None:
+                    before_date = before_date.replace(
+                        tzinfo=datetime.now().astimezone().tzinfo
+                    )
+                filters.append(Post.scheduled_at <= before_date)
 
             # Build query for total count
             count_query = select(func.count()).select_from(Post).where(and_(*filters))
@@ -138,6 +160,29 @@ class PostsService:
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Error updating post {post_id}: {e}")
+            raise
+
+    async def batch_update_posts(
+        self, user_id: UUID, posts: PostBatchUpdate
+    ) -> List[Post]:
+        """Batch update posts."""
+        try:
+            items = posts.posts
+            for post in items:
+                await self.update_post(user_id, post.id, post)
+
+            updated_posts = await self._get_post_by_ids([post.id for post in items])
+
+            return {
+                "items": updated_posts,
+                "total": len(updated_posts),
+                "page": 1,
+                "size": len(updated_posts),
+                "has_next": False,
+            }
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error batch updating posts: {e}")
             raise
 
     async def delete_post(self, user_id: UUID, post_id: UUID) -> bool:

@@ -169,7 +169,7 @@ async def sign_in_with_google(
     try:
         # Get redirect URL from request or use default
         origin = request.headers.get("origin", "http://localhost:8080")
-        # TODO: make the redirect_to configurable
+
         redirect_to = oauth_request.redirect_to or f"{origin}/new-content"
 
         auth_service = AuthService(db)

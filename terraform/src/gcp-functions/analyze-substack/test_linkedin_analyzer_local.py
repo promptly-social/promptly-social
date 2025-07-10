@@ -6,7 +6,7 @@ Usage:
     python test_linkedin_analyzer_local.py [account_id]
 
 Example:
-    python test_linkedin_analyzer_local.py abc123-unipile-account-id
+    python test_linkedin_analyzer_local.py linkedin_public_account
 """
 
 import os
@@ -23,8 +23,6 @@ def test_analysis(account_id: str):
     analyzer = LinkedInAnalyzer(
         max_posts=5,
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
-        unipile_access_token=os.getenv("UNIPILE_ACCESS_TOKEN"),
-        unipile_dsn=os.getenv("UNIPILE_DSN"),
     )
     try:
         result = analyzer.analyze_linkedin(
@@ -51,9 +49,7 @@ def test_analysis(account_id: str):
 def main():
     if len(sys.argv) != 2:
         print("Usage: python test_linkedin_analyzer_local.py [account_id]")
-        print(
-            "Example: python test_linkedin_analyzer_local.py abc123-unipile-account-id"
-        )
+        print("Example: python test_linkedin_analyzer_local.py linkedin_public_account")
         sys.exit(1)
 
     account_id = sys.argv[1]
@@ -61,6 +57,9 @@ def main():
     # Set test environment variables if needed
     if not os.getenv("MAX_POSTS_TO_ANALYZE_LINKEDIN"):
         os.environ["MAX_POSTS_TO_ANALYZE_LINKEDIN"] = "5"
+
+    if not os.getenv("APIFY_API_KEY"):
+        os.environ["APIFY_API_KEY"] = "apify_api_key"
 
     test_analysis(account_id)
 

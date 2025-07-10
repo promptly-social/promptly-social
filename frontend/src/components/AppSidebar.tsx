@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useMatch } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -24,20 +24,20 @@ import {
   Target,
 } from "lucide-react";
 
-const menuItems = [
+const contentMenuItems = [
   {
     title: "New Content",
     url: "/new-content",
     icon: FileText,
   },
   {
-    title: "My Content",
-    url: "/my-content",
+    title: "My Posts",
+    url: "/my-posts",
     icon: List,
   },
   {
-    title: "Ideas",
-    url: "/ideas",
+    title: "Content Ideas",
+    url: "/content-ideas",
     icon: Lightbulb,
   },
   {
@@ -45,6 +45,9 @@ const menuItems = [
     url: "/posting-schedule",
     icon: Calendar,
   },
+];
+
+const personalizationMenuItems = [
   {
     title: "Profile",
     url: "/profile",
@@ -62,9 +65,30 @@ const menuItems = [
   },
 ];
 
+const AppSidebarMenuItem = ({
+  item,
+  isCollapsed,
+}: {
+  item: { url: string; title: string; icon: React.ElementType };
+  isCollapsed: boolean;
+}) => {
+  const match = useMatch({ path: item.url, end: true });
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton isActive={!!match} asChild>
+        <NavLink to={item.url} end>
+          <item.icon className="w-4 h-4" />
+          {!isCollapsed && <span>{item.title}</span>}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
-  const location = useLocation();
+
   const isCollapsed = state === "collapsed";
 
   return (
@@ -85,25 +109,29 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Content</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      className={({ isActive }) =>
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                          : "hover:bg-sidebar-accent/50"
-                      }
-                    >
-                      <item.icon className="w-4 h-4" />
-                      {!isCollapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+              {contentMenuItems.map((item) => (
+                <AppSidebarMenuItem
+                  key={item.title}
+                  item={item}
+                  isCollapsed={isCollapsed}
+                />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Personalization</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {personalizationMenuItems.map((item) => (
+                <AppSidebarMenuItem
+                  key={item.title}
+                  item={item}
+                  isCollapsed={isCollapsed}
+                />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>

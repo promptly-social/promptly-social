@@ -164,45 +164,6 @@ class TestProfileService:
         assert disconnected.platform_username is None
 
     @pytest.mark.asyncio
-    async def test_disconnect_unipile_connection(self, profile_service, test_user):
-        """Test disconnecting a Unipile connection."""
-        # Create a Unipile connection first
-        connection_data = SocialConnectionUpdate(
-            platform_username="testuser",
-            is_active=True,
-            connection_data={
-                "access_token": "test_token",
-                "auth_method": "unipile",
-                "account_id": "test_account_id",
-            },
-        )
-        connection = await profile_service.upsert_social_connection(
-            test_user.id, "linkedin", connection_data
-        )
-        assert connection.is_active is True
-        assert connection.connection_data is not None
-
-        # Mock the Unipile API call
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = (
-                mock_client.return_value.__aenter__.return_value.delete.return_value
-            )
-            mock_response.raise_for_status.return_value = None
-
-            # Disconnect the connection
-            disconnect_data = SocialConnectionUpdate(is_active=False)
-            disconnected = await profile_service.upsert_social_connection(
-                test_user.id, "linkedin", disconnect_data
-            )
-
-            assert disconnected.is_active is False
-            assert disconnected.connection_data is None
-            assert disconnected.platform_username is None
-
-            # Verify the Unipile API was called
-            mock_client.return_value.__aenter__.return_value.delete.assert_called_once()
-
-    @pytest.mark.asyncio
     async def test_writing_style_analysis_operations(self, profile_service, test_user):
         """Test writing style analysis CRUD operations."""
         # Create analysis - updated to match service signature
@@ -476,31 +437,6 @@ class TestProfileEndpoints:
                     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
                     assert "Database error" in response.json()["detail"]
                     mock_rollback.assert_called_once()
-
-    # TODO: a user should be allowed to re-run the analysis
-    # def test_run_substack_analysis_completed_analysis(
-    #     self, test_client, mock_current_user, mock_db
-    # ):
-    #     """Test running Substack analysis when analysis is already complete."""
-    #     with patch(
-    #         "app.services.profile.ProfileService.get_social_connection_for_analysis"
-    #     ) as mock_get_connection:
-    #         mock_connection = SocialConnection(
-    #             id=uuid4(),
-    #             user_id=mock_current_user.id,
-    #             platform="substack",
-    #             platform_username="testuser",
-    #             is_active=True,
-    #             analysis_completed_at=datetime.now(timezone.utc),
-    #         )
-    #         mock_get_connection.return_value = mock_connection
-
-    #         response = test_client.post(
-    #             "/api/v1/profile/analyze-substack",
-    #             headers={"Authorization": "Bearer test_token"},
-    #         )
-    #         assert response.status_code == status.HTTP_400_BAD_REQUEST
-    #         assert "already been completed" in response.json()["detail"]
 
     def test_run_substack_analysis_no_username(
         self, test_client, mock_current_user, mock_db

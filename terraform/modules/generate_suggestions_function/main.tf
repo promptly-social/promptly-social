@@ -386,3 +386,10 @@ resource "google_cloud_run_service_iam_member" "app_sa_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.app_sa_email}"
 } 
+
+# Let the Cloud-Function runtime SA read *any* secret in the project
+resource "google_project_iam_member" "function_sa_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.function_sa.email}"
+}

@@ -57,7 +57,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform/environments/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/environments/infrastructure/${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout code
@@ -76,7 +76,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init && terraform state pull
 
       - name: Terraform Plan
         id: plan

@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     backend_url: str = Field(default="http://localhost:8000")
     frontend_url: str = Field(default="http://localhost:8080")
 
+    # GCP
+    gcp_project_id: str = Field(default="promptly-social-staging")
+    gcp_location: str = Field(default="us-central1")
+
+    # Service account email for Cloud Scheduler OIDC token
+    gcp_app_service_account_email: Optional[str] = Field(
+        default=None, alias="APP_SERVICE_ACCOUNT_EMAIL"
+    )
+
     # Database
     database_url: str = Field(default="sqlite:///./app.db")
 
@@ -51,10 +60,6 @@ class Settings(BaseSettings):
     linkedin_client_id: Optional[str] = Field(default=None)
     linkedin_client_secret: Optional[str] = Field(default=None)
 
-    # Unipile Configuration
-    unipile_dsn: Optional[str] = Field(default=None)
-    unipile_access_token: Optional[str] = Field(default=None)
-
     # OpenRouter LLM Configuration
     openrouter_api_key: Optional[str] = Field(default="dummy-openrouter-api-key")
     openrouter_model_primary: str = Field(default="google/gemini-2.5-flash")
@@ -63,9 +68,6 @@ class Settings(BaseSettings):
     openrouter_large_model_primary: str = Field(default="google/gemini-2.5-pro")
     openrouter_large_models_fallback: str = Field(default="anthropic/claude-sonnet-4")
     openrouter_large_model_temperature: float = Field(default=0.0)
-
-    # Feature Flags
-    use_unipile_for_linkedin: bool = Field(default=False)
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60)

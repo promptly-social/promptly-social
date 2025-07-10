@@ -180,7 +180,7 @@ const App = () => (
               }
             />
             <Route
-              path="/my-content"
+              path="/my-posts"
               element={
                 <ProtectedRoute>
                   <SidebarProvider>
@@ -206,7 +206,7 @@ const App = () => (
               }
             />
             <Route
-              path="/ideas"
+              path="/content-ideas"
               element={
                 <ProtectedRoute>
                   <SidebarProvider>

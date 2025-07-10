@@ -70,7 +70,6 @@ const Landing = () => {
 
     // Handle OAuth code parameter (Google OAuth)
     if (code && !hasVerificationTokens) {
-      console.log("OAuth code detected on index page:", code);
       toast({
         title: "Processing Authentication",
         description: "Please wait while we complete your sign-in...",
@@ -78,7 +77,6 @@ const Landing = () => {
 
       // Redirect to our OAuth callback handler with all parameters
       const callbackUrl = `/auth/callback?${searchParams.toString()}`;
-      console.log("Redirecting OAuth to:", callbackUrl);
       navigate(callbackUrl, { replace: true });
     }
   }, [searchParams, navigate, toast]);

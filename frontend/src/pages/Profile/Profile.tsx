@@ -1,9 +1,9 @@
 import React from "react";
-import { SocialConnections } from "@/components/SocialConnections";
-import { WritingAnalysis } from "@/components/WritingAnalysis";
-import { UserBio } from "@/components/UserBio";
+import { SocialConnections } from "@/components/profile/SocialConnections";
+import { WritingAnalysis } from "@/components/profile/WritingAnalysis";
+import { UserBio } from "@/components/profile/UserBio";
 import AppLayout from "@/components/AppLayout";
-import { UnipileLinkedInConnection } from "@/components/UnipileLinkedInConnection";
+import { LinkedInAuth } from "@/components/profile/LinkedInAuth";
 
 const Profile: React.FC = () => {
   return (
@@ -18,12 +18,9 @@ const Profile: React.FC = () => {
           </div>
 
           <div className="space-y-6 sm:space-y-8">
-            <UnipileLinkedInConnection />
-
+            <LinkedInAuth />
             <SocialConnections />
-
             <UserBio />
-
             <WritingAnalysis />
           </div>
         </div>

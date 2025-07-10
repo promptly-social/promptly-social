@@ -525,9 +525,11 @@ const MyContent: React.FC = () => {
     </Popover>
   );
 
+  const title = "My Posts";
+
   if (isLoading) {
     return (
-      <AppLayout title="My Content" emailBreakpoint="md">
+      <AppLayout title={title} emailBreakpoint="md">
         <main className="py-4 px-4 sm:py-8 sm:px-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center py-8">
@@ -541,7 +543,7 @@ const MyContent: React.FC = () => {
   }
 
   return (
-    <AppLayout title="My Content" emailBreakpoint="md">
+    <AppLayout title={title} emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
           {/* Single Post View */}

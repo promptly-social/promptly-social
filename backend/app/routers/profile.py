@@ -211,14 +211,10 @@ async def get_linkedin_auth_info():
     from app.core.config import settings
 
     return {
-        "auth_method": "unipile" if settings.use_unipile_for_linkedin else "native",
-        "provider": "Unipile"
-        if settings.use_unipile_for_linkedin
-        else "LinkedIn OAuth",
-        "configured": (
-            bool(settings.unipile_dsn and settings.unipile_access_token)
-            if settings.use_unipile_for_linkedin
-            else bool(settings.linkedin_client_id and settings.linkedin_client_secret)
+        "auth_method": "native",
+        "provider": "LinkedIn OAuth",
+        "configured": bool(
+            settings.linkedin_client_id and settings.linkedin_client_secret
         ),
     }
 
@@ -231,11 +227,9 @@ async def linkedin_authorize(
     """
     Get LinkedIn authorization URL.
 
-    This endpoint supports both native LinkedIn OAuth and Unipile integration.
-    The method used is controlled by the USE_UNIPILE_FOR_LINKEDIN environment variable.
+    This endpoint supports native LinkedIn OAuth.
 
     - Native LinkedIn OAuth: Returns standard LinkedIn OAuth authorization URL
-    - Unipile: Returns Unipile hosted auth wizard URL for LinkedIn
     """
     try:
         # Using a simple state for now, but should be more robust in production
@@ -251,71 +245,6 @@ async def linkedin_authorize(
         )
 
 
-@router.post("/linkedin/unipile-callback")
-async def linkedin_unipile_callback(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Handle Unipile webhook callback when user connects LinkedIn account."""
-    try:
-        body = await request.json()
-        logger.info(f"Received Unipile callback: {body}")
-
-        # Extract data from Unipile webhook
-        status = body.get("status")
-        account_id = body.get("account_id")
-        name = body.get("name")  # This is our state value
-
-        if status != "CREATION_SUCCESS":
-            logger.warning(f"Unipile callback with non-success status: {status}")
-            return {"status": "ignored", "reason": f"Non-success status: {status}"}
-
-        if not account_id or not name:
-            logger.error("Missing account_id or name in Unipile callback")
-            return {"status": "error", "reason": "Missing required fields"}
-
-        # Extract user_id from the state/name
-        if not name.startswith("linkedin_oauth_state_"):
-            logger.error(f"Invalid state format in Unipile callback: {name}")
-            return {"status": "error", "reason": "Invalid state format"}
-
-        user_id_hex = name.replace("linkedin_oauth_state_", "")
-        try:
-            user_id = UUID(user_id_hex.replace("-", ""))
-        except ValueError:
-            logger.error(f"Invalid user ID in state: {user_id_hex}")
-            return {"status": "error", "reason": "Invalid user ID"}
-
-        # Store the connection with all auth data in connection_data JSON
-        profile_service = ProfileService(db)
-
-        connection_data = SocialConnectionUpdate(
-            platform_username="LinkedIn User",  # Will be updated when we fetch account details
-            is_active=True,
-            connection_data={
-                "auth_method": "unipile",
-                "account_id": account_id,
-                "unipile_account_id": account_id,  # Keep both for backward compatibility
-                "status": "connected",
-                "provider": "linkedin",
-                # Additional webhook data
-                "webhook_status": status,
-                "webhook_data": body,
-            },
-        )
-
-        await profile_service.upsert_social_connection(
-            user_id, "linkedin", connection_data
-        )
-
-        logger.info(f"Successfully processed Unipile callback for user {user_id}")
-        return {"status": "success", "account_id": account_id}
-
-    except Exception as e:
-        logger.error(f"Error processing Unipile callback: {e}")
-        return {"status": "error", "reason": str(e)}
-
-
 @router.get("/linkedin/callback", response_model=SocialConnectionResponse)
 async def linkedin_callback(
     code: str,
@@ -326,12 +255,7 @@ async def linkedin_callback(
     """
     Handle LinkedIn callback, exchange code for token, and store connection.
 
-    This endpoint handles callbacks from both native LinkedIn OAuth and Unipile:
-    - Native LinkedIn OAuth: 'code' is the authorization code from LinkedIn
-    - Unipile: 'code' is the account_id returned from Unipile's auth flow (deprecated - use webhook)
-
-    Note: For Unipile, this endpoint may not be called as Unipile uses webhooks.
-    The frontend should poll the connection status or listen for real-time updates.
+    This endpoint handles callbacks from native LinkedIn OAuth.
     """
     try:
         # Validate state to prevent CSRF attacks
@@ -344,36 +268,11 @@ async def linkedin_callback(
 
         profile_service = ProfileService(db)
 
-        # Check if this is a native LinkedIn callback or if we already have a Unipile connection
-        from app.core.config import settings
-
-        if settings.use_unipile_for_linkedin:
-            # For Unipile, check if we already have a connection from the webhook
-            existing_connection = (
-                await profile_service.get_social_connection_for_analysis(
-                    current_user.id, "linkedin"
-                )
-            )
-            if (
-                existing_connection
-                and existing_connection.connection_data.get("auth_method") == "unipile"
-            ):
-                return SocialConnectionResponse.model_validate(existing_connection)
-            else:
-                # Fallback: treat code as account_id for backward compatibility
-                logger.warning(
-                    "Unipile callback received at OAuth endpoint - using fallback handling"
-                )
-                connection = await profile_service._exchange_unipile_linkedin_code(
-                    code, current_user.id
-                )
-                return SocialConnectionResponse.model_validate(connection)
-        else:
-            # Native LinkedIn OAuth flow
-            connection = await profile_service.exchange_linkedin_code_for_token(
-                code, current_user.id
-            )
-            return SocialConnectionResponse.model_validate(connection)
+        # Native LinkedIn OAuth flow
+        connection = await profile_service.exchange_linkedin_code_for_token(
+            code, current_user.id
+        )
+        return SocialConnectionResponse.model_validate(connection)
 
     except HTTPException:
         raise
@@ -394,11 +293,7 @@ async def share_on_linkedin(
     """
     Share a post on LinkedIn.
 
-    This endpoint supports sharing via both native LinkedIn API and Unipile:
-    - Native LinkedIn OAuth: Uses LinkedIn's ugcPosts API
-    - Unipile: Uses Unipile's unified messaging API
-
-    The method used depends on how the user's LinkedIn connection was established.
+    This endpoint supports sharing via native LinkedIn API.
     """
     try:
         profile_service = ProfileService(db)
@@ -417,43 +312,6 @@ async def share_on_linkedin(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to share on LinkedIn",
-        )
-
-
-@router.get("/linkedin/unipile-accounts")
-async def get_unipile_accounts(
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Get all Unipile accounts (only available when USE_UNIPILE_FOR_LINKEDIN=true).
-
-    This endpoint lists all connected accounts in your Unipile workspace,
-    useful for debugging and administration.
-    """
-    from app.core.config import settings
-
-    if not settings.use_unipile_for_linkedin:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This endpoint is only available when using Unipile for LinkedIn integration",
-        )
-
-    try:
-        profile_service = ProfileService(db)
-        accounts = await profile_service.get_unipile_accounts()
-        return {"accounts": accounts}
-    except ValueError as e:
-        logger.error(f"Value error getting Unipile accounts: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.error(f"Error getting Unipile accounts: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get Unipile accounts",
         )
 
 
@@ -787,8 +645,6 @@ async def check_linkedin_connection_status(
 ):
     """
     Check if a LinkedIn connection was established for a given state.
-    This endpoint doesn't require authentication and is used by the frontend
-    to check if a Unipile webhook was processed successfully.
     """
     try:
         # Extract user_id from the state
@@ -808,14 +664,7 @@ async def check_linkedin_connection_status(
         )
 
         if connection and connection.connection_data:
-            auth_method = connection.connection_data.get("auth_method")
-            if auth_method == "unipile" and connection.is_active:
-                return {
-                    "connected": True,
-                    "auth_method": "unipile",
-                    "account_id": connection.connection_data.get("account_id"),
-                }
-
+            return {"connected": True}
         return {"connected": False}
 
     except Exception as e:

@@ -240,3 +240,4 @@ websockets==15.0.1
     #   uvicorn
 zipp==3.23.0
     # via importlib-metadata
+google-cloud-scheduler==2.16.1  # for Cloud Scheduler API integration

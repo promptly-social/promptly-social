@@ -173,27 +173,19 @@ resource "google_cloudfunctions2_function" "function" {
     }
 
     secret_environment_variables {
-      key        = "UNIPILE_ACCESS_TOKEN"
+      key        = "APIFY_API_KEY"
       project_id = var.project_id
-      secret     = "UNIPILE_ACCESS_TOKEN"
+      secret     = "APIFY_API_KEY"
       version    = "latest"
     }
-
-    secret_environment_variables {
-      key        = "UNIPILE_DSN"
-      project_id = var.project_id
-      secret     = "UNIPILE_DSN"
-      version    = "latest"
-    }
+  
   }
 
   depends_on = [
     google_secret_manager_secret_iam_member.secret_access_supabase_url,
     google_secret_manager_secret_iam_member.secret_access_supabase_key,
     google_secret_manager_secret_iam_member.secret_access_openrouter_key,
-    google_secret_manager_secret_iam_member.secret_access_unipile_token,
-    google_secret_manager_secret_iam_member.secret_access_unipile_dsn,
-    google_secret_manager_secret_iam_member.secret_access_unipile_dsn,
+    google_secret_manager_secret_iam_member.secret_access_apify_key,
     google_project_iam_member.cloudbuild_storage_admin,
     google_project_iam_member.cloudbuild_functions_developer,
     google_project_iam_member.cloudbuild_run_admin,
@@ -230,18 +222,15 @@ data "google_secret_manager_secret" "openrouter_api_key" {
   secret_id = "OPENROUTER_API_KEY"
 }
 
+data "google_secret_manager_secret" "apify_api_key" {
+  secret_id = "APIFY_API_KEY"
+}
+
 # Data source for the GCP analysis function URL secret
 data "google_secret_manager_secret" "gcp_analysis_function_url" {
   secret_id = "GCP_ANALYSIS_FUNCTION_URL"
 }
 
-data "google_secret_manager_secret" "unipile_access_token" {
-  secret_id = "UNIPILE_ACCESS_TOKEN"
-}
-
-data "google_secret_manager_secret" "unipile_dsn" {
-  secret_id = "UNIPILE_DSN"
-}
 
 # Save the Cloud Function URL to Secret Manager
 resource "google_secret_manager_secret_version" "gcp_analysis_function_url_version" {
@@ -276,16 +265,9 @@ resource "google_secret_manager_secret_iam_member" "secret_access_openrouter_key
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "secret_access_unipile_token" {
-  project   = data.google_secret_manager_secret.unipile_access_token.project
-  secret_id = data.google_secret_manager_secret.unipile_access_token.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.function_sa.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "secret_access_unipile_dsn" {
-  project   = data.google_secret_manager_secret.unipile_dsn.project
-  secret_id = data.google_secret_manager_secret.unipile_dsn.secret_id
+resource "google_secret_manager_secret_iam_member" "secret_access_apify_key" {
+  project   = data.google_secret_manager_secret.apify_api_key.project
+  secret_id = data.google_secret_manager_secret.apify_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.function_sa.email}"
 }
@@ -414,3 +396,9 @@ resource "google_project_iam_member" "compute_sa_token_creator" {
   role    = "roles/iam.serviceAccountTokenCreator"
   member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 } 
+
+resource "google_project_iam_member" "function_sa_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.function_sa.email}"
+}

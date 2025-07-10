@@ -69,7 +69,6 @@ class SocialConnection(Base):
     # All authentication data is now stored in connection_data JSON field
     # Structure varies by auth method:
     # - Native LinkedIn: {"auth_method": "native", "access_token": "...", "refresh_token": "...", "expires_at": "...", "scope": "...", "linkedin_user_id": "...", "email": "..."}
-    # - Unipile: {"auth_method": "unipile", "account_id": "...", "unipile_account_id": "...", "provider": "...", "status": "..."}
     connection_data: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSONType(), nullable=True
     )
