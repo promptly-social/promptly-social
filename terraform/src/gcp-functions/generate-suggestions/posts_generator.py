@@ -62,7 +62,6 @@ class PostsGenerator:
         Do not include special characters in the posts that people suspect that you are using AI to generate, such as em-dash, arrows, etc.
         You are to generate {number_of_posts_to_generate} LinkedIn appropriate posts for the user to pick from and post on LinkedIn.
         The posts should be linkedin appropriate and gain the most engagement, and it should be plain text without any markdown.
-        Make sure to cite the source of the post in the post, but do not include the link to the source in the post.
         Generate a recommendation score for the post between 0 and 100, where 100 is the most recommended and 0 is the least recommended.
         The user's bio is: {bio}
         The user's writing style is: {writing_style}
@@ -70,6 +69,11 @@ class PostsGenerator:
         The post URLs are: {urls}
         The linkedin post strategy for gettting the most engagement is: {linkedin_post_strategy}
         Today's date is: {today}
+
+        VERY IMPORTANT:
+        - make sure that the post is in plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
+        - DO NOT include the link to the source in the post.
+        
         Return the posts in a JSON format with the following fields: 
         {{"linkedin_post": "your generated post", "post_url": "the url of the article that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
         """
@@ -112,9 +116,12 @@ class PostsGenerator:
         Instructions:
         1. Generate a LinkedIn-appropriate post that is engaging and likely to get high engagement.
         2. The post should be plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
-        3. If the content idea is a URL, incorporate the link into the post naturally.
-        4. Create a recommendation score for the post between 0 and 100, where 100 is the most recommended.
-        5. Identify a list of relevant topics or hashtags for the post.
+        3. Create a recommendation score for the post between 0 and 100, where 100 is the most recommended.
+        4. Identify a list of relevant topics or hashtags for the post.
+
+        VERY IMPORTANT:
+        - make sure that the post is in plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
+        - DO NOT include the link to the source in the post if the idea_content is a URL.
 
         Return the generated post in the required JSON format.
         """

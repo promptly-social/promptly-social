@@ -342,15 +342,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
                 </>
               )}
             </Button>
-            <Button
-              onClick={fetchSuggestedPosts}
-              variant="outline"
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -386,16 +377,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
                 Generate New Posts
               </>
             )}
-          </Button>
-          <Button
-            onClick={fetchSuggestedPosts}
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-            />
-            Refresh
           </Button>
         </div>
       </div>
@@ -445,15 +426,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
                     Generate New Posts
                   </>
                 )}
-              </Button>
-              <Button
-                onClick={fetchSuggestedPosts}
-                variant="outline"
-                disabled={loading}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
               </Button>
             </div>
           </CardContent>

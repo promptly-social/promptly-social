@@ -238,10 +238,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const token = getStoredToken();
       if (token) {
-        console.log("Force refreshing user data with stored token...");
         const currentUser = await apiClient.getCurrentUser();
         setUser(currentUser);
-        console.log("User data force refreshed:", currentUser.id);
       }
     } catch (error) {
       console.error("Failed to force auth refresh:", error);

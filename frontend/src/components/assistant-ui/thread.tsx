@@ -221,7 +221,7 @@ const AssistantMessage: FC = () => {
                   }
                 }}
               >
-                Schedule this post
+                Use this draft
               </Button>
             </CardFooter>
           </Card>

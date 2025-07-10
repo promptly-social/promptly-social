@@ -3,6 +3,15 @@
  */
 
 import { apiClient } from "./auth-api";
+import { makeAuthenticatedRequest } from "./api-interceptor";
+
+export interface PostMedia {
+  id: string;
+  post_id: string;
+  url: string;
+  type: "image" | "video";
+  created_at: string;
+}
 
 export interface Post {
   id: string;
@@ -13,13 +22,20 @@ export interface Post {
   platform: string;
   topics: string[];
   recommendation_score: number;
-  status: string;
-  user_feedback?: string;
+  status: "suggested" | "saved" | "scheduled" | "posted" | "dismissed";
+  user_feedback?: "positive" | "negative";
   feedback_comment?: string;
   feedback_at?: string;
   scheduled_at?: string;
   created_at: string;
   updated_at: string;
+  posted_at?: string;
+  media_type?: "image" | "video" | "article";
+  media_url?: string;
+  linkedin_asset_urn?: string;
+  // This is a client-side only field for optimistic updates
+  is_saving?: boolean;
+  media?: PostMedia[];
 }
 
 export interface PostsListResponse {
@@ -38,6 +54,7 @@ export interface CreatePostRequest {
   topics?: string[];
   recommendation_score?: number;
   status?: string;
+  media_urls?: string[];
 }
 
 export interface UpdatePostRequest {
@@ -48,6 +65,7 @@ export interface UpdatePostRequest {
   recommendation_score?: number;
   status?: string;
   scheduled_at?: string;
+  media_urls?: string[];
 }
 
 export interface PostBatchUpdateRequest {
@@ -210,13 +228,31 @@ class PostsAPI {
    * Remove a post from schedule
    */
   async unschedulePost(postId: string): Promise<Post> {
-    const response = await apiClient.request<Post>(
-      `/posts/${postId}/schedule`,
+    return makeAuthenticatedRequest<Post>(`/posts/${postId}/schedule`, {
+      method: "DELETE",
+    });
+  }
+
+  async publishPost(
+    postId: string,
+    platform: "linkedin"
+  ): Promise<{ message: string; details: unknown }> {
+    return makeAuthenticatedRequest<{ message: string; details: unknown }>(
+      `/posts/${postId}/publish?platform=${platform}`,
       {
-        method: "DELETE",
+        method: "POST",
       }
     );
-    return response;
+  }
+
+  async uploadPostMedia(postId: string, file: File): Promise<Post> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return makeAuthenticatedRequest<Post>(`/posts/${postId}/media`, {
+      method: "POST",
+      body: formData,
+    });
   }
 
   /**

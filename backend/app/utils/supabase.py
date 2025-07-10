@@ -6,9 +6,11 @@ Provides a centralized interface for all Supabase operations.
 from typing import Any, Dict, Optional
 
 from loguru import logger
-from supabase import Client, create_client
+from supabase import create_client, Client
 
 from app.core.config import settings
+
+supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
 
 
 class SupabaseClient:

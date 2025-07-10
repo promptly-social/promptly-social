@@ -189,6 +189,47 @@ const PostingSchedule: React.FC = () => {
     }
   };
 
+  const handleUpdatePost = async (postId: string, content: string) => {
+    try {
+      setIsRescheduling(true);
+      const updatedPost = await postsApi.updatePost(postId, { content });
+
+      setScheduledPosts((prev) =>
+        sortPostsByScheduledAt(
+          prev.map((post) => (post.id === postId ? updatedPost : post))
+        )
+      );
+
+      if (selectedPost?.id === postId) {
+        setSelectedPost(updatedPost);
+      }
+
+      toast({
+        title: "Post Updated",
+        description: "Your post has been successfully updated.",
+      });
+    } catch (error) {
+      console.error("Error updating post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
+  const handlePostPublished = (postId: string) => {
+    setScheduledPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, status: "posted" } : p))
+    );
+    toast({
+      title: "Post Published",
+      description: "Your post has been successfully published to LinkedIn.",
+    });
+  };
+
   const openRescheduleModal = (post: Post) => {
     setPostToReschedule(post);
     setIsRescheduleModalOpen(true);
@@ -636,6 +677,8 @@ const PostingSchedule: React.FC = () => {
         onSaveForLater={handleSaveForLater}
         onReschedule={openRescheduleModal}
         onDelete={handleDeletePost}
+        onUpdatePost={handleUpdatePost}
+        onPostPublished={handlePostPublished}
         isProcessing={isRescheduling}
         formatDateTime={formatDateTime}
       />

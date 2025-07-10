@@ -3,10 +3,10 @@ Posts related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, UUID4
 
 
 class PostBase(BaseModel):
@@ -14,36 +14,57 @@ class PostBase(BaseModel):
 
     title: Optional[str] = None
     content: str
-    platform: str = Field(default="linkedin")
-    topics: List[str] = Field(default_factory=list)
-    recommendation_score: int = Field(default=0, ge=0, le=100)
-    status: str = Field(default="suggested")
+    platform: str = "linkedin"
+    media_type: Optional[str] = None
+    media_url: Optional[str] = None
+    topics: Optional[List[str]] = []
+    status: Optional[str] = "suggested"
     scheduled_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class PostCreate(PostBase):
-    """Schema for creating posts."""
+    """Schema for creating a post."""
 
-    idea_bank_id: Optional[UUID] = None
+    pass
 
 
 class PostUpdate(BaseModel):
-    """Schema for updating posts."""
+    """Schema for updating a post."""
 
-    id: Optional[UUID] = None
     title: Optional[str] = None
     content: Optional[str] = None
     platform: Optional[str] = None
+    media_type: Optional[str] = None
+    media_url: Optional[str] = None
+    linkedin_asset_urn: Optional[str] = None
     topics: Optional[List[str]] = None
-    recommendation_score: Optional[int] = Field(None, ge=0, le=100)
     status: Optional[str] = None
     scheduled_at: Optional[datetime] = None
+    user_feedback: Optional[str] = None
+    feedback_comment: Optional[str] = None
+    posted_at: Optional[datetime] = None
 
 
-class PostBatchUpdate(BaseModel):
-    """Schema for batch updating posts."""
+class PostResponse(PostBase):
+    """Schema for returning a post."""
 
-    posts: List[PostUpdate]
+    id: UUID4
+    user_id: UUID4
+    idea_bank_id: Optional[UUID4] = None
+    recommendation_score: int
+    user_feedback: Optional[str] = None
+    feedback_comment: Optional[str] = None
+    feedback_at: Optional[datetime] = None
+    linkedin_asset_urn: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    posted_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class PostFeedback(BaseModel):
@@ -53,27 +74,15 @@ class PostFeedback(BaseModel):
     comment: Optional[str] = None
 
 
-class PostResponse(PostBase):
-    """Schema for post responses."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    user_id: UUID
-    idea_bank_id: Optional[UUID] = None
-    user_feedback: Optional[str] = None
-    feedback_comment: Optional[str] = None
-    feedback_at: Optional[datetime] = None
-    scheduled_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
-
-
 class PostListResponse(BaseModel):
-    """Schema for paginated posts list."""
+    """Schema for a list of posts with pagination info."""
 
     items: List[PostResponse]
     total: int
     page: int
     size: int
-    has_next: bool
+    total_pages: int
+
+
+class PostBatchUpdate(BaseModel):
+    posts: list[dict[str, Any]]

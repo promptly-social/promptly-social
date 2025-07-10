@@ -30,6 +30,11 @@ class Post(Base):
     platform: Mapped[str] = mapped_column(
         String(50), nullable=False, default="linkedin"
     )
+    media_type: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )  # image, video, article
+    media_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    linkedin_asset_urn: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     topics: Mapped[List[str]] = mapped_column(StringArray(), default=list)
     recommendation_score: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="suggested")

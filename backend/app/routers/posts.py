@@ -6,7 +6,16 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+    BackgroundTasks,
+    UploadFile,
+    File,
+)
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -139,6 +148,26 @@ async def update_post(
         )
 
 
+@router.post("/{post_id}/media", response_model=PostResponse)
+async def upload_post_media(
+    post_id: UUID,
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Upload media for a post."""
+    try:
+        service = PostsService(db)
+        post = await service.upload_media_for_post(current_user.id, post_id, file)
+        return PostResponse.model_validate(post)
+    except Exception as e:
+        logger.error(f"Error uploading media for post {post_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload media",
+        )
+
+
 @router.post("/batch-update", response_model=PostListResponse)
 async def batch_update_posts(
     posts: PostBatchUpdate,
@@ -268,6 +297,34 @@ async def submit_post_feedback(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit feedback",
+        )
+
+
+@router.post("/{post_id}/publish", status_code=status.HTTP_200_OK)
+async def publish_post(
+    post_id: UUID,
+    platform: str = Query("linkedin", enum=["linkedin"]),
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Publish a post to the specified platform."""
+    try:
+        service = PostsService(db)
+        result = await service.publish_post(current_user.id, post_id, platform)
+
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
+            )
+
+        return {"message": "Post published successfully", "details": result}
+    except NotImplementedError as e:
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error publishing post {post_id} to {platform}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to publish post: {e}",
         )
 
 

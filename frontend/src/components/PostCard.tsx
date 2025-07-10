@@ -1,16 +1,12 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   RefreshCw,
   Calendar,
-  TrendingUp,
   Clock,
-  Share2,
-  Globe,
-  User,
   ThumbsUp,
   ThumbsDown,
   Edit3,
@@ -21,9 +17,17 @@ import {
   CheckCircle,
   XCircle,
   Info,
-  Copy,
+  MoreHorizontal,
 } from "lucide-react";
 import { Post } from "@/lib/posts-api";
+import { PostCardHeader } from "./PostCardHeader";
+import { PostContent } from "./PostContent";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PostCardProps {
   post: Post;
@@ -117,95 +121,100 @@ export const PostCard: React.FC<PostCardProps> = ({
   return (
     <Card
       key={post.id}
-      className="relative hover:shadow-md transition-shadow flex flex-col h-full"
+      className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-white"
     >
-      <CardHeader className="pb-3 sm:pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge
-                className={`${getStatusColor(post.status)} text-xs`}
-                variant="secondary"
-              >
-                {getStatusIcon(post.status)}
-                <span className="ml-1 capitalize">{post.status}</span>
-              </Badge>
-              {post.user_feedback && (
-                <Badge
-                  variant={
-                    post.user_feedback === "positive"
-                      ? "default"
-                      : "destructive"
-                  }
-                  className="text-xs"
-                >
-                  {post.user_feedback === "positive" ? (
-                    <>
-                      <ThumbsUp className="w-3 h-3 mr-1" />
-                      Liked
-                    </>
-                  ) : (
-                    <>
-                      <ThumbsDown className="w-3 h-3 mr-1" />
-                      Disliked
-                    </>
-                  )}
-                </Badge>
-              )}
+      <div className="flex justify-between items-start p-4">
+        <div className="flex-grow">
+          <PostCardHeader />
+        </div>
+        {onStartEditing && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onStartEditing(post)}>
+                <Edit3 className="w-4 h-4 mr-2" />
+                Edit Post
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      <CardContent className="space-y-4 flex-grow flex flex-col pt-0">
+        {editingPostId === post.id ? (
+          <div className="space-y-3">
+            <Textarea
+              value={editedContent}
+              onChange={(e) => onEditContentChange?.(e.target.value)}
+              className="min-h-[200px] max-h-[400px] resize-y bg-gray-50"
+              placeholder="Edit your post content..."
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => onSaveEdit?.(post.id)}>
+                <Check className="w-4 h-4 mr-1" />
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={onCancelEdit}>
+                Cancel
+              </Button>
             </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 flex-grow flex flex-col">
-        <div className="bg-gray-50 p-3 sm:p-4 rounded-lg relative">
-          {editingPostId === post.id ? (
-            <div className="space-y-3">
-              <Textarea
-                value={editedContent}
-                onChange={(e) => onEditContentChange?.(e.target.value)}
-                className="min-h-[300px] max-h-[400px] resize-y"
-                placeholder="Edit your post content..."
-              />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => onSaveEdit?.(post.id)}>
-                  <Check className="w-4 h-4 mr-1" />
-                  Save
-                </Button>
-                <Button size="sm" variant="outline" onClick={onCancelEdit}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-wrap p-2">
-                {renderContentWithNewlines(post.content)}
-              </p>
-              {onStartEditing && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute top-2 right-2 p-1 h-6 w-6"
-                  onClick={() => onStartEditing(post)}
-                >
-                  <Edit3 className="w-3 h-3" />
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+        ) : (
+          <PostContent post={post} />
+        )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-          <div className="flex items-center gap-2 text-gray-600">
-            <Clock className="w-4 h-4 text-blue-500" />
-            <span>
-              Created: <strong>{formatDate(post.created_at)}</strong>
-            </span>
+        {post.media && post.media.length > 0 && (
+          <div className="mt-4 border rounded-lg overflow-hidden">
+            <img
+              src={post.media[0].url}
+              alt="Post media"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 pt-4">
+          <div className="flex items-center gap-2">
+            <Badge
+              className={`${getStatusColor(post.status)} text-xs`}
+              variant="secondary"
+            >
+              {getStatusIcon(post.status)}
+              <span className="ml-1 capitalize">{post.status}</span>
+            </Badge>
+            {post.user_feedback && (
+              <Badge
+                variant={
+                  post.user_feedback === "positive" ? "default" : "destructive"
+                }
+                className="text-xs"
+              >
+                {post.user_feedback === "positive" ? (
+                  <>
+                    <ThumbsUp className="w-3 h-3 mr-1" />
+                    Liked
+                  </>
+                ) : (
+                  <>
+                    <ThumbsDown className="w-3 h-3 mr-1" />
+                    Disliked
+                  </>
+                )}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>{formatDate(post.created_at)}</span>
           </div>
         </div>
 
         {post.topics.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 pt-2">
             <p className="text-xs sm:text-sm font-medium text-gray-700">
               Topics:
             </p>
@@ -219,11 +228,10 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {/* Feedback Section */}
         {!post.user_feedback &&
           onSubmitPositiveFeedback &&
           onOpenNegativeFeedbackModal && (
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg mt-4">
               <span className="text-sm text-gray-600">
                 How is this suggestion?
               </span>
@@ -250,7 +258,6 @@ export const PostCard: React.FC<PostCardProps> = ({
 
         <div className="flex-grow"></div>
 
-        {/* Action Buttons Section */}
         {post.status !== "posted" && (
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
             {post.status === "scheduled" ? (
