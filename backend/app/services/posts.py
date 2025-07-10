@@ -111,7 +111,7 @@ class PostsService:
         before_date: Optional[datetime] = None,
         page: int = 1,
         size: int = 20,
-        order_by: str = "created_at",
+        order_by: str = "scheduled_at",
         order_direction: str = "desc",
     ) -> Dict[str, Any]:
         """Get a paginated list of posts for a user."""
@@ -124,9 +124,9 @@ class PostsService:
             if status:
                 filters.append(Post.status.in_(status))
             if after_date:
-                filters.append(Post.created_at >= after_date)
+                filters.append(Post.scheduled_at >= after_date)
             if before_date:
-                filters.append(Post.created_at <= before_date)
+                filters.append(Post.scheduled_at <= before_date)
 
             # Build query for total count
             count_query = select(func.count()).select_from(Post).where(and_(*filters))
