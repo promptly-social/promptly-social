@@ -49,22 +49,6 @@ export const LinkedInConnection: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleConnect = async () => {
-    setIsLoading(true);
-    try {
-      const { authorization_url } = await profileApi.linkedinAuthorize();
-      window.location.href = authorization_url;
-    } catch (error) {
-      console.error(`Error starting ${platformName} connection:`, error);
-      toast({
-        title: "Connection Error",
-        description: `Could not initiate ${platformName} connection. Please try again.`,
-        variant: "destructive",
-      });
-      setIsLoading(false);
-    }
-  };
-
   const handleSave = async (username: string) => {
     setIsLoading(true);
     try {
@@ -94,10 +78,7 @@ export const LinkedInConnection: React.FC = () => {
     try {
       // We just deactivate, don't clear username if they want to reconnect
       await profileApi.updateSocialConnection(platformKey, {
-        is_active: false,
-        access_token: null, // Clear token
-        refresh_token: null,
-        expires_at: null,
+        platform_username: "",
       });
       toast({
         title: "Disconnected",
@@ -175,13 +156,6 @@ export const LinkedInConnection: React.FC = () => {
       isAnalyzing={isAnalyzing}
       usernamePlaceholder="your-public-username"
       usernamePrefix="linkedin.com/in/"
-    >
-      {!connection?.is_active && (
-        <Button onClick={handleConnect} size="sm" disabled={isLoading}>
-          <Link2 className="w-4 h-4 mr-2" />
-          Connect
-        </Button>
-      )}
-    </PlatformConnectionCard>
+    />
   );
 };

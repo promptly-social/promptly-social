@@ -15,8 +15,7 @@ from app.core.config import settings
 from app.core.database import get_async_db
 from app.schemas.auth import (
     AuthResponse,
-    GoogleAuthRequest,
-    GoogleSignInWithToken,
+    LinkedInAuthRequest,
     PasswordResetRequest,
     RefreshTokenRequest,
     ResendVerificationRequest,
@@ -154,16 +153,16 @@ async def sign_in(login_data: UserLogin, db: AsyncSession = Depends(get_async_db
         )
 
 
-@router.post("/signin/google")
-async def sign_in_with_google(
-    oauth_request: GoogleAuthRequest,
+@router.post("/signin/linkedin")
+async def sign_in_with_linkedin(
+    oauth_request: LinkedInAuthRequest,
     request: Request,
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Initiate Google OAuth sign in.
+    Initiate LinkedIn OAuth sign in.
 
-    This endpoint mirrors the frontend signInWithGoogle functionality from AuthContext.
+    This endpoint mirrors the frontend signInWithLinkedIn functionality from AuthContext.
     Returns the OAuth URL for client-side redirection.
     """
     try:
@@ -173,7 +172,7 @@ async def sign_in_with_google(
         redirect_to = oauth_request.redirect_to or f"{origin}/new-content"
 
         auth_service = AuthService(db)
-        result = await auth_service.sign_in_with_google(redirect_to)
+        result = await auth_service.sign_in_with_linkedin(redirect_to)
 
         if result["error"]:
             raise HTTPException(
@@ -188,7 +187,7 @@ async def sign_in_with_google(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Google OAuth endpoint error: {e}")
+        logger.error(f"LinkedIn OAuth endpoint error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OAuth sign in failed",
@@ -352,8 +351,9 @@ async def health_check():
     }
 
 
-@router.get("/callback/google")
-async def google_oauth_callback(
+@router.get("/callback/linkedin")
+@router.get("/callback/linkedin_oidc")
+async def linkedin_oauth_callback(
     request: Request,
     code: str,
     state: Optional[str] = None,
@@ -361,17 +361,12 @@ async def google_oauth_callback(
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Handle Google OAuth callback.
+    Handle LinkedIn OAuth callback.
 
-    This endpoint is called by Google after user authorization.
+    This endpoint is called by LinkedIn after user authorization.
     It exchanges the authorization code for user session.
     """
     try:
-        logger.info(f"=== Google OAuth Callback Received ===")
-        logger.info(f"Code: {code[:20]}..." if code else "No code")
-        logger.info(f"State: {state}")
-        logger.info(f"Redirect to: {redirect_to}")
-
         # Check if this is called by the frontend (has specific headers)
         is_frontend_request = (
             request.headers.get("content-type") == "application/json"
@@ -379,14 +374,8 @@ async def google_oauth_callback(
             or request.headers.get("sec-fetch-mode") == "cors"
         )
 
-        logger.info(f"Is frontend request: {is_frontend_request}")
-        logger.info(f"User agent: {request.headers.get('user-agent', 'N/A')}")
-        logger.info(f"Sec-fetch-mode: {request.headers.get('sec-fetch-mode', 'N/A')}")
-
         auth_service = AuthService(db)
         result = await auth_service.handle_oauth_callback(code, redirect_to)
-
-        logger.info(f"Auth service result: {result.get('error', 'Success')}")
 
         if result["error"]:
             logger.error(f"OAuth callback error: {result['error']}")
@@ -406,7 +395,6 @@ async def google_oauth_callback(
 
         if is_frontend_request:
             # Return JSON response for frontend requests
-            logger.info(f"=== Returning JSON Response to Frontend ===")
             response_data = {
                 "access_token": result["tokens"].access_token,
                 "refresh_token": result["tokens"].refresh_token,
@@ -419,7 +407,6 @@ async def google_oauth_callback(
                     else None,
                 },
             }
-            logger.info(f"JSON response data prepared")
             return response_data
         else:
             # Redirect to frontend with success and tokens for direct browser requests
@@ -429,14 +416,11 @@ async def google_oauth_callback(
             success_url += f"&expires_in={result['tokens'].expires_in}"
             success_url += f"&user_id={result['user'].id}"
 
-            logger.info(f"=== Redirecting to Frontend ===")
-            logger.info(f"Success URL: {success_url}")
             return RedirectResponse(url=success_url)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"=== Google OAuth Callback Exception ===")
         logger.error(f"Exception: {e}")
         logger.error(f"Exception type: {type(e)}")
         import traceback
@@ -460,46 +444,6 @@ async def google_oauth_callback(
             )
             logger.info(f"Redirecting to error URL: {error_url}")
             return RedirectResponse(url=error_url)
-
-
-@router.post("/signin/google/token", response_model=AuthResponse)
-async def sign_in_with_google_token(
-    token_request: GoogleSignInWithToken,
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Sign in with Google ID token.
-
-    Alternative method for Google sign-in using ID token directly.
-    """
-    try:
-        auth_service = AuthService(db)
-        result = await auth_service.sign_in_with_google_token(
-            token_request.id_token, token_request.redirect_to
-        )
-
-        if result["error"]:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail=result["error"]
-            )
-
-        response = AuthResponse(
-            user=result["user"],
-            tokens=result["tokens"],
-            message=result.get("message", "Google sign in successful"),
-        )
-
-        logger.info(f"Google token sign in successful: {result['user'].email}")
-        return response
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Google token sign in endpoint error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Google sign in failed",
-        )
 
 
 @router.get("/verify")

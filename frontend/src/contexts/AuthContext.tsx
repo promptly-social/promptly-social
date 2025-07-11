@@ -26,7 +26,7 @@ interface AuthContextType {
     fullName?: string
   ) => Promise<{ error: Error | null; needsVerification?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithLinkedIn: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshAuthToken: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -183,22 +183,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithLinkedIn = async () => {
     try {
       const redirectUrl = `${getFrontendBaseUrl()}/new-content`;
-      const response = await apiClient.signInWithGoogle(redirectUrl);
+      const response = await apiClient.signInWithLinkedIn(redirectUrl);
 
       // Redirect to Google OAuth URL
       window.location.href = response.url;
 
       return { error: null };
     } catch (error) {
-      console.error("Google sign in failed:", error);
+      console.error("LinkedIn sign in failed:", error);
       return {
         error:
           error instanceof ApiError
             ? new Error(error.message)
-            : new Error("Google sign in failed"),
+            : new Error("LinkedIn sign in failed"),
       };
     }
   };
@@ -302,7 +302,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         pendingEmailVerification,
         signUp,
         signIn,
-        signInWithGoogle,
+        signInWithLinkedIn,
         signOut,
         refreshAuthToken,
         refreshUser,

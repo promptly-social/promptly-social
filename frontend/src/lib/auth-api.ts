@@ -7,7 +7,7 @@ import type {
   UserLogin,
   UserUpdate,
   SuccessResponse,
-  GoogleAuthRequest,
+  LinkedInAuthRequest,
 } from "@/types/auth";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -253,15 +253,15 @@ class ApiClient {
     });
   }
 
-  async signInWithGoogle(
+  async signInWithLinkedIn(
     redirectTo?: string
   ): Promise<{ url: string; message: string }> {
-    const payload: Partial<GoogleAuthRequest> = {};
+    const payload: Partial<LinkedInAuthRequest> = {};
     if (redirectTo) {
       payload.redirect_to = redirectTo;
     }
     return this.request<{ url: string; message: string }>(
-      "/auth/signin/google",
+      "/auth/signin/linkedin",
       {
         method: "POST",
         body: JSON.stringify(payload),
@@ -321,8 +321,8 @@ export const authApi = {
   signIn(credentials: UserLogin) {
     return apiClient.signIn(credentials);
   },
-  signInWithGoogle(redirectTo?: string) {
-    return apiClient.signInWithGoogle(redirectTo);
+  signInWithLinkedIn(redirectTo?: string) {
+    return apiClient.signInWithLinkedIn(redirectTo);
   },
   signOut() {
     return apiClient.signOut();

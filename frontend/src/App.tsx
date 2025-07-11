@@ -19,7 +19,6 @@ import PostingSchedule from "./pages/PostingSchedule/PostingSchedule";
 import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
-import OAuthCallback from "./pages/auth/OAuthCallback";
 import LinkedinCallback from "./pages/auth/LinkedinCallback";
 import EarlyAccess from "./pages/EarlyAccess";
 
@@ -177,11 +176,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route path="/auth/callback" element={<OAuthCallback />} />
-              <Route
-                path="/auth/linkedin/callback"
-                element={<LinkedinCallback />}
-              />
+              <Route path="/auth/callback" element={<LinkedinCallback />} />
               <Route
                 path="/verify-email"
                 element={<EmailVerificationRoute />}

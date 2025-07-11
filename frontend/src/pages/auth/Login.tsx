@@ -18,8 +18,8 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { signIn, signInWithGoogle, clearPendingVerification } = useAuth();
+  const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
+  const { signIn, signInWithLinkedIn, clearPendingVerification } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -74,10 +74,10 @@ const Login = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
+  const handleLinkedInSignIn = async () => {
+    setIsLinkedInLoading(true);
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithLinkedIn();
       if (error) {
         toast({
           title: "Google Sign In Error",
@@ -92,7 +92,7 @@ const Login = () => {
         variant: "destructive",
       });
     } finally {
-      setIsGoogleLoading(false);
+      setIsLinkedInLoading(false);
     }
   };
 
@@ -127,13 +127,13 @@ const Login = () => {
           </CardHeader>
           <CardContent className="space-y-4 sm:space-y-6">
             <Button
-              onClick={handleGoogleSignIn}
+              onClick={handleLinkedInSignIn}
               variant="outline"
               className="w-full h-10 sm:h-12 border-gray-300 hover:bg-gray-50"
-              disabled={isGoogleLoading}
+              disabled={isLinkedInLoading}
             >
               <Mail className="w-4 h-4 mr-2" />
-              {isGoogleLoading ? "Signing in..." : "Continue with Google"}
+              {isLinkedInLoading ? "Signing in..." : "Continue with LinkedIn"}
             </Button>
 
             <div className="relative">

@@ -159,24 +159,9 @@ class PasswordResetConfirm(BaseModel):
         return v
 
 
-class GoogleAuthRequest(BaseModel):
-    """Schema for Google OAuth authentication request."""
+class LinkedInAuthRequest(BaseModel):
+    """Schema for LinkedIn OAuth authentication request."""
 
-    redirect_to: Optional[str] = None
-
-
-class GoogleOAuthCallback(BaseModel):
-    """Schema for Google OAuth callback handling."""
-
-    code: str
-    state: Optional[str] = None
-    redirect_to: Optional[str] = None
-
-
-class GoogleSignInWithToken(BaseModel):
-    """Schema for Google sign in with ID token."""
-
-    id_token: str
     redirect_to: Optional[str] = None
 
 

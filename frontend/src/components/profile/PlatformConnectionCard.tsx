@@ -166,7 +166,9 @@ export const PlatformConnectionCard: React.FC<PlatformConnectionCardProps> = ({
                   </p>
                 )}
               {connection?.analysis_status === "error" && (
-                <p className="text-xs text-red-600">Analysis failed</p>
+                <p className="text-xs text-red-600">
+                  Analysis failed. Please retry later.
+                </p>
               )}
               {connection?.analysis_status === "in_progress" && (
                 <p className="text-xs text-blue-600">Analysis in progress...</p>

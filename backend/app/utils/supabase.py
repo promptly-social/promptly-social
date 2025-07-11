@@ -285,7 +285,9 @@ class SupabaseClient:
             logger.info(f"Final redirect to: {redirect_to}")
 
             # Configure Supabase to redirect to our backend callback, not directly to frontend
-            backend_callback_url = f"{settings.backend_url}/api/v1/auth/callback/google"
+            backend_callback_url = (
+                f"{settings.backend_url}/api/v1/auth/callback/{provider}"
+            )
             if redirect_to:
                 backend_callback_url += f"?redirect_to={redirect_to}"
 
@@ -398,13 +400,6 @@ class SupabaseClient:
                         "error": f"OAuth exchange failed: {response.text}",
                     }
 
-            logger.warning("OAuth callback failed - no user or session")
-            return {
-                "user": None,
-                "session": None,
-                "error": "OAuth authentication failed",
-            }
-
         except Exception as e:
             logger.error(f"OAuth callback exception: {str(e)}")
             logger.error(f"Exception type: {type(e)}")
@@ -416,38 +411,6 @@ class SupabaseClient:
                 "session": None,
                 "error": "OAuth authentication failed",
             }
-
-    def sign_in_with_google_token(self, id_token: str) -> Dict[str, Any]:
-        """
-        Sign in user with Google OAuth.
-
-        Args:
-            id_token: Google ID token
-
-        Returns:
-            Dictionary containing user data, session, or error
-        """
-        try:
-            logger.info("Attempting Google OAuth sign in")
-
-            response = self.client.auth.sign_in_with_id_token(
-                {"provider": "google", "token": id_token}
-            )
-
-            if response.user and response.session:
-                logger.info(f"Google OAuth sign in successful: {response.user.email}")
-                return {
-                    "user": response.user,
-                    "session": response.session,
-                    "error": None,
-                }
-            else:
-                logger.warning("Google OAuth sign in failed")
-                return {"user": None, "session": None, "error": "Google OAuth failed"}
-
-        except Exception as e:
-            logger.error(f"Google OAuth error: {str(e)}")
-            return {"user": None, "session": None, "error": str(e)}
 
     def _create_user_from_response(self, data: Dict[str, Any]) -> Any:
         """

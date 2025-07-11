@@ -9,6 +9,7 @@ import AppLayout from "@/components/AppLayout";
 import { useToast } from "@/hooks/use-toast";
 import { User, Bell, AlertTriangle, Trash2 } from "lucide-react";
 import type { UserUpdate } from "@/types/auth";
+import { ContentScheduleSettings } from "@/components/settings/ContentScheduleSettings";
 
 const Settings: React.FC = () => {
   const { user, updateUser, deleteAccount } = useAuth();
@@ -110,87 +111,7 @@ const Settings: React.FC = () => {
     <AppLayout title="Settings" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
-          {/* Account Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <User className="w-4 sm:w-5 h-4 sm:h-5" />
-                Account Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm sm:text-base">
-                  Full Name
-                </Label>
-                <Input
-                  id="name"
-                  placeholder="Enter your full name"
-                  value={formData.full_name}
-                  onChange={(e) =>
-                    handleInputChange("full_name", e.target.value)
-                  }
-                  className="text-sm sm:text-base"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm sm:text-base">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={user?.email || ""}
-                  disabled
-                  className="text-sm sm:text-base bg-gray-50"
-                />
-                <p className="text-xs sm:text-sm text-gray-500">
-                  Email cannot be changed
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm sm:text-base">
-                  New Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter new password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    handleInputChange("password", e.target.value)
-                  }
-                  className="text-sm sm:text-base"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="confirm-password"
-                  className="text-sm sm:text-base"
-                >
-                  Confirm Password
-                </Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={formData.confirm_password}
-                  onChange={(e) =>
-                    handleInputChange("confirm_password", e.target.value)
-                  }
-                  className="text-sm sm:text-base"
-                />
-              </div>
-              <Button
-                onClick={handleUpdateProfile}
-                disabled={isUpdating}
-                className="w-full sm:w-auto"
-              >
-                {isUpdating ? "Updating..." : "Update Profile"}
-              </Button>
-            </CardContent>
-          </Card>
-
+          <ContentScheduleSettings />
           {/* Notification Settings */}
           <Card>
             <CardHeader>

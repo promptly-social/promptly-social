@@ -3,11 +3,12 @@ Authentication service containing business logic for user management.
 Integrates Supabase auth with local database operations.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from loguru import logger
+import httpx
 
 from app.models.user import User, UserSession
 from app.models.idea_bank import IdeaBank
@@ -200,11 +201,11 @@ class AuthService:
             logger.error(f"Sign in failed for {login_data.email}: {e}")
             return {"error": "Sign in failed", "user": None, "tokens": None}
 
-    async def sign_in_with_google(
+    async def sign_in_with_linkedin(
         self, redirect_to: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Initiate Google OAuth sign in.
+        Initiate LinkedIn OAuth sign in.
 
         Args:
             redirect_to: Optional redirect URL after authentication
@@ -214,22 +215,23 @@ class AuthService:
         """
         try:
             response = await supabase_client.sign_in_with_oauth(
-                provider="google", redirect_to=redirect_to
+                provider="linkedin_oidc",
+                redirect_to=redirect_to,
             )
 
-            if response["error"]:
+            if response.get("error"):
                 return {"error": response["error"], "url": None}
 
-            logger.info("Google OAuth sign in initiated")
+            logger.info("LinkedIn OAuth sign in initiated")
 
             return {
                 "error": None,
-                "url": response["url"],
+                "url": response.get("url"),
                 "message": "OAuth sign in initiated",
             }
 
         except Exception as e:
-            logger.error(f"Google OAuth sign in failed: {e}")
+            logger.error(f"LinkedIn OAuth sign in failed: {e}")
             return {"error": "OAuth sign in failed", "url": None}
 
     async def delete_account(self, user_id: str) -> Dict[str, Any]:
@@ -528,6 +530,75 @@ class AuthService:
                 local_user.id, tokens.access_token, tokens.refresh_token
             )
 
+            # Check if this is a LinkedIn OAuth login and store connection details
+            if (
+                supabase_response.get("session")
+                and supabase_response.get("session").provider_token
+            ):
+                try:
+                    provider_token = supabase_response["session"].provider_token
+                    refresh_token = supabase_response["session"].refresh_token
+                    expires_at = (
+                        datetime.fromtimestamp(supabase_response["session"].expires_at)
+                        if supabase_response["session"].expires_at
+                        else None
+                    )
+
+                    # Check if we already have a LinkedIn connection for this user
+                    stmt = select(SocialConnection).where(
+                        SocialConnection.user_id == local_user.id,
+                        SocialConnection.platform == "linkedin",
+                    )
+                    result = await self.db.execute(stmt)
+                    connection = result.scalar_one_or_none()
+
+                    user_info = await self._get_linkedin_user_info(provider_token)
+
+                    connection_data = {
+                        "auth_method": "oauth",
+                        "access_token": provider_token,
+                        "refresh_token": refresh_token,
+                        "expires_at": expires_at.isoformat() if expires_at else None,
+                        "scope": "openid profile email w_member_social",
+                        "linkedin_user_id": supabase_user.id.split("|")[-1]
+                        if "|" in str(supabase_user.id)
+                        else str(supabase_user.id),
+                        "email": supabase_user.email,
+                        "full_name": user_info.get("name"),
+                        "avatar_url": user_info.get("picture"),
+                    }
+
+                    if connection:
+                        # Update existing connection
+                        connection.connection_data = connection_data
+                        connection.is_active = True
+                        connection.updated_at = datetime.now(timezone.utc)
+                    else:
+                        # Create new connection
+                        connection = SocialConnection(
+                            user_id=local_user.id,
+                            platform="linkedin",
+                            connection_data=connection_data,
+                            is_active=True,
+                        )
+                        self.db.add(connection)
+
+                    await self.db.commit()
+                    logger.info(f"LinkedIn connection updated for user {local_user.id}")
+
+                    # update user info with LinkedIn info
+                    local_user.full_name = user_info.get("name")
+                    local_user.avatar_url = user_info.get("picture")
+                    local_user.updated_at = datetime.now(timezone.utc)
+                    await self.db.commit()
+                    await self.db.refresh(local_user)
+                    logger.info(f"User info updated for user {local_user.id}")
+
+                except Exception as e:
+                    logger.error(f"Failed to save LinkedIn connection: {str(e)}")
+                    # Don't fail the login if we can't save the connection
+                    pass
+
             return {
                 "error": None,
                 "user": UserResponse.model_validate(
@@ -544,77 +615,14 @@ class AuthService:
                 "tokens": None,
             }
 
-    async def sign_in_with_google_token(
-        self, id_token: str, redirect_to: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Sign in with Google ID token.
-
-        Args:
-            id_token: Google ID token
-            redirect_to: Optional redirect URL
-
-        Returns:
-            Dict containing user and token information
-        """
-        try:
-            # Authenticate with Supabase using ID token
-            supabase_response = supabase_client.sign_in_with_google_token(id_token)
-
-            if supabase_response["error"]:
-                return {
-                    "error": supabase_response["error"],
-                    "user": None,
-                    "tokens": None,
-                }
-
-            supabase_user = supabase_response["user"]
-            if not supabase_user:
-                return {
-                    "error": "Google authentication failed",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            # Get or create local user record
-            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
-            if not local_user:
-                # Create local user if doesn't exist
-                local_user = User(
-                    supabase_user_id=str(supabase_user.id),
-                    email=supabase_user.email,
-                    full_name=supabase_user.user_metadata.get("full_name"),
-                    is_verified=supabase_user.email_confirmed_at is not None,
-                )
-                self.db.add(local_user)
-                await self.db.commit()
-                await self.db.refresh(local_user)
-
-            # Update last login
-            await self._update_last_login(local_user.id)
-
-            # Create tokens and session
-            tokens = await self._create_tokens(local_user)
-            await self._create_session(
-                local_user.id, tokens.access_token, tokens.refresh_token
-            )
-
-            return {
-                "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
-                "tokens": tokens,
-                "message": "Google sign in successful",
-            }
-
-        except Exception as e:
-            logger.error(f"Google OAuth sign in failed: {e}")
-            return {
-                "error": "Google authentication failed",
-                "user": None,
-                "tokens": None,
-            }
+    async def _get_linkedin_user_info(self, access_token: str) -> dict:
+        """Fetch user information from LinkedIn's userinfo endpoint."""
+        user_info_url = "https://api.linkedin.com/v2/userinfo"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(user_info_url, headers=headers)
+            response.raise_for_status()
+            return response.json()
 
     async def handle_email_verification(
         self,
@@ -649,7 +657,6 @@ class AuthService:
                 }
 
             supabase_user = supabase_response["user"]
-            supabase_session = supabase_response.get("session")
 
             if not supabase_user:
                 return {

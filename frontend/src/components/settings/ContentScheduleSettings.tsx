@@ -87,7 +87,7 @@ export const ContentScheduleSettings: React.FC = () => {
 
   const headerSection = (
     <CardHeader>
-      <CardTitle>Content Schedule Settings</CardTitle>
+      <CardTitle>Schedule</CardTitle>
       <CardDescription></CardDescription>
     </CardHeader>
   );
