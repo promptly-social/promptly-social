@@ -5,13 +5,74 @@ Service layer for LinkedIn interactions.
 from typing import Any, Dict, Optional
 import httpx
 from loguru import logger
+from app.core.config import settings
 from app.models.profile import SocialConnection
 
 
 class LinkedInService:
-    """Service for interacting with the LinkedIn API."""
+    """Service for interacting with the LinkedIn API,
+    including helper methods for obtaining and refreshing native OAuth tokens."""
 
     BASE_API_URL = "https://api.linkedin.com/v2"
+    TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
+    USERINFO_URL = "https://api.linkedin.com/v2/userinfo"
+
+    # ------------------------
+    # Static helper utilities
+    # ------------------------
+    @staticmethod
+    async def exchange_code_for_token(code: str) -> Dict[str, Any]:
+        """Exchange authorization code for access & refresh tokens (native flow)."""
+        if not settings.linkedin_client_id or not settings.linkedin_client_secret:
+            raise ValueError("LinkedIn client ID or secret not configured")
+
+        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
+        payload = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": settings.linkedin_client_id,
+            "client_secret": settings.linkedin_client_secret,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                LinkedInService.TOKEN_URL, data=payload, headers=headers
+            )
+            response.raise_for_status()
+            token_data = response.json()
+
+        return token_data
+
+    @staticmethod
+    async def refresh_access_token(refresh_token: str) -> Dict[str, Any]:
+        """Refresh an expired LinkedIn access token."""
+        if not settings.linkedin_client_id or not settings.linkedin_client_secret:
+            raise ValueError("LinkedIn client ID or secret not configured")
+
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": settings.linkedin_client_id,
+            "client_secret": settings.linkedin_client_secret,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                LinkedInService.TOKEN_URL, data=payload, headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
+
+    @staticmethod
+    async def get_user_info(access_token: str) -> Dict[str, Any]:
+        """Fetch user information from LinkedIn's userinfo endpoint."""
+        headers = {"Authorization": f"Bearer {access_token}"}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(LinkedInService.USERINFO_URL, headers=headers)
+            response.raise_for_status()
+            return response.json()
 
     def __init__(self, connection: SocialConnection):
         """

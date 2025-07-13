@@ -185,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signInWithLinkedIn = async () => {
     try {
-      const redirectUrl = `${getFrontendBaseUrl()}/new-content`;
+      const redirectUrl = `${getFrontendBaseUrl()}/auth/callback`;
       const response = await apiClient.signInWithLinkedIn(redirectUrl);
 
       // Redirect to Google OAuth URL

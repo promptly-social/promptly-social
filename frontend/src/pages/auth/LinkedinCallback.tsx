@@ -64,7 +64,9 @@ const LinkedinCallback: React.FC = () => {
         const frontendUrl = getFrontendBaseUrl();
         const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
         const response = await fetch(
-          `${apiUrl}/api/v1/auth/callback/linkedin_oidc?code=${code}&redirect_to=${frontendUrl}/new-content${state ? `&state=${state}` : ""}`,
+          `${apiUrl}/api/v1/auth/callback/linkedin_oidc?code=${code}&redirect_to=${frontendUrl}/new-auth${
+            state ? `&state=${state}` : ""
+          }`,
           {
             method: "GET",
             headers: {

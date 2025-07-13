@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from loguru import logger
 import httpx
+import uuid
+from urllib.parse import urlencode, quote_plus
+from app.services.linkedin_service import LinkedInService
 
 from app.models.user import User, UserSession
 from app.models.idea_bank import IdeaBank
@@ -201,6 +204,9 @@ class AuthService:
             logger.error(f"Sign in failed for {login_data.email}: {e}")
             return {"error": "Sign in failed", "user": None, "tokens": None}
 
+    # ------------------------------
+    # Supabase OIDC LinkedIn login
+    # ------------------------------
     async def sign_in_with_linkedin(
         self, redirect_to: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -214,6 +220,7 @@ class AuthService:
             Dict containing OAuth URL
         """
         try:
+            # Call Supabase to start OIDC flow (legacy)
             response = await supabase_client.sign_in_with_oauth(
                 provider="linkedin_oidc",
                 redirect_to=redirect_to,
@@ -222,17 +229,124 @@ class AuthService:
             if response.get("error"):
                 return {"error": response["error"], "url": None}
 
-            logger.info("LinkedIn OAuth sign in initiated")
+            logger.info("LinkedIn OIDC sign in initiated")
 
             return {
                 "error": None,
                 "url": response.get("url"),
-                "message": "OAuth sign in initiated",
+                "message": "OIDC sign in initiated",
+            }
+        except Exception as e:
+            logger.error(f"LinkedIn OIDC sign in failed: {e}")
+            return {"error": "OIDC sign in failed", "url": None}
+
+    # ------------------------------
+    # Native (3-legged) LinkedIn flow for w_member_social scope
+    # ------------------------------
+    async def initiate_linkedin_native(
+        self, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Generate LinkedIn authorization URL with extended scopes."""
+        try:
+            if not settings.linkedin_client_id:
+                return {"error": "LinkedIn client ID not configured", "url": None}
+
+            state = uuid.uuid4().hex
+            redirect_uri = redirect_to or f"{settings.frontend_url}/auth/callback"
+
+            params = {
+                "response_type": "code",
+                "client_id": settings.linkedin_client_id,
+                "redirect_uri": redirect_uri,
+                "state": state,
+                "scope": "openid profile email w_member_social",
+            }
+            query = urlencode(params, quote_via=quote_plus)
+            auth_url = f"https://www.linkedin.com/oauth/v2/authorization?{query}"
+
+            logger.info("Generated LinkedIn authorization URL")
+            return {"error": None, "url": auth_url, "state": state}
+        except Exception as e:
+            logger.error(f"LinkedIn OAuth sign in failed: {e}")
+            return {"error": "Native OAuth sign in failed", "url": None}
+
+    async def handle_linkedin_callback(self, code: str, state: str) -> Dict[str, Any]:
+        """
+        Handle LinkedIn OAuth callback.
+
+        Args:
+            code: Authorization code
+            state: State parameter
+
+        Returns:
+            Dict containing user and token information
+        """
+        try:
+            # Exchange code for token
+            token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+            headers = {"Content-Type": "application/x-www-form-urlencoded"}
+            data = {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": f"{settings.frontend_url}/auth/callback",
+                "client_id": settings.linkedin_client_id,
+                "client_secret": settings.linkedin_client_secret,
+            }
+            async with httpx.AsyncClient() as client:
+                response = await client.post(token_url, headers=headers, data=data)
+                response.raise_for_status()
+                token_response = response.json()
+
+            # Get user profile
+            profile_url = "https://api.linkedin.com/v2/me"
+            headers = {
+                "Authorization": f"Bearer {token_response['access_token']}",
+                "Content-Type": "application/json",
+            }
+            async with httpx.AsyncClient() as client:
+                response = await client.get(profile_url, headers=headers)
+                response.raise_for_status()
+                profile_response = response.json()
+
+            # Create or update local user record
+            email = profile_response["emailAddress"]
+            existing_user = await self._get_user_by_email(email)
+            if existing_user:
+                user = existing_user
+            else:
+                user = User(
+                    email=email,
+                    full_name=profile_response["localizedFirstName"]
+                    + " "
+                    + profile_response["localizedLastName"],
+                )
+                self.db.add(user)
+                await self.db.commit()
+                await self.db.refresh(user)
+
+            # Create tokens and session
+            tokens = await self._create_tokens(user)
+            await self._create_session(
+                user.id, tokens.access_token, tokens.refresh_token
+            )
+
+            logger.info(f"User signed in successfully with LinkedIn: {email}")
+
+            user_response = UserResponse.model_validate(
+                {**user.__dict__, "id": str(user.id)}
+            )
+            logger.info(f"Returning user data: {user_response.model_dump()}")
+
+            return {
+                "error": None,
+                "user": user_response,
+                "tokens": tokens,
+                "message": "Sign in successful",
             }
 
         except Exception as e:
-            logger.error(f"LinkedIn OAuth sign in failed: {e}")
-            return {"error": "OAuth sign in failed", "url": None}
+            logger.error(f"LinkedIn OAuth callback failed: {e}")
+            return {"error": "OAuth callback failed", "user": None, "tokens": None}
 
     async def delete_account(self, user_id: str) -> Dict[str, Any]:
         """
@@ -536,13 +650,16 @@ class AuthService:
                 and supabase_response.get("session").provider_token
             ):
                 try:
-                    provider_token = supabase_response["session"].provider_token
-                    refresh_token = supabase_response["session"].refresh_token
-                    expires_at = (
-                        datetime.fromtimestamp(supabase_response["session"].expires_at)
-                        if supabase_response["session"].expires_at
-                        else None
+                    # Retrieve a valid LinkedIn access token via native flow
+                    token_data = await LinkedInService.exchange_code_for_token(code)
+                    access_token = token_data["access_token"]
+                    refresh_token = token_data.get("refresh_token")
+                    expires_at = datetime.now(timezone.utc) + timedelta(
+                        seconds=token_data["expires_in"]
                     )
+
+                    # Fetch user info with the new valid token
+                    user_info = await LinkedInService.get_user_info(access_token)
 
                     # Check if we already have a LinkedIn connection for this user
                     stmt = select(SocialConnection).where(
@@ -552,11 +669,9 @@ class AuthService:
                     result = await self.db.execute(stmt)
                     connection = result.scalar_one_or_none()
 
-                    user_info = await self._get_linkedin_user_info(provider_token)
-
                     connection_data = {
                         "auth_method": "oauth",
-                        "access_token": provider_token,
+                        "access_token": access_token,
                         "refresh_token": refresh_token,
                         "expires_at": expires_at.isoformat() if expires_at else None,
                         "scope": "openid profile email w_member_social",

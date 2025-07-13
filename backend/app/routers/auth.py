@@ -169,7 +169,7 @@ async def sign_in_with_linkedin(
         # Get redirect URL from request or use default
         origin = request.headers.get("origin", "http://localhost:8080")
 
-        redirect_to = oauth_request.redirect_to or f"{origin}/new-content"
+        redirect_to = oauth_request.redirect_to or f"{origin}/auth/callback"
 
         auth_service = AuthService(db)
         result = await auth_service.sign_in_with_linkedin(redirect_to)
@@ -351,8 +351,51 @@ async def health_check():
     }
 
 
+@router.get("/callback")
+async def linkedin_oauth_callback_v2(
+    request: Request,
+    code: str,
+    state: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    New 3-legged LinkedIn OAuth callback.
+    """
+    try:
+        auth_service = AuthService(db)
+        result = await auth_service.handle_linkedin_callback(code, state or "")
+
+        if result["error"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
+            )
+
+        return {
+            "access_token": result["tokens"].access_token,
+            "refresh_token": result["tokens"].refresh_token,
+            "expires_in": result["tokens"].expires_in,
+            "user": {
+                "id": result["user"].id,
+                "email": result["user"].email,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LinkedIn OAuth v2 callback failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OAuth callback failed",
+        )
+
+
+# ----------------------
+# Legacy routes (Supabase OIDC) below
+# ----------------------
+
+
 @router.get("/callback/linkedin")
-@router.get("/callback/linkedin_oidc")
+@router.get("/callback/linkedin_oidc")  # legacy route (Supabase OIDC)
 async def linkedin_oauth_callback(
     request: Request,
     code: str,
