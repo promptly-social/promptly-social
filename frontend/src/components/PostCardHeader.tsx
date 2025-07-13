@@ -1,4 +1,3 @@
-import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
@@ -7,7 +6,7 @@ export const PostCardHeader = () => {
   const { user } = useAuth();
   const { linkedinConnection, userPreferences } = useProfile();
 
-  const userAvatar = linkedinConnection?.connection_data?.picture || "";
+  const userAvatar = linkedinConnection?.connection_data?.avatar_url || "";
   const userName = user?.full_name || user?.email || "User";
   const userHeadline = "Promptly User";
 

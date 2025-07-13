@@ -1,11 +1,17 @@
 import os
 from typing import Any, Dict, List, Optional
-from datetime import datetime
 
-from openai import OpenAI
 from supabase import Client
-from helper import extract_json_from_llm_response
 from pydantic import BaseModel, Field
+from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
+from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai import Agent
+
+
+class FilteredArticlesResult(BaseModel):
+    """Schema for the filtered articles result."""
+
+    ids: List[str] = Field(description="A list of article ids.")
 
 
 class GeneratedPost(BaseModel):
@@ -13,80 +19,127 @@ class GeneratedPost(BaseModel):
 
     linkedin_post: str = Field(description="The generated LinkedIn post content.")
     topics: List[str] = Field(description="A list of relevant topics for the post.")
-    source_url: Optional[str] = Field(description="The URL of the source of the post.")
-    recommendation_score: int = Field(
-        description="Recommendation score from 0 to 100.", ge=0, le=100
-    )
 
 
 class PostsGenerator:
-    def __init__(self, supabase_client: Client, openrouter_api_key: str):
+    def __init__(self, supabase_client: Client):
         self.supabase_client = supabase_client
-        self.openrouter_client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=openrouter_api_key,
-        )
+
+        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+
         # Get large model configuration from environment variables for posts generation
-        self.model_primary = os.getenv(
+        self.large_model_primary = os.getenv(
             "OPENROUTER_LARGE_MODEL_PRIMARY", "google/gemini-2.5-pro"
         )
-        models_fallback_str = os.getenv(
+        large_models_fallback_str = os.getenv(
             "OPENROUTER_LARGE_MODELS_FALLBACK", "deepseek/deepseek-r1-0528"
+        )
+        self.large_models_fallback = [
+            model.strip() for model in large_models_fallback_str.split(",")
+        ]
+        self.large_model_temperature = float(
+            os.getenv("OPENROUTER_LARGE_MODEL_TEMPERATURE", "0.0")
+        )
+
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "deepseek/deepseek-r1-0528"
         )
         self.models_fallback = [
             model.strip() for model in models_fallback_str.split(",")
         ]
-        self.temperature = float(os.getenv("OPENROUTER_LARGE_MODEL_TEMPERATURE", "0.0"))
+        self.model_temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
-    def generate_posts_from_articles(
+    async def filter_articles(
         self,
-        user_id: str,
         candidate_posts: List[Dict[str, Any]],
         bio: str,
         writing_style: str,
         topics_of_interest: List[str],
         number_of_posts_to_generate: int,
-        linkedin_post_strategy: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[FilteredArticlesResult]:
         """
-        Generate posts for the user.
+        Filter the articles based on the user's bio, writing style, and topics of interest.
         """
 
-        urls = [post["url"] for post in candidate_posts if post.get("url")]
+        prompt = f"""You are an expert Content Strategist who helps thought leaders find compelling articles to use as inspiration for creating engaging LinkedIn posts. Your goal is to select articles that will spark discussion, showcase expertise, and resonate with a professional audience.
 
-        today = datetime.now().strftime("%Y-%m-%d")
+**User Profile:**
+- **Bio:** {bio}
+- **Topics of Interest:** {topics_of_interest}
+- **Writing Style:** {writing_style}
 
-        prompt = f"""
-        You are an expert at generating posts for LinkedIn to gain the most engagement using the user's bio, writing style, and topics of interest.
-        You are given a list of URLs of the blog posts or news articles.
-        Do not include special characters in the posts that people suspect that you are using AI to generate, such as em-dash, arrows, etc.
-        You are to generate {number_of_posts_to_generate} LinkedIn appropriate posts for the user to pick from and post on LinkedIn.
-        The posts should be linkedin appropriate and gain the most engagement, and it should be plain text without any markdown.
-        Generate a recommendation score for the post between 0 and 100, where 100 is the most recommended and 0 is the least recommended.
-        The user's bio is: {bio}
-        The user's writing style is: {writing_style}
-        The user's topics of interest are: {topics_of_interest}
-        The post URLs are: {urls}
-        The linkedin post strategy for gettting the most engagement is: {linkedin_post_strategy}
-        Today's date is: {today}
+For the purpose of *selecting* articles, focus on the article's **content and substance**, not its writing style. The user's writing style will be applied when the post is generated later.
 
-        VERY IMPORTANT:
-        - make sure that the post is in plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
-        - DO NOT include the link to the source in the post.
-        
-        Return the posts in a JSON format with the following fields: 
-        {{"linkedin_post": "your generated post", "post_url": "the url of the article that you used to generate the post", "topics": ["topic1", "topic2", "topic3"], "recommendation_score": 0-100}}
-        """
-        response = self.openrouter_client.chat.completions.create(
-            model=self.model_primary,
-            extra_body={
-                "models": self.models_fallback,
-            },
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.temperature,
+**Candidate Articles:**
+You will be given a list of articles, each with a title, subtitle, and URL.
+{candidate_posts}
+
+**Your Task:**
+From the list of candidate articles, select UP TO {number_of_posts_to_generate} that are BEST suited for creating high-engagement LinkedIn posts.
+
+**Selection Criteria (What to look for):**
+- **Thought-Provoking Content:** Does the article present a strong opinion, a unique perspective, or deep analysis? Does it challenge common wisdom?
+- **Conversation Starter:** Can the user add their own experience or opinion to it easily? Will it encourage comments and debate?
+- **Relevance to User's Expertise:** Does it align with the user's bio and topics of interest, positioning them as an expert?
+- **Broader Appeal:** Does it discuss a trend, a strategy, or a timeless concept rather than being a niche product update?
+
+**What to AVOID (Very Important):**
+- **Software Updates & Product Announcements:** Do not select articles that are just about a new version release, a new feature, or a product launch. These are generally poor for engagement. For example, avoid titles like "Announcing Product X v2.4".
+- **Simple News Reports or Press Releases:** Avoid articles that just state facts without providing analysis or opinion. For example, avoid "Company ABC Acquires Company XYZ".
+- **Hiring Announcements or Company-specific News:** Avoid articles that are only relevant to one company's internal affairs.
+
+**Instructions:**
+1. Carefully analyze each article in the provided list against the criteria above.
+2. Consider how the content could be turned into a compelling LinkedIn post by the user.
+3. Select the top {number_of_posts_to_generate} articles.
+4. Return ONLY a JSON object containing the IDs of your selected articles, like this:
+{{"ids": ["id1", "id2", "id3"]}}
+"""
+
+        model = OpenAIModel(
+            self.model_primary,
+            provider=OpenRouterProvider(
+                api_key=self.openrouter_api_key,
+            ),
         )
 
-        return extract_json_from_llm_response(response.choices[0].message.content)
+        agent = Agent(
+            model,
+            output_type=FilteredArticlesResult,
+            model_settings=OpenAIModelSettings(
+                temperature=self.model_temperature,
+                extra_body={"models": self.models_fallback},
+            ),
+            system_prompt="",
+        )
+
+        result = await agent.run(prompt)
+        filtered_articles_result = result.output
+
+        ids = filtered_articles_result.ids
+
+        if len(ids) == 0:
+            print(
+                "No articles were found that match the user's bio, writing style, and topics of interest."
+            )
+            return []
+
+        filtered_articles = []
+        for id in ids:
+            for post in candidate_posts:
+                if post.get("id") == id:
+                    filtered_articles.append(post)
+                    break
+
+        if len(filtered_articles) < number_of_posts_to_generate:
+            print(
+                f"Only {len(filtered_articles)} articles were found that match the user's bio, writing style, and topics of interest."
+            )
+
+        return filtered_articles
 
     async def generate_post(
         self,
@@ -99,32 +152,64 @@ class PostsGenerator:
         Generates a LinkedIn post using the AI agent.
         """
 
-        prompt = f"""
-        You are an expert at generating posts for LinkedIn to gain the most engagement.
-        Your task is to create a LinkedIn post based on the provided content idea and user profile information.
+        prompt = f"""You are a world-class LinkedIn Ghostwriter and Content Strategist. Your expertise is in taking a piece of source material (like an article) and transforming it into a compelling, authentic-sounding LinkedIn post that drives engagement and positions the user as a thought leader.
 
-        Content Idea:
-        ---
-        {idea_content}
-        ---
+**Context for this Task:**
 
-        User Profile:
-        - Bio: {bio}
-        - Writing Style: {writing_style}
-        - LinkedIn Post Strategy: {linkedin_post_strategy}
+1.  **Source Material (Content Idea):**
+    ---
+    {idea_content}
+    ---
+    This is the core content you will base the post on.
 
-        Instructions:
-        1. Generate a LinkedIn-appropriate post that is engaging and likely to get high engagement.
-        2. The post should be plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
-        3. Create a recommendation score for the post between 0 and 100, where 100 is the most recommended.
-        4. Identify a list of relevant topics or hashtags for the post.
+2.  **Author's Profile:**
+    -   **Bio:** {bio}
+    -   **Writing Style:** {writing_style}
 
-        VERY IMPORTANT:
-        - make sure that the post is in plain text, without any markdown or special characters like em-dashes or arrows that might suggest AI generation.
-        - DO NOT include the link to the source in the post if the idea_content is a URL.
+3.  **Specific Post Instructions:**
+    -   **LinkedIn Post Strategy:** {linkedin_post_strategy}
+    This is a specific directive on the tone, angle, or goal for this particular post. You must follow it closely.
 
-        Return the generated post in the required JSON format.
-        """
+**Your Task & Thought Process:**
 
-        result = await self.agent.run(prompt)
+1.  **Deconstruct the Source:** Read the `Source Material` and identify its single most important takeaway or a surprising insight. Don't just summarize.
+2.  **Connect to the Author:** How can this key takeaway be framed from the author's perspective, using their `Bio` and expertise? How can they add a personal story or a strong opinion to it?
+3.  **Draft the Post:** Write the post following the `LinkedIn Post Strategy` and mimicking the author's `Writing Style`.
+
+**LinkedIn Post Best Practices to Apply:**
+
+-   **Start with a powerful hook:** Grab the reader's attention in the first sentence.
+-   **Provide a unique take:** Don't just regurgitate the article. Add the user's opinion, analysis, or a personal anecdote. This is crucial. Avoid being too broad.
+-   **Be human and authentic:** Write in a conversational tone. Use "I" statements. Use the user's writing style.
+-   **End with a question:** Encourage comments by asking your audience for their opinion or experiences.
+-   **Structure for readability:** Use short paragraphs and white space.
+
+**VERY IMPORTANT - Formatting and Content Rules:**
+
+-   **Plain Text Only:** The entire post must be plain text. Do NOT use any Markdown formatting (like `*bold*`, `_italics_`, or `- lists`).
+-   **No AI- giveaways:** Avoid generic phrases, emojis, or special characters (like em-dashes or arrows) that scream "AI-generated".
+-   **No Source Link:** Do NOT include the link to the original article in the post.
+-   **Topics, not Hashtags:** Identify up to 2 relevant topics for the post. These should be single words or short phrases (e.g., "Leadership", "Product Management"). DO NOT format them as #hashtags.
+
+Finally, return the generated post and the topics in the required JSON format.
+"""
+
+        model = OpenAIModel(
+            self.large_model_primary,
+            provider=OpenRouterProvider(
+                api_key=self.openrouter_api_key,
+            ),
+        )
+
+        agent = Agent(
+            model,
+            output_type=GeneratedPost,
+            model_settings=OpenAIModelSettings(
+                temperature=self.large_model_temperature,
+                extra_body={"models": self.large_models_fallback},
+            ),
+            system_prompt="",
+        )
+
+        result = await agent.run(prompt)
         return result.output

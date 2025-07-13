@@ -16,7 +16,7 @@ Provide Genuine Value: The core of the text should offer insights, tips, or a pe
 
 Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
 
-Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the end of your post. These should act as keywords for your topic (e.g., #ProjectManagementTips instead of just #Management) to connect with interested communities.';
+Avoid using hashtags.';
 BEGIN
     -- Insert default LinkedIn content strategy for all users who don't already have one
     INSERT INTO public.content_strategies (user_id, platform, strategy, created_at, updated_at)

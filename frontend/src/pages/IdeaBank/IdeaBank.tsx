@@ -9,7 +9,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -21,16 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   ArrowUpDown,
   Plus,
@@ -55,14 +45,8 @@ import { PostScheduleModal } from "@/components/PostScheduleModal";
 import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
 
 interface SortConfig {
-  key: "type" | "value" | "evergreen" | "updated_at";
+  key: "updated_at";
   direction: "asc" | "desc";
-}
-
-interface Filters {
-  ai_suggested?: boolean;
-  evergreen?: boolean;
-  has_post?: boolean;
 }
 
 const IdeaBankPage: React.FC = () => {
@@ -74,14 +58,7 @@ const IdeaBankPage: React.FC = () => {
     key: "updated_at",
     direction: "desc",
   });
-  const [filters, setFilters] = useState<Filters>({
-    // By default, exclude AI suggested content
-    ai_suggested: false,
-  });
-  const [pendingFilters, setPendingFilters] = useState<Filters>({
-    // By default, exclude AI suggested content
-    ai_suggested: false,
-  });
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingIdeaBank, setEditingIdeaBank] =
@@ -122,7 +99,7 @@ const IdeaBankPage: React.FC = () => {
     loadIdeaBanks();
     loadScheduledPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortConfig, filters]);
+  }, [sortConfig]);
 
   const loadScheduledPosts = async () => {
     try {
@@ -144,7 +121,7 @@ const IdeaBankPage: React.FC = () => {
         order_by: "updated_at",
         order_direction: sortConfig.direction,
         size: 100,
-        ...filters,
+        ai_suggested: false,
       };
 
       const response = await ideaBankApi.listWithPosts(filterParams);
@@ -464,89 +441,18 @@ const IdeaBankPage: React.FC = () => {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="type">Type</Label>
-            <Select
-              value={formData.data.type}
-              onValueChange={(value: "url" | "text") =>
+            <Textarea
+              id="value"
+              placeholder="Enter your idea or drop in a URL to an article or post..."
+              value={formData.data.value}
+              onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  data: {
-                    ...prev.data,
-                    type: value,
-                    title: value === "text" ? "" : prev.data.title,
-                  },
+                  data: { ...prev.data, value: e.target.value },
                 }))
               }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="url">URL</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {formData.data.type === "url" && (
-            <div className="space-y-2">
-              <Label htmlFor="title">Title (Optional)</Label>
-              <Input
-                id="title"
-                placeholder="Enter a title for this article or post..."
-                value={formData.data.title || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, title: e.target.value },
-                  }))
-                }
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="value">
-              {formData.data.type === "url" ? "URL" : "Content"}
-            </Label>
-            {formData.data.type === "url" ? (
-              <Input
-                id="value"
-                type="url"
-                placeholder={"https://example.com/url"}
-                value={formData.data.value}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, value: e.target.value },
-                  }))
-                }
-              />
-            ) : (
-              <Textarea
-                id="value"
-                placeholder="Enter your idea or text content..."
-                value={formData.data.value}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, value: e.target.value },
-                  }))
-                }
-                rows={4}
-                className="min-h-[100px] resize-none"
-              />
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="time-sensitive"
-              checked={formData.data.time_sensitive}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  data: { ...prev.data, time_sensitive: checked },
-                }))
-              }
+              rows={4}
+              className="min-h-[100px] resize-none"
             />
           </div>
         </div>
@@ -701,9 +607,7 @@ const IdeaBankPage: React.FC = () => {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[250px]">
-                    <SortButton column="value">Content</SortButton>
-                  </TableHead>
+                  <TableHead className="min-w-[250px]">Content</TableHead>
                   <TableHead className="w-[120px]">
                     <SortButton column="updated_at">Updated</SortButton>
                   </TableHead>
@@ -803,92 +707,19 @@ const IdeaBankPage: React.FC = () => {
             <>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-type">Type</Label>
-                  <Select
-                    value={editFormData.type}
-                    onValueChange={(newType: "url" | "text") => {
-                      setEditFormData((prev) => {
-                        if (!prev) return null;
-                        return {
-                          ...prev,
-                          type: newType,
-                          value: "",
-                          title: newType !== "url" ? "" : prev.title,
-                        };
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="url">URL</SelectItem>
-                      <SelectItem value="text">Text</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {editFormData.type === "url" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-title">Title (Optional)</Label>
-                    <Input
-                      id="edit-title"
-                      placeholder="Enter an optional title for this link..."
-                      value={editFormData.title || ""}
-                      onChange={(e) =>
-                        setEditFormData((prev) => ({
-                          ...prev!,
-                          title: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-value">
-                    {editFormData.type === "url" ? "URL" : "Content"}
-                  </Label>
-                  {editFormData.type === "url" ? (
-                    <Input
-                      key="value-input"
-                      id="edit-value"
-                      type="url"
-                      placeholder={"https://example.com/url"}
-                      value={editFormData.value}
-                      onChange={(e) =>
-                        setEditFormData((prev) => ({
-                          ...prev!,
-                          value: e.target.value,
-                        }))
-                      }
-                    />
-                  ) : (
-                    <Textarea
-                      key="value-textarea"
-                      id="edit-value"
-                      placeholder="Enter your idea or text content..."
-                      value={editFormData.value}
-                      onChange={(e) =>
-                        setEditFormData((prev) => ({
-                          ...prev!,
-                          value: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className="min-h-[100px] resize-none"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="edit-time-sensitive"
-                    checked={editFormData.time_sensitive}
-                    onCheckedChange={(checked) =>
+                  <Textarea
+                    key="value-textarea"
+                    id="edit-value"
+                    placeholder="Enter your idea or text content..."
+                    value={editFormData.value}
+                    onChange={(e) =>
                       setEditFormData((prev) => ({
                         ...prev!,
-                        time_sensitive: checked,
+                        value: e.target.value,
                       }))
                     }
+                    rows={4}
+                    className="min-h-[100px] resize-none"
                   />
                 </div>
               </div>

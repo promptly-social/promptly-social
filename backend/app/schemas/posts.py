@@ -4,9 +4,8 @@ Posts related Pydantic schemas for request/response validation.
 
 from datetime import datetime
 from typing import List, Optional, Any
-from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, UUID4
+from pydantic import BaseModel, Field, UUID4
 
 
 class PostBase(BaseModel):

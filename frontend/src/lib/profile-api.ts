@@ -51,7 +51,7 @@ export interface SocialConnection {
     scope?: string;
     linkedin_user_id?: string;
     email?: string;
-    picture?: string;
+    avatar_url?: string;
   };
   is_active: boolean;
   analysis_started_at?: string | null;

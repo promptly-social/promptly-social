@@ -33,7 +33,7 @@ module "generate_suggestions_function" {
   number_of_posts_to_generate        = var.number_of_posts_to_generate
   openrouter_model_primary           = var.openrouter_model_primary
   openrouter_models_fallback         = var.openrouter_models_fallback
-  openrouter_temperature             = var.openrouter_temperature
+  openrouter_model_temperature             = var.openrouter_model_temperature
   openrouter_large_model_primary     = var.openrouter_large_model_primary
   openrouter_large_models_fallback   = var.openrouter_large_models_fallback
   openrouter_large_model_temperature = var.openrouter_large_model_temperature

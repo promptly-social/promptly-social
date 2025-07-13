@@ -2,361 +2,28 @@ import json
 import logging
 import os
 import traceback
-from typing import Any, Dict, List
-from datetime import datetime, timedelta
+import asyncio
+from datetime import datetime
 
 import functions_framework
-from supabase import create_client, Client
-from substack_posts_fetcher import SubstackPostsFetcher
-from website_news_fetcher import WebsiteNewsFetcher
 from posts_generator import PostsGenerator
+from article_fetcher import ArticleFetcher
+from supabase_client import SupabaseClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_supabase_client() -> Client:
-    """Initialize Supabase client."""
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
-
-    if not supabase_url or not supabase_service_key:
-        raise ValueError("Missing Supabase configuration")
-
-    return create_client(supabase_url, supabase_service_key)
-
-
-def get_user_preferences_complete(
-    supabase_client: Client, user_id: str
-) -> Dict[str, Any]:
-    """
-    Get complete user preferences including all fields.
-
-    Args:
-        user_id: The user's ID
-
-    Returns:
-        Dictionary containing all user preferences
-    """
-    if not supabase_client:
-        raise ValueError("Supabase client not provided")
-
-    try:
-        response = (
-            supabase_client.table("user_preferences")
-            .select("topics_of_interest, websites, substacks, bio")
-            .eq("user_id", user_id)
-            .execute()
-        )
-
-        if not response.data:
-            logger.info(f"No user preferences found for user {user_id}")
-            return {
-                "topics_of_interest": [],
-                "websites": [],
-                "substacks": [],
-                "bio": "",
-            }
-
-        preferences = response.data[0]
-        logger.info(
-            f"Found user preferences for user {user_id}: {len(preferences.get('substacks', []))} substacks"
-        )
-
-        return {
-            "topics_of_interest": preferences.get("topics_of_interest", []),
-            "websites": preferences.get("websites", []),
-            "substacks": preferences.get("substacks", []),
-            "bio": preferences.get("bio", ""),
-        }
-
-    except Exception as e:
-        logger.error(f"Error fetching user preferences for user {user_id}: {e}")
-        raise
-
-
-def get_writing_style(supabase_client: Client, user_id: str) -> str:
-    """
-    Get the user's writing style.
-    """
-    if not supabase_client:
-        raise ValueError("Supabase client not provided")
-
-    try:
-        response = (
-            supabase_client.table("writing_style_analysis")
-            .select("analysis_data")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        if response.data and len(response.data) > 0:
-            return response.data[0].get("analysis_data", "")
-        else:
-            logger.info(f"No writing style analysis found for user {user_id}")
-            return ""
-    except Exception as e:
-        logger.error(f"Error fetching user writing style for user {user_id}: {e}")
-        # Return empty string instead of raising to allow function to continue
-        return ""
-
-
-def get_user_ideas(supabase_client: Client, user_id: str) -> List[Dict[str, Any]]:
-    """
-    Get the user's ideas that either don't have a post yet or the post was generated more than a week ago.
-    """
-    try:
-        # Get ideas with no posts
-        ideas_with_no_posts_res = (
-            supabase_client.table("idea_banks")
-            .select("id, data, created_at, posts!idea_bank_id!left(id)")
-            .eq("user_id", user_id)
-            .eq("data->>ai_suggested", "false")
-            .is_("posts", "null")
-            .execute()
-        )
-        ideas_with_no_posts = ideas_with_no_posts_res.data or []
-
-        # Get ideas with posts older than a week
-        one_week_ago = (datetime.now() - timedelta(days=7)).isoformat()
-        ideas_with_old_posts_res = (
-            supabase_client.table("idea_banks")
-            .select("id, data, created_at, posts!idea_bank_id!left(id)")
-            .eq("user_id", user_id)
-            .eq("data->>ai_suggested", "false")
-            .not_.is_("posts", "null")  # Must have posts
-            .lt("posts.created_at", one_week_ago)
-            .execute()
-        )
-        ideas_with_old_posts = ideas_with_old_posts_res.data or []
-
-        # Combine and deduplicate
-        all_ideas = {idea["id"]: idea for idea in ideas_with_no_posts}
-        for idea in ideas_with_old_posts:
-            all_ideas[idea["id"]] = idea
-
-        # Sort combined ideas by creation date
-        sorted_ideas = sorted(
-            all_ideas.values(), key=lambda x: x["created_at"], reverse=True
-        )
-
-        return sorted_ideas
-    except Exception as e:
-        logger.error(f"Error fetching user ideas for user {user_id}: {e}")
-        return []
-
-
-def get_latest_articles_from_idea_bank(
-    supabase_client: Client,
-    user_id: str,
-) -> List[Dict[str, Any]]:
-    """
-    Get the latest articles from the idea banks created in the last 12 hours.
-    Args:
-        supabase_client: Supabase client
-        user_id: User ID
-
-    Returns:
-        List of idea bank posts
-    """
-    try:
-        # Calculate 12 hours ago
-        twelve_hours_ago = (datetime.now() - timedelta(hours=12)).isoformat()
-
-        response = (
-            supabase_client.table("idea_banks")
-            .select("id, data, created_at, posts!idea_bank_id!left(id)")
-            .eq("user_id", user_id)
-            .eq("data->>type", "url")
-            .eq("data->>ai_suggested", "true")
-            .gte("created_at", twelve_hours_ago)
-            .is_("posts", "null")
-            .order("created_at", desc=True)
-            .execute()
-        )
-        if response.data:
-            logger.info(
-                f"Found {len(response.data)} idea bank posts from last 12 hours for user {user_id}"
-            )
-            return [
-                {
-                    "id": post["id"],
-                    "url": post["data"]["value"],
-                    "title": post["data"]["title"],
-                }
-                for post in response.data
-            ]
-        else:
-            logger.info(
-                f"No LinkedIn posts found in idea banks for user {user_id} in the last 12 hours"
-            )
-            return []
-    except Exception as e:
-        logger.error(
-            f"Error fetching latest LinkedIn posts from idea banks for user {user_id}: {e}"
-        )
-        return []
-
-
-def save_candidate_posts_to_idea_banks(
-    supabase_client: Client,
-    user_id: str,
-    candidate_posts: List[Dict[str, Any]],
-):
-    """
-    Save candidate posts to idea banks, or get existing ID if URL already exists.
-    """
-    for i, post in enumerate(candidate_posts):
-        post_url = post.get("url")
-
-        # Check if this URL already exists for the user
-        existing_response = (
-            supabase_client.table("idea_banks")
-            .select("id")
-            .eq("user_id", user_id)
-            .like("data->>value", post_url)
-            .execute()
-        )
-
-        if existing_response.data:
-            # URL already exists, use the existing ID
-            existing_id = existing_response.data[0]["id"]
-            candidate_posts[i]["id"] = existing_id
-            logger.info(
-                f"Found existing idea bank entry for user {user_id}, URL {post_url}: {existing_id}"
-            )
-        else:
-            # URL doesn't exist, create new entry
-            data = {
-                "type": "url",
-                "value": post_url,
-                "title": post.get("title", ""),
-                "time_sensitive": post.get("time_sensitive", False),
-                "ai_suggested": True,
-            }
-            response = (
-                supabase_client.table("idea_banks")
-                .insert(
-                    {
-                        "user_id": user_id,
-                        "data": data,
-                    }
-                )
-                .execute()
-            )
-
-            if not response.data:
-                logger.error(
-                    "No data returned when saving candidate post to idea banks"
-                )
-                raise Exception("No data returned from idea banks insert")
-            logger.info(
-                f"Saved new candidate post to idea banks for user {user_id}: {response.data}"
-            )
-            candidate_posts[i]["id"] = response.data[0].get("id")
-    return candidate_posts
-
-
-def save_suggested_posts_to_contents(
-    supabase_client: Client, user_id: str, suggested_posts: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
-    """
-    Save suggested posts to the posts table in Supabase.
-    """
-    for i, post in enumerate(suggested_posts):
-        try:
-            data = {
-                "user_id": user_id,
-                "title": post.get("title"),
-                "content": post.get("linkedin_post", ""),
-                "platform": post.get("platform", "linkedin"),
-                "topics": post.get("topics", []),
-                "recommendation_score": post.get("recommendation_score", 0),
-                "status": "suggested",
-            }
-            response = supabase_client.table("posts").insert(data).execute()
-
-            if response.data:
-                logger.info(
-                    f"Successfully saved post {i + 1}/{len(suggested_posts)} to posts table"
-                )
-                # Store the post_id in the original data for reference
-                suggested_posts[i]["post_id"] = response.data[0].get("id")
-        except Exception as e:
-            logger.error(f"Error saving post {i + 1} to database: {e}")
-            continue
-
-    return suggested_posts
-
-
-def get_content_strategy(supabase_client: Client, user_id: str) -> str:
-    """
-    Get the user's content strategy.
-    """
-    if not supabase_client:
-        raise ValueError("Supabase client not provided")
-
-    try:
-        response = (
-            supabase_client.table("content_strategies")
-            .select("strategy")
-            .eq("platform", "linkedin")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        if response.data and len(response.data) > 0:
-            return response.data[0].get("strategy", "")
-        else:
-            logger.info(
-                f"No content strategy found for user {user_id}. So creating one..."
-            )
-            return create_content_strategy(supabase_client, user_id)
-    except Exception as e:
-        logger.error(f"Error fetching user content strategy for user {user_id}: {e}")
-
-
-def create_content_strategy(supabase_client: Client, user_id: str) -> str:
-    """
-    Create a content strategy for the user.
-    """
-    if not supabase_client:
-        raise ValueError("Supabase client not provided")
-
-    STRATEGY = """
-    Best Practices for Crafting Engaging LinkedIn Post Text
-Start with a Strong Hook: Begin the post with a compelling question, a surprising statistic, or a bold statement to immediately capture the reader's attention and stop them from scrolling.
-Encourage Conversation: End your post with a clear call-to-action or an open-ended question that prompts readers to share their own experiences, opinions, or advice in the comments. Frame the text to start a discussion, not just to broadcast information.
-Write for Readability: Use short paragraphs, single-sentence lines, and bullet points to break up large blocks of text. This makes the post easier to scan and digest on a mobile device.
-Provide Genuine Value: The core of the text should offer insights, tips, or a personal story that is valuable to your target audience. Avoid pure self-promotion and focus on sharing expertise or relatable experiences.
-Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
-    """
-
-    try:
-        response = (
-            supabase_client.table("content_strategies")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "platform": "linkedin",
-                    "strategy": STRATEGY,
-                }
-            )
-            .execute()
-        )
-
-        if response.data:
-            logger.info(f"Created content strategy for user {user_id}")
-            return response.data[0].get("strategy", "")
-        else:
-            logger.error(f"Error creating content strategy for user {user_id}")
-            raise Exception("No data returned from content strategies insert")
-    except Exception as e:
-        logger.error(f"Error creating content strategy for user {user_id}: {e}")
-        raise
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, datetime):
+            return o.isoformat()
+        return super(DateTimeEncoder, self).default(o)
 
 
 @functions_framework.http
-def generate_suggestions(request):
+async def generate_suggestions(request):
     """
     GCP Cloud Function for generating content suggestions based on user preferences.
 
@@ -425,13 +92,10 @@ def generate_suggestions(request):
         logger.info(f"Generating suggestions for user {user_id}")
 
         # Initialize Supabase client
-        supabase = get_supabase_client()
+        supabase_client = SupabaseClient()
 
         # Get user preferences
-        user_preferences = get_user_preferences_complete(supabase, user_id)
-
-        # Get substacks
-        substacks = user_preferences.get("substacks", [])
+        user_preferences = supabase_client.get_user_preferences_complete(user_id)
 
         # Get topics of interest
         topics_of_interest = user_preferences.get("topics_of_interest", [])
@@ -440,21 +104,21 @@ def generate_suggestions(request):
         bio = user_preferences.get("bio", "")
 
         # Get writing style
-        writing_style = get_writing_style(supabase, user_id)
+        writing_style = supabase_client.get_writing_style(user_id)
 
         # Get user ideas
-        user_ideas = get_user_ideas(supabase, user_id)
+        user_ideas = supabase_client.get_user_ideas(user_id)
         logger.debug(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
 
         # initialize candidate posts with user ideas first
         candidate_posts = user_ideas
 
         # Get latest articles suggested by AI and saved in the idea banks
-        latest_substack_linkedin_posts = get_latest_articles_from_idea_bank(
-            supabase, user_id
+        latest_idea_bank_posts = supabase_client.get_latest_articles_from_idea_bank(
+            user_id
         )
 
-        candidate_posts.extend(latest_substack_linkedin_posts)
+        candidate_posts.extend(latest_idea_bank_posts)
 
         number_of_posts_to_generate = int(os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "5"))
 
@@ -464,58 +128,72 @@ def generate_suggestions(request):
             )
             logger.debug("Fetching more from Substack and websites")
 
-            # Initialize Substack posts fetcher with Supabase client
-            posts_fetcher = SubstackPostsFetcher(
-                openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
-            )
+            # Initialize Zyte scraper with Supabase client
+            article_fetcher = ArticleFetcher()
 
-            # Generate complete suggestions using the fetcher
-            substack_data = posts_fetcher.generate_suggestions_for_user(
-                user_id,
-                substacks,
-                topics_of_interest,
-                bio,
-            )
-            latest_substack_posts = substack_data.get("latest_posts", [])
-            saved_substack_posts = save_candidate_posts_to_idea_banks(
-                supabase, user_id, latest_substack_posts
-            )
-            candidate_posts.extend(saved_substack_posts)
-
-            logger.debug("Fetching content from websites")
+            # Get substacks
+            substacks = user_preferences.get("substacks", [])
 
             # Get websites
             websites = user_preferences.get("websites", [])
 
-            # Initialize website news fetcher with Supabase client
-            news_fetcher = WebsiteNewsFetcher(
-                openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
-            )
-            website_data = news_fetcher.fetch_news(
-                websites,
-                topics_of_interest,
-                bio,
-            )
-            saved_website_posts = save_candidate_posts_to_idea_banks(
-                supabase, user_id, website_data
-            )
-            candidate_posts.extend(saved_website_posts)
+            fetch_tasks = []
+            if substacks:
+                fetch_tasks.append(
+                    article_fetcher.fetch_candidate_articles(
+                        substacks, topics_of_interest, bio, 10, True
+                    )
+                )
+            if websites:
+                fetch_tasks.append(
+                    article_fetcher.fetch_candidate_articles(
+                        websites, topics_of_interest, bio, 20, False
+                    )
+                )
 
-        posts_generator = PostsGenerator(
-            supabase_client=supabase, openrouter_api_key=os.getenv("OPENROUTER_API_KEY")
-        )
+            if fetch_tasks:
+                fetched_results = await asyncio.gather(*fetch_tasks)
 
-        linkedin_post_strategy = get_content_strategy(supabase, user_id)
+                all_new_articles = []
+                for result_list in fetched_results:
+                    all_new_articles.extend(result_list)
 
-        generated_posts = posts_generator.generate_posts_from_articles(
-            user_id,
+                if all_new_articles:
+                    saved_posts = supabase_client.save_candidate_posts_to_idea_banks(
+                        user_id, all_new_articles
+                    )
+                    candidate_posts.extend(saved_posts)
+                    logger.info(f"Saved {len(saved_posts)} new articles to idea bank.")
+
+        posts_generator = PostsGenerator(supabase_client=supabase_client.client)
+
+        linkedin_post_strategy = supabase_client.get_content_strategy(user_id)
+
+        filtered_articles = await posts_generator.filter_articles(
             candidate_posts,
             bio,
             writing_style,
             topics_of_interest,
             number_of_posts_to_generate,
-            linkedin_post_strategy,
         )
+
+        generated_posts = []
+        if filtered_articles:
+            tasks = [
+                posts_generator.generate_post(
+                    article.get("content"),
+                    bio,
+                    writing_style,
+                    linkedin_post_strategy,
+                )
+                for article in filtered_articles
+            ]
+            generated_post_results = await asyncio.gather(*tasks)
+
+            for i, article in enumerate(filtered_articles):
+                generated_post = generated_post_results[i].model_dump()
+                generated_post["idea_bank_id"] = article.get("id")
+                generated_posts.append(generated_post)
 
         # Add the post_id to the generated posts
         for post in generated_posts:
@@ -525,12 +203,13 @@ def generate_suggestions(request):
                     break
 
         # save the generated posts to the contents table
-        saved_posts = save_suggested_posts_to_contents(
-            supabase, user_id, generated_posts
-        )
+        saved_posts = supabase_client.save_suggested_posts(user_id, generated_posts)
+
+        # update daily suggestions job status
+        supabase_client.update_daily_suggestions_job_status(user_id)
 
         return (
-            json.dumps(saved_posts, indent=2),
+            json.dumps(saved_posts, indent=2, cls=DateTimeEncoder),
             200,
             headers,
         )

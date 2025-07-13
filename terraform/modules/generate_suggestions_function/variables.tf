@@ -51,7 +51,7 @@ variable "openrouter_models_fallback" {
   default     = ["google/gemini-pro", "mistralai/mistral-7b-instruct"]
 }
 
-variable "openrouter_temperature" {
+variable "openrouter_model_temperature" {
   description = "Temperature for OpenRouter model."
   type        = string
   default     = "0.7"

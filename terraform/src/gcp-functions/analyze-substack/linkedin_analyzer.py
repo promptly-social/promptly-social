@@ -40,7 +40,7 @@ class LinkedInAnalyzer:
         self.models_fallback = [
             model.strip() for model in models_fallback_str.split(",")
         ]
-        self.temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.0"))
+        self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_linkedin(
         self, account_id: str, current_bio: str, content_to_analyze: List[str]
