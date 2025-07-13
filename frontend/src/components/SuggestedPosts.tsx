@@ -264,28 +264,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
     }
   };
 
-  const fetchSuggestedPosts = async () => {
-    setLoading(true);
-    try {
-      if (!user) return;
-      const postsResponse = await postsApi.getPosts({
-        status: ["suggested"],
-        order_by: "recommendation_score",
-        order_direction: "desc",
-      });
-      setPosts(postsResponse.items);
-    } catch (error) {
-      console.error("Error fetching suggested posts:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch suggested posts.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const generateNewPosts = async () => {
     setIsGenerating(true);
     try {
@@ -313,38 +291,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading posts...</span>
       </div>
-    );
-  }
-
-  if (posts.length === 0) {
-    return (
-      <Card className="text-center py-8 sm:py-12">
-        <CardContent>
-          <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No posts available
-          </h3>
-          <p className="text-gray-600 mb-4 text-sm sm:text-base">
-            No suggested posts found. Generate new content suggestions to get
-            started.
-          </p>
-          <div className="flex gap-x-2 justify-center">
-            <Button onClick={generateNewPosts} disabled={isGenerating}>
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Generate New Posts
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     );
   }
 
@@ -413,21 +359,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
               No suggested posts found. Generate new content suggestions to get
               started.
             </p>
-            <div className="flex gap-x-2 justify-center">
-              <Button onClick={generateNewPosts} disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Generate New Posts
-                  </>
-                )}
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}

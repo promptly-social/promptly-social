@@ -15,6 +15,16 @@ mock_functions_framework.http.side_effect = lambda f: f
 sys.modules["functions_framework"] = mock_functions_framework
 
 
+@pytest.fixture(autouse=True)
+def mock_asyncio_run(mocker):
+    """Fixture to patch asyncio.run to avoid event loop conflicts."""
+
+    async def _run(coro):
+        return await coro
+
+    mocker.patch("main.asyncio.run", side_effect=_run)
+
+
 @pytest.fixture
 def mock_request():
     request = MagicMock()
@@ -96,7 +106,7 @@ async def test_generate_suggestions_no_user_id(mock_request):
     mock_request.get_json.return_value = {"something": "else"}
     response, status_code, _ = await main.generate_suggestions(mock_request)
     assert status_code == 400
-    assert "user_id is required" in response
+    assert "user_id is required" in json.loads(response)["error"]
 
 
 @pytest.mark.asyncio
@@ -104,7 +114,7 @@ async def test_generate_suggestions_invalid_json(mock_request):
     mock_request.get_json.return_value = None
     response, status_code, _ = await main.generate_suggestions(mock_request)
     assert status_code == 400
-    assert "Invalid JSON" in response
+    assert "Invalid JSON" in json.loads(response)["error"]
 
 
 @pytest.mark.asyncio
@@ -118,4 +128,4 @@ async def test_generate_suggestions_exception(mock_supabase_client_class, mock_r
 
     response, status_code, _ = await main.generate_suggestions(mock_request)
     assert status_code == 500
-    assert "DB Error" in response
+    assert "DB Error" in json.loads(response)["error"]
