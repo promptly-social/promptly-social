@@ -16,10 +16,7 @@ from app.models.posts import Post
 from app.schemas.posts import PostCreate, PostUpdate, PostBatchUpdate, PostResponse
 from app.services.profile import ProfileService
 from app.services.linkedin_service import LinkedInService
-from app.core.config import settings
-from supabase import create_client, Client
-
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
+from app.utils.supabase import supabase_client
 
 
 class PostsService:
@@ -40,7 +37,7 @@ class PostsService:
 
         # Upload to Supabase Storage
         try:
-            supabase.storage.from_("post-media").upload(
+            supabase_client.client.storage.from_("post-media").upload(
                 path=file_path,
                 file=await file.read(),
                 file_options={"content-type": file.content_type},
@@ -49,7 +46,9 @@ class PostsService:
             logger.error(f"Error uploading to Supabase Storage: {e}")
             raise
 
-        media_url = supabase.storage.from_("post-media").get_public_url(file_path)
+        media_url = supabase_client.client.storage.from_("post-media").get_public_url(
+            file_path
+        )
 
         # Register upload with LinkedIn
         profile_service = ProfileService(self._db)
