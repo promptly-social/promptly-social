@@ -20,8 +20,8 @@ import {
   Share2,
 } from "lucide-react";
 import { Post, postsApi } from "@/lib/posts-api";
-import { PostCardHeader } from "./PostCardHeader";
-import { PostContent } from "./PostContent";
+import { PostCardHeader } from "./shared/PostCardHeader";
+import { PostContent } from "./shared/PostContent";
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";

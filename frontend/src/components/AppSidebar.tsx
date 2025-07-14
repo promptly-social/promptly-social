@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   PenTool,
-  FileText,
+  Home,
   User,
   Settings,
   List,
@@ -26,9 +26,9 @@ import {
 
 const contentMenuItems = [
   {
-    title: "New Content",
-    url: "/new-content",
-    icon: FileText,
+    title: "Home",
+    url: "/home",
+    icon: Home,
   },
   {
     title: "My Posts",

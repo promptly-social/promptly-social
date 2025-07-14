@@ -2,21 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/components/AppLayout";
-import { PostCard } from "@/components/PostCard";
+import { PostCard } from "@/components/shared/PostCard";
 import { PostScheduleModal } from "@/components/PostScheduleModal";
 import { RescheduleModal } from "@/components/RescheduleModal";
-import { RefreshCw, ArrowLeft, Filter, TrendingUp } from "lucide-react";
-
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Label } from "@/components/ui/label";
+import { RefreshCw, ArrowLeft, TrendingUp } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,13 +19,16 @@ import {
 } from "@/components/ui/dialog";
 import { postsApi, Post } from "@/lib/posts-api";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
-interface Filters {
-  status?: string[];
-  platform?: string;
-  order_by?: string;
-  order_direction?: "asc" | "desc";
-}
+type TabName = "drafts" | "scheduled" | "posted";
 
 const MyPosts: React.FC = () => {
   const { user } = useAuth();
@@ -67,18 +62,11 @@ const MyPosts: React.FC = () => {
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
   const [isRescheduling, setIsRescheduling] = useState(false);
-  const [filters, setFilters] = useState<Filters>({
-    status: ["suggested", "saved"], // Show suggested and saved by default
-    platform: undefined,
-    order_by: "created_at",
-    order_direction: "desc",
-  });
-  const [pendingFilters, setPendingFilters] = useState<Filters>({
-    status: ["suggested", "saved"], // Show suggested and saved by default
-    platform: undefined,
-    order_by: "created_at",
-    order_direction: "desc",
-  });
+
+  const [activeTab, setActiveTab] = useState<TabName>("drafts");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPosts, setTotalPosts] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -92,10 +80,25 @@ const MyPosts: React.FC = () => {
           const post = await postsApi.getPost(postId);
           setSelectedPost(post);
           setPosts([post]);
+          setTotalPages(1);
+          setTotalPosts(1);
         } else {
-          // Fetch all posts with filters
-          const postsResponse = await postsApi.getPosts(filters);
+          // Fetch all posts with filters for the active tab
+          const statusMap: Record<TabName, string[]> = {
+            drafts: ["suggested", "saved"],
+            scheduled: ["scheduled"],
+            posted: ["posted"],
+          };
+          const postsResponse = await postsApi.getPosts({
+            status: statusMap[activeTab],
+            order_by: activeTab === "scheduled" ? "scheduled_at" : "created_at",
+            order_direction: "desc",
+            page: currentPage,
+            size: 10,
+          });
           setPosts(postsResponse.items);
+          setTotalPosts(postsResponse.total);
+          setTotalPages(postsResponse.pages);
           setSelectedPost(null);
         }
 
@@ -116,7 +119,7 @@ const MyPosts: React.FC = () => {
     };
 
     fetchData();
-  }, [user, postId, filters]);
+  }, [user, postId, activeTab, currentPage]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -127,56 +130,22 @@ const MyPosts: React.FC = () => {
     };
   }, [undoTimeouts]);
 
-  const handlePendingFilterChange = (newFilters: Partial<Filters>) => {
-    setPendingFilters((prev) => ({ ...prev, ...newFilters }));
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as TabName);
+    setCurrentPage(1); // Reset to first page on tab change
   };
 
-  const applyFilters = () => {
-    setFilters(pendingFilters);
-  };
-
-  const clearPendingFilters = () => {
-    const defaultFilters: Filters = {
-      status: ["suggested", "saved"],
-      platform: undefined,
-      order_by: "created_at",
-      order_direction: "desc",
-    };
-    setPendingFilters(defaultFilters);
-  };
-
-  const clearAllFilters = () => {
-    const defaultFilters: Filters = {
-      status: ["suggested", "saved"],
-      platform: undefined,
-      order_by: "created_at",
-      order_direction: "desc",
-    };
-    setPendingFilters(defaultFilters);
-    setFilters(defaultFilters);
-  };
-
-  const getActiveFilterCount = () => {
-    let count = 0;
-    if (
-      filters.status &&
-      !(
-        filters.status.length === 2 &&
-        filters.status.includes("suggested") &&
-        filters.status.includes("saved")
-      )
-    ) {
-      count++;
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
     }
-    if (filters.platform) count++;
-    if (filters.order_by && filters.order_by !== "created_at") count++;
-    if (filters.order_direction && filters.order_direction !== "desc") count++;
-    return count;
   };
 
   const goBackToList = () => {
     setSearchParams({});
     setSelectedPost(null);
+    // Refetch data for the current tab and page
+    setCurrentPage(1); // or refetch current page
   };
 
   const dismissPost = async (post: Post) => {
@@ -245,8 +214,9 @@ const MyPosts: React.FC = () => {
     try {
       const updatedPost = await postsApi.schedulePost(postId, scheduledAt);
 
-      // Update posts list
-      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
+      // Optimistically remove from current list and update other lists
+      setPosts(posts.filter((p) => p.id !== postId));
+      setTotalPosts((prev) => prev - 1);
 
       // Update selected post if it's the same one
       if (selectedPost?.id === postId) {
@@ -254,7 +224,13 @@ const MyPosts: React.FC = () => {
       }
 
       // Add to scheduled posts
-      setScheduledPosts([...scheduledPosts, updatedPost]);
+      setScheduledPosts(
+        [...scheduledPosts, updatedPost].sort(
+          (a, b) =>
+            new Date(a.scheduled_at).getTime() -
+            new Date(b.scheduled_at).getTime()
+        )
+      );
 
       // Close modal
       setScheduleModal({ isOpen: false, post: null });
@@ -278,7 +254,10 @@ const MyPosts: React.FC = () => {
         status: "saved",
       });
 
-      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
+      // Optimistically remove from current list
+      setPosts(posts.filter((p) => p.id !== post.id));
+      setTotalPosts((prev) => prev - 1);
+
       if (selectedPost?.id === post.id) {
         setSelectedPost(updatedPost);
       }
@@ -309,7 +288,13 @@ const MyPosts: React.FC = () => {
 
       // Update scheduled posts list
       setScheduledPosts(
-        scheduledPosts.map((p) => (p.id === postId ? updatedPost : p))
+        scheduledPosts
+          .map((p) => (p.id === postId ? updatedPost : p))
+          .sort(
+            (a, b) =>
+              new Date(a.scheduled_at).getTime() -
+              new Date(b.scheduled_at).getTime()
+          )
       );
 
       // Update selected post if it's the same one
@@ -340,7 +325,15 @@ const MyPosts: React.FC = () => {
         status: "saved",
       });
 
-      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
+      // If viewing suggested posts, this one becomes 'saved' so it can stay in 'drafts'
+      if (activeTab === "drafts") {
+        setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
+      } else {
+        // If coming from another tab, remove it from the current view
+        setPosts(posts.filter((p) => p.id !== post.id));
+        setTotalPosts((prev) => prev - 1);
+      }
+
       if (selectedPost?.id === post.id) {
         setSelectedPost(updatedPost);
       }
@@ -445,89 +438,9 @@ const MyPosts: React.FC = () => {
     }
   };
 
-  const filterButton = (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="relative">
-          <Filter className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Filter</span>
-          {getActiveFilterCount() > 0 && (
-            <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-              {getActiveFilterCount()}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium">Filters</h4>
-            <Button variant="ghost" size="sm" onClick={clearPendingFilters}>
-              Clear
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Post Status</Label>
-              <div className="space-y-2">
-                {[
-                  "suggested",
-                  "saved",
-                  "posted",
-                  "scheduled",
-                  "canceled",
-                  "dismissed",
-                ].map((status) => (
-                  <div key={status} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`status-${status}`}
-                      checked={pendingFilters.status?.includes(status) || false}
-                      onChange={(e) => {
-                        const currentStatuses = pendingFilters.status || [];
-                        if (e.target.checked) {
-                          handlePendingFilterChange({
-                            status: [...currentStatuses, status],
-                          });
-                        } else {
-                          handlePendingFilterChange({
-                            status: currentStatuses.filter((s) => s !== status),
-                          });
-                        }
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={`status-${status}`} className="capitalize">
-                      {status}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-3 border-t">
-            <Button onClick={applyFilters} size="sm" className="flex-1">
-              Apply Filters
-            </Button>
-            <Button
-              onClick={clearAllFilters}
-              variant="outline"
-              size="sm"
-              className="flex-1"
-            >
-              Clear All
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-
   const title = "My Posts";
 
-  if (isLoading) {
+  if (isLoading && posts.length === 0) {
     return (
       <AppLayout title={title} emailBreakpoint="md">
         <main className="py-4 px-4 sm:py-8 sm:px-6">
@@ -590,51 +503,92 @@ const MyPosts: React.FC = () => {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-md text-gray-600 font-medium">
-                  {posts.length} {posts.length === 1 ? "post" : "posts"}
-                </span>
-                <div className="flex items-center gap-2">{filterButton}</div>
-              </div>
-
-              {posts.length === 0 ? (
-                <Card>
-                  <CardContent className="py-8 sm:py-12 text-center">
-                    <TrendingUp className="w-8 sm:w-12 h-8 sm:h-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-base sm:text-lg font-medium mb-2">
-                      No posts found
-                    </h3>
-                    <p className="text-sm sm:text-base text-gray-600">
-                      Your suggested and published posts will appear here
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid gap-4 sm:gap-6">
-                  {posts.map((post, index) => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      index={index}
-                      editingPostId={editingPostId}
-                      editedContent={editedContent}
-                      savingPostId={savingPostId}
-                      dismissingPostId={dismissingPostId}
-                      onStartEditing={startEditing}
-                      onSaveEdit={saveEdit}
-                      onCancelEdit={cancelEdit}
-                      onEditContentChange={setEditedContent}
-                      onSubmitPositiveFeedback={submitPositiveFeedback}
-                      onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
-                      onSchedulePost={schedulePost}
-                      onRemoveFromSchedule={removeFromSchedule}
-                      onReschedulePost={reschedulePost}
-                      onSaveForLater={saveForLater}
-                      onDismissPost={dismissPost}
-                    />
-                  ))}
-                </div>
-              )}
+              <Tabs
+                value={activeTab}
+                onValueChange={handleTabChange}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="drafts">Drafts</TabsTrigger>
+                  <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
+                  <TabsTrigger value="posted">Posted</TabsTrigger>
+                </TabsList>
+                <TabsContent value="drafts">
+                  <PostList
+                    posts={posts}
+                    isLoading={isLoading}
+                    totalPosts={totalPosts}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    editingPostId={editingPostId}
+                    editedContent={editedContent}
+                    savingPostId={savingPostId}
+                    dismissingPostId={dismissingPostId}
+                    onStartEditing={startEditing}
+                    onSaveEdit={saveEdit}
+                    onCancelEdit={cancelEdit}
+                    onEditContentChange={setEditedContent}
+                    onSubmitPositiveFeedback={submitPositiveFeedback}
+                    onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
+                    onSchedulePost={schedulePost}
+                    onRemoveFromSchedule={removeFromSchedule}
+                    onReschedulePost={reschedulePost}
+                    onSaveForLater={saveForLater}
+                    onDismissPost={dismissPost}
+                  />
+                </TabsContent>
+                <TabsContent value="scheduled">
+                  <PostList
+                    posts={posts}
+                    isLoading={isLoading}
+                    totalPosts={totalPosts}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    editingPostId={editingPostId}
+                    editedContent={editedContent}
+                    savingPostId={savingPostId}
+                    dismissingPostId={dismissingPostId}
+                    onStartEditing={startEditing}
+                    onSaveEdit={saveEdit}
+                    onCancelEdit={cancelEdit}
+                    onEditContentChange={setEditedContent}
+                    onSubmitPositiveFeedback={submitPositiveFeedback}
+                    onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
+                    onSchedulePost={schedulePost}
+                    onRemoveFromSchedule={removeFromSchedule}
+                    onReschedulePost={reschedulePost}
+                    onSaveForLater={saveForLater}
+                    onDismissPost={dismissPost}
+                  />
+                </TabsContent>
+                <TabsContent value="posted">
+                  <PostList
+                    posts={posts}
+                    isLoading={isLoading}
+                    totalPosts={totalPosts}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    editingPostId={editingPostId}
+                    editedContent={editedContent}
+                    savingPostId={savingPostId}
+                    dismissingPostId={dismissingPostId}
+                    onStartEditing={startEditing}
+                    onSaveEdit={saveEdit}
+                    onCancelEdit={cancelEdit}
+                    onEditContentChange={setEditedContent}
+                    onSubmitPositiveFeedback={submitPositiveFeedback}
+                    onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
+                    onSchedulePost={schedulePost}
+                    onRemoveFromSchedule={removeFromSchedule}
+                    onReschedulePost={reschedulePost}
+                    onSaveForLater={saveForLater}
+                    onDismissPost={dismissPost}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </div>
@@ -696,6 +650,119 @@ const MyPosts: React.FC = () => {
         isRescheduling={isRescheduling}
       />
     </AppLayout>
+  );
+};
+
+interface PostListProps {
+  posts: Post[];
+  isLoading: boolean;
+  totalPosts: number;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  editingPostId: string | null;
+  editedContent: string;
+  savingPostId: string | null;
+  dismissingPostId: string | null;
+  onStartEditing: (post: Post) => void;
+  onSaveEdit: (postId: string) => void;
+  onCancelEdit: () => void;
+  onEditContentChange: (content: string) => void;
+  onSubmitPositiveFeedback: (postId: string) => void;
+  onOpenNegativeFeedbackModal: (postId: string) => void;
+  onSchedulePost: (postId: string) => void;
+  onRemoveFromSchedule: (post: Post) => void;
+  onReschedulePost: (postId: string) => void;
+  onSaveForLater: (post: Post) => void;
+  onDismissPost: (post: Post) => void;
+}
+
+const PostList: React.FC<PostListProps> = ({
+  posts,
+  isLoading,
+  totalPosts,
+  currentPage,
+  totalPages,
+  onPageChange,
+  ...postCardProps
+}) => {
+  if (isLoading && posts.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
+        <p className="text-gray-600">Loading posts...</p>
+      </div>
+    );
+  }
+
+  if (posts.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 sm:py-12 text-center">
+          <TrendingUp className="w-8 sm:w-12 h-8 sm:h-12 mx-auto mb-4 text-gray-400" />
+          <h3 className="text-base sm:text-lg font-medium mb-2">
+            No posts found
+          </h3>
+          <p className="text-sm sm:text-base text-gray-600">
+            There are no posts in this category.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between">
+        <span className="text-md text-gray-600 font-medium">
+          {totalPosts} {totalPosts === 1 ? "post" : "posts"}
+        </span>
+      </div>
+
+      <div className="grid gap-4 sm:gap-6">
+        {posts.map((post, index) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            index={index}
+            {...postCardProps}
+          />
+        ))}
+      </div>
+
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onPageChange(currentPage - 1);
+                }}
+                className={
+                  currentPage === 1 ? "pointer-events-none opacity-50" : ""
+                }
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onPageChange(currentPage + 1);
+                }}
+                className={
+                  currentPage === totalPages
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+    </div>
   );
 };
 

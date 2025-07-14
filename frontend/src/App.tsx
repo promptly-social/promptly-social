@@ -67,7 +67,7 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (user && user.is_verified) {
-    return <Navigate to="/new-content" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <>{children}</>;
@@ -105,7 +105,7 @@ const App = () => (
                 }
               />
               <Route
-                path="/new-content"
+                path="/home"
                 element={
                   <ProtectedRoute>
                     <NewContent />

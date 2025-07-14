@@ -14,7 +14,6 @@ import {
   CheckCircle,
   TrendingUp,
   BookOpen,
-  Globe,
   Clock,
   Users,
   Target,
@@ -317,10 +316,10 @@ const Landing = () => {
                 gradient: "from-orange-600 to-orange-700",
               },
               {
-                icon: Globe,
-                title: "One-Click Publishing",
+                icon: Calendar,
+                title: "Schedule Posts",
                 description:
-                  "Direct LinkedIn integration lets you review, edit, and publish posts instantly. No copy-pasting required.",
+                  "Schedule posts with an intuitive calendar interface.",
                 gradient: "from-teal-600 to-teal-700",
               },
             ].map((feature, index) => (

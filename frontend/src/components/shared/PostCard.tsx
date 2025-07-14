@@ -209,7 +209,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            <span>{formatDate(post.created_at)}</span>
+            <span>Last updated: {formatDate(post.updated_at)}</span>
           </div>
         </div>
 

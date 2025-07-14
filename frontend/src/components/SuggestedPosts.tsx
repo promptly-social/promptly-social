@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, TrendingUp, Loader2 } from "lucide-react";
-import { PostCard } from "@/components/PostCard";
+import { PostCard } from "@/components/shared/PostCard";
 import { PostScheduleModal } from "@/components/PostScheduleModal";
 import { postsApi, Post } from "@/lib/posts-api";
 import { useToast } from "@/hooks/use-toast";
