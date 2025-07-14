@@ -19,6 +19,7 @@ class PostBase(BaseModel):
     topics: Optional[List[str]] = []
     status: Optional[str] = "suggested"
     scheduled_at: Optional[datetime] = None
+    idea_bank_id: Optional[UUID4] = None
 
     class Config:
         from_attributes = True
@@ -53,7 +54,6 @@ class PostResponse(PostBase):
     id: UUID4
     user_id: UUID4
     idea_bank_id: Optional[UUID4] = None
-    recommendation_score: int
     user_feedback: Optional[str] = None
     feedback_comment: Optional[str] = None
     feedback_at: Optional[datetime] = None

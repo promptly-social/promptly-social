@@ -1,8 +1,8 @@
-import { apiClient } from './auth-api';
-import type { Post } from './posts-api';
+import { apiClient } from "./auth-api";
+import type { Post } from "./posts-api";
 
 export interface IdeaBankData {
-  type: 'url' | 'text' | 'product';
+  type: "url" | "text" | "product";
   value: string; // URL for article/product, text content for text type
   title?: string;
   // Product-specific fields
@@ -41,7 +41,7 @@ export interface IdeaBankFilters {
   page?: number;
   size?: number;
   order_by?: string;
-  order_direction?: 'asc' | 'desc';
+  order_direction?: "asc" | "desc";
   ai_suggested?: boolean;
   evergreen?: boolean;
   has_post?: boolean;
@@ -56,7 +56,6 @@ export interface SuggestedPost {
   content: string;
   platform: string;
   topics: string[];
-  recommendation_score: number;
   status: string;
   user_feedback?: string;
   feedback_comment?: string;
@@ -84,42 +83,44 @@ export const ideaBankApi = {
    */
   async list(filters?: IdeaBankFilters): Promise<IdeaBankListResponse> {
     const params = new URLSearchParams();
-    
+
     if (filters?.page) {
-      params.append('page', filters.page.toString());
+      params.append("page", filters.page.toString());
     }
-    
+
     if (filters?.size) {
-      params.append('size', filters.size.toString());
+      params.append("size", filters.size.toString());
     }
-    
+
     if (filters?.order_by) {
-      params.append('order_by', filters.order_by);
+      params.append("order_by", filters.order_by);
     }
-    
+
     if (filters?.order_direction) {
-      params.append('order_direction', filters.order_direction);
+      params.append("order_direction", filters.order_direction);
     }
 
     if (filters?.ai_suggested !== undefined) {
-      params.append('ai_suggested', filters.ai_suggested.toString());
+      params.append("ai_suggested", filters.ai_suggested.toString());
     }
 
     if (filters?.evergreen !== undefined) {
-      params.append('evergreen', filters.evergreen.toString());
+      params.append("evergreen", filters.evergreen.toString());
     }
 
     if (filters?.has_post !== undefined) {
-      params.append('has_post', filters.has_post.toString());
+      params.append("has_post", filters.has_post.toString());
     }
 
     if (filters?.post_status) {
-      filters.post_status.forEach(status => params.append('post_status', status));
+      filters.post_status.forEach((status) =>
+        params.append("post_status", status)
+      );
     }
 
     const queryString = params.toString();
-    const url = `/idea-banks/${queryString ? `?${queryString}` : ''}`;
-    
+    const url = `/idea-banks/${queryString ? `?${queryString}` : ""}`;
+
     const response = await apiClient.request<IdeaBankListResponse>(url);
     return response;
   },
@@ -127,44 +128,48 @@ export const ideaBankApi = {
   /**
    * Get idea banks with their latest suggested posts
    */
-  async listWithPosts(filters?: IdeaBankFilters): Promise<IdeaBankWithPostsResponse> {
+  async listWithPosts(
+    filters?: IdeaBankFilters
+  ): Promise<IdeaBankWithPostsResponse> {
     const params = new URLSearchParams();
-    
+
     if (filters?.page) {
-      params.append('page', filters.page.toString());
+      params.append("page", filters.page.toString());
     }
-    
+
     if (filters?.size) {
-      params.append('size', filters.size.toString());
+      params.append("size", filters.size.toString());
     }
-    
+
     if (filters?.order_by) {
-      params.append('order_by', filters.order_by);
+      params.append("order_by", filters.order_by);
     }
-    
+
     if (filters?.order_direction) {
-      params.append('order_direction', filters.order_direction);
+      params.append("order_direction", filters.order_direction);
     }
 
     if (filters?.ai_suggested !== undefined) {
-      params.append('ai_suggested', filters.ai_suggested.toString());
+      params.append("ai_suggested", filters.ai_suggested.toString());
     }
 
     if (filters?.evergreen !== undefined) {
-      params.append('evergreen', filters.evergreen.toString());
+      params.append("evergreen", filters.evergreen.toString());
     }
 
     if (filters?.has_post !== undefined) {
-      params.append('has_post', filters.has_post.toString());
+      params.append("has_post", filters.has_post.toString());
     }
 
     if (filters?.post_status) {
-      filters.post_status.forEach(status => params.append('post_status', status));
+      filters.post_status.forEach((status) =>
+        params.append("post_status", status)
+      );
     }
 
     const queryString = params.toString();
-    const url = `/idea-banks/with-posts${queryString ? `?${queryString}` : ''}`;
-    
+    const url = `/idea-banks/with-posts${queryString ? `?${queryString}` : ""}`;
+
     const response = await apiClient.request<IdeaBankWithPostsResponse>(url);
     return response;
   },
@@ -180,8 +185,13 @@ export const ideaBankApi = {
   /**
    * Get a specific idea bank with its latest post
    */
-  async getWithPost(id: string): Promise<{ idea_bank: IdeaBank; latest_post?: SuggestedPost }> {
-    const response = await apiClient.request<{ idea_bank: IdeaBank; latest_post?: SuggestedPost }>(`/idea-banks/${id}/with-post`);
+  async getWithPost(
+    id: string
+  ): Promise<{ idea_bank: IdeaBank; latest_post?: SuggestedPost }> {
+    const response = await apiClient.request<{
+      idea_bank: IdeaBank;
+      latest_post?: SuggestedPost;
+    }>(`/idea-banks/${id}/with-post`);
     return response;
   },
 
@@ -189,8 +199,8 @@ export const ideaBankApi = {
    * Create a new idea bank
    */
   async create(ideaBankData: IdeaBankCreate): Promise<IdeaBank> {
-    const response = await apiClient.request<IdeaBank>('/idea-banks/', {
-      method: 'POST',
+    const response = await apiClient.request<IdeaBank>("/idea-banks/", {
+      method: "POST",
       body: JSON.stringify(ideaBankData),
     });
     return response;
@@ -201,7 +211,7 @@ export const ideaBankApi = {
    */
   async update(id: string, updateData: IdeaBankUpdate): Promise<IdeaBank> {
     const response = await apiClient.request<IdeaBank>(`/idea-banks/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(updateData),
     });
     return response;
@@ -212,7 +222,7 @@ export const ideaBankApi = {
    */
   async delete(id: string): Promise<void> {
     await apiClient.request<void>(`/idea-banks/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   },
 
@@ -223,9 +233,9 @@ export const ideaBankApi = {
     const response = await apiClient.request<Post>(
       `/idea-banks/${id}/generate-post`,
       {
-        method: 'POST',
+        method: "POST",
       }
     );
     return response;
   },
-}; 
+};

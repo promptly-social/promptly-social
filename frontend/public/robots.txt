@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /auth/
-Disallow: /my-content
+Disallow: /my-posts
 Disallow: /new-content
 Disallow: /profile
 Disallow: /settings
@@ -9,7 +9,7 @@ Disallow: /settings
 User-agent: Googlebot
 Allow: /
 Disallow: /auth/
-Disallow: /my-content
+Disallow: /my-posts
 Disallow: /new-content
 Disallow: /profile
 Disallow: /settings
@@ -17,7 +17,7 @@ Disallow: /settings
 User-agent: Bingbot
 Allow: /
 Disallow: /auth/
-Disallow: /my-content
+Disallow: /my-posts
 Disallow: /new-content
 Disallow: /profile
 Disallow: /settings

@@ -205,26 +205,6 @@ export const profileApi = {
     );
   },
 
-  // LinkedIn Integration
-  async linkedinAuthorize(): Promise<LinkedInAuthResponse> {
-    return apiClient.request<LinkedInAuthResponse>(
-      "/profile/linkedin/authorize"
-    );
-  },
-
-  async linkedinCallback(
-    code: string,
-    state: string
-  ): Promise<SocialConnection> {
-    return apiClient.request<SocialConnection>(
-      `/profile/linkedin/callback?code=${code}&state=${state}`
-    );
-  },
-
-  async linkedinAuthInfo(): Promise<LinkedInAuthInfo> {
-    return apiClient.request<LinkedInAuthInfo>("/profile/linkedin/auth-info");
-  },
-
   async checkLinkedInConnectionStatus(
     state: string
   ): Promise<LinkedInConnectionStatus> {

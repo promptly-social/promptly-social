@@ -186,6 +186,16 @@ const EditComposer: FC = () => {
   );
 };
 
+/**
+ * The AssistantMessage component is a custom implementation of the
+ * {@link MessagePrimitive.Root} component that is used to render messages
+ * sent by the assistant. It adds some additional features such as a preview
+ * card for tool output and a button to use the preview as a draft for a
+ * social media post.
+ *
+ * @example
+ * <AssistantMessage />
+ */
 const AssistantMessage: FC = () => {
   const message = useMessage();
   const { onSchedule } = usePostScheduling();

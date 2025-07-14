@@ -186,7 +186,6 @@ class PostsService:
                 content=post_data.content,
                 platform=post_data.platform,
                 topics=post_data.topics,
-                recommendation_score=post_data.recommendation_score,
                 status=post_data.status,
             )
 

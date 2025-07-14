@@ -261,7 +261,6 @@ class SupabaseClient:
                     "content": post.get("linkedin_post", ""),
                     "platform": post.get("platform", "linkedin"),
                     "topics": post.get("topics", []),
-                    "recommendation_score": post.get("recommendation_score", 0),
                     "status": "suggested",
                     "idea_bank_id": post.get("idea_bank_id"),
                 }

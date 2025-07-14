@@ -19,15 +19,10 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
-  const { signIn, signInWithLinkedIn, clearPendingVerification } = useAuth();
+  const { signInWithLinkedIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
-  // Clear pending verification when accessing login page
-  useEffect(() => {
-    clearPendingVerification();
-  }, [clearPendingVerification]);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -43,36 +38,6 @@ const Login = () => {
       });
     }
   }, [searchParams, toast]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const { error } = await signIn(email, password);
-      if (error) {
-        toast({
-          title: "Sign In Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        // Sign in successful - navigate to new-content with a small delay
-        console.log("Sign in successful, navigating to /new-content");
-        setTimeout(() => {
-          navigate("/new-content");
-        }, 100);
-      }
-    } catch (error) {
-      toast({
-        title: "Sign In Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleLinkedInSignIn = async () => {
     setIsLinkedInLoading(true);
@@ -136,69 +101,15 @@ const Login = () => {
               {isLinkedInLoading ? "Signing in..." : "Continue with LinkedIn"}
             </Button>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-gray-700 font-medium text-sm"
-                >
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="border-gray-300 h-10 sm:h-12 text-sm sm:text-base"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-gray-700 font-medium text-sm"
-                >
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  className="border-gray-300 h-10 sm:h-12 text-sm sm:text-base"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white h-10 sm:h-12 font-semibold shadow-lg text-sm sm:text-base"
-                disabled={isLoading}
+            <div className="text-center text-xs sm:text-sm text-gray-600">
+              Don't have an account?{" "}
+              <Link
+                to="/signup"
+                className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
               >
-                {isLoading ? "Signing In..." : "Sign In"}
-              </Button>
-              <div className="text-center text-xs sm:text-sm text-gray-600">
-                Don't have an account?{" "}
-                <Link
-                  to="/signup"
-                  className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
-                >
-                  Join Early Access
-                </Link>
-              </div>
-            </form>
+                Join Early Access
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

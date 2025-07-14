@@ -10,17 +10,17 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import { Login, EmailVerification } from "./pages/auth";
 import NewContent from "./pages/NewContent/NewContent";
 import Profile from "./pages/Profile/Profile";
 import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
-import MyContent from "./pages/MyContent/MyContent";
+import MyContent from "./pages/MyPosts/MyPosts";
 import PostingSchedule from "./pages/PostingSchedule/PostingSchedule";
 import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
 import LinkedinCallback from "./pages/auth/LinkedinCallback";
 import EarlyAccess from "./pages/EarlyAccess";
+import { Login } from "./pages/auth";
 
 const queryClient = new QueryClient();
 
@@ -53,22 +53,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     </SidebarProvider>
   );
-};
-
-const EmailVerificationRoute = () => {
-  const { pendingEmailVerification, user } = useAuth();
-  const email =
-    pendingEmailVerification || (user && !user.is_verified ? user.email : null);
-
-  if (!email) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (user && user.is_verified) {
-    return <Navigate to="/new-content" replace />;
-  }
-
-  return <EmailVerification email={email} />;
 };
 
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
@@ -177,10 +161,6 @@ const App = () => (
                 }
               />
               <Route path="/auth/callback" element={<LinkedinCallback />} />
-              <Route
-                path="/verify-email"
-                element={<EmailVerificationRoute />}
-              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

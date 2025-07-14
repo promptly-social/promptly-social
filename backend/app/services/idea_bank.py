@@ -432,7 +432,6 @@ class IdeaBankService:
                 idea_bank_id=idea_bank_id,
                 status="suggested",
                 topics=generated_data.topics,
-                recommendation_score=generated_data.recommendation_score,
             )
 
             new_post = Post(user_id=user_id, **new_post_data.model_dump())

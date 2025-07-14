@@ -35,7 +35,7 @@ interface Filters {
   order_direction?: "asc" | "desc";
 }
 
-const MyContent: React.FC = () => {
+const MyPosts: React.FC = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const postId = searchParams.get("post");
@@ -699,4 +699,4 @@ const MyContent: React.FC = () => {
   );
 };
 
-export default MyContent;
+export default MyPosts;

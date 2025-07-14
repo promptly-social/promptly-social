@@ -54,7 +54,7 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         // Fetch suggested posts
         const postsResponse = await postsApi.getPosts({
           status: ["suggested"],
-          order_by: "recommendation_score",
+          order_by: "created_at",
           order_direction: "desc",
         });
 

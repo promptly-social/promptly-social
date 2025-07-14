@@ -21,12 +21,11 @@ class LinkedInService:
     # Static helper utilities
     # ------------------------
     @staticmethod
-    async def exchange_code_for_token(code: str) -> Dict[str, Any]:
+    async def exchange_code_for_token(code: str, redirect_uri: str) -> Dict[str, Any]:
         """Exchange authorization code for access & refresh tokens (native flow)."""
         if not settings.linkedin_client_id or not settings.linkedin_client_secret:
             raise ValueError("LinkedIn client ID or secret not configured")
 
-        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
         payload = {
             "grant_type": "authorization_code",
             "code": code,

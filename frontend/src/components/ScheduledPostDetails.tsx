@@ -81,8 +81,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
 
       if (articleUrl) {
         await postsApi.updatePost(post.id, {
-          media_type: "article",
-          media_url: articleUrl,
+          media_urls: [articleUrl],
         });
       } else if (mediaFile) {
         await postsApi.uploadPostMedia(post.id, mediaFile);

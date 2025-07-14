@@ -3,8 +3,6 @@ import type {
   User,
   AuthResponse,
   TokenResponse,
-  UserCreate,
-  UserLogin,
   UserUpdate,
   SuccessResponse,
   LinkedInAuthRequest,
@@ -237,22 +235,6 @@ class ApiClient {
   }
 
   // Authentication endpoints
-  async signUp(
-    userData: Omit<UserCreate, "preferred_language" | "timezone">
-  ): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/auth/signup", {
-      method: "POST",
-      body: JSON.stringify(userData),
-    });
-  }
-
-  async signIn(credentials: UserLogin): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/auth/signin", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    });
-  }
-
   async signInWithLinkedIn(
     redirectTo?: string
   ): Promise<{ url: string; message: string }> {
@@ -291,20 +273,6 @@ class ApiClient {
     });
   }
 
-  async requestPasswordReset(email: string): Promise<SuccessResponse> {
-    return this.request<SuccessResponse>("/auth/password/reset", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  }
-
-  async resendVerificationEmail(email: string): Promise<SuccessResponse> {
-    return this.request<SuccessResponse>("/auth/resend-verification", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  }
-
   async deleteAccount(): Promise<SuccessResponse> {
     return this.request<SuccessResponse>("/auth/me", {
       method: "DELETE",
@@ -315,12 +283,6 @@ class ApiClient {
 export const apiClient = new ApiClient();
 
 export const authApi = {
-  signUp(userData: Omit<UserCreate, "preferred_language" | "timezone">) {
-    return apiClient.signUp(userData);
-  },
-  signIn(credentials: UserLogin) {
-    return apiClient.signIn(credentials);
-  },
   signInWithLinkedIn(redirectTo?: string) {
     return apiClient.signInWithLinkedIn(redirectTo);
   },
@@ -335,12 +297,6 @@ export const authApi = {
   },
   updateUser(userData: UserUpdate) {
     return apiClient.updateUser(userData);
-  },
-  requestPasswordReset(email: string) {
-    return apiClient.requestPasswordReset(email);
-  },
-  resendVerificationEmail(email: string) {
-    return apiClient.resendVerificationEmail(email);
   },
   deleteAccount() {
     return apiClient.deleteAccount();

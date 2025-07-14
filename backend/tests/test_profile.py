@@ -17,11 +17,12 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base, get_async_db
 from app.main import app
-from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
+from app.models.profile import SocialConnection, UserPreferences
 from app.routers.auth import get_current_user
 from app.schemas.auth import UserResponse
 from app.schemas.profile import SocialConnectionUpdate, UserPreferencesUpdate
 from app.services.profile import ProfileService
+from app.models.user import User
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_profile.db"
@@ -60,16 +61,19 @@ async def test_db():
         os.remove("./test_profile.db")
 
 
-@pytest.fixture
-def test_user():
-    """Create a test user."""
-    return UserResponse(
+@pytest_asyncio.fixture(scope="function")
+async def test_user(test_db: AsyncSession) -> User:
+    """Create a test user and save it to the database."""
+    user = User(
         id=uuid4(),
         email="test@example.com",
-        is_active=True,
         is_verified=True,
         created_at=datetime.now(timezone.utc),
     )
+    test_db.add(user)
+    await test_db.commit()
+    await test_db.refresh(user)
+    return user
 
 
 @pytest.fixture
@@ -185,32 +189,32 @@ class TestProfileService:
 class TestProfileEndpoints:
     """Test cases for profile API endpoints."""
 
-    @pytest.fixture
-    def mock_current_user(self):
-        """Mock current user."""
-        user = UserResponse(
-            id=uuid4(),
-            email="test@example.com",
-            is_active=True,
-            is_verified=True,
-            created_at=datetime.now(timezone.utc),
+    @pytest_asyncio.fixture
+    async def mock_current_user(self, test_user: User):
+        """Mock current user dependency to return a valid user."""
+        user_response = UserResponse(
+            id=str(test_user.id),
+            email=test_user.email,
+            is_verified=test_user.is_verified,
+            created_at=test_user.created_at,
+            updated_at=test_user.updated_at,
         )
 
-        async def mock_get_current_user():
-            return user
+        async def mock_get_current_user_override():
+            return user_response
 
-        app.dependency_overrides[get_current_user] = mock_get_current_user
-        yield user
+        app.dependency_overrides[get_current_user] = mock_get_current_user_override
+        yield user_response
         app.dependency_overrides.clear()
 
-    @pytest.fixture
-    def mock_db(self, test_db):
-        """Mock database dependency."""
+    @pytest_asyncio.fixture
+    async def mock_db(self, test_db: AsyncSession):
+        """Mock database dependency to use the test session."""
 
-        async def mock_get_db():
+        async def mock_get_db_override():
             yield test_db
 
-        app.dependency_overrides[get_async_db] = mock_get_db
+        app.dependency_overrides[get_async_db] = mock_get_db_override
         yield test_db
         app.dependency_overrides.clear()
 

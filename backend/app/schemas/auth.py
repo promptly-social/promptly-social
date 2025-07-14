@@ -3,211 +3,79 @@ Pydantic schemas for authentication API requests and responses.
 Includes validation logic for user data, tokens, and authentication flows.
 """
 
-from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
-from pydantic.types import constr
+from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
 
 
 class UserBase(BaseModel):
     """Base user schema with common fields."""
 
-    email: EmailStr
-    full_name: Optional[str] = None
+    email: EmailStr = Field(..., description="User's email address")
+    full_name: Optional[str] = Field(None, description="User's full name")
     preferred_language: str = "en"
     timezone: str = "UTC"
 
 
-class UserCreate(UserBase):
-    """Schema for user registration."""
-
-    password: constr(min_length=8, max_length=100)
-    confirm_password: str
-
-    @field_validator("confirm_password")
-    @classmethod
-    def validate_password_match(cls, v, info):
-        """Validate that password and confirm_password match."""
-        if "password" in info.data and v != info.data["password"]:
-            raise ValueError("Passwords do not match")
-        return v
-
-    @field_validator("password")
-    @classmethod
-    def validate_password_strength(cls, v):
-        """Validate password strength requirements."""
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        if not any(c.isupper() for c in v):
-            raise ValueError("Password must contain at least one uppercase letter")
-        if not any(c.islower() for c in v):
-            raise ValueError("Password must contain at least one lowercase letter")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("Password must contain at least one digit")
-        return v
-
-
 class UserUpdate(BaseModel):
-    """Schema for user update."""
+    """Schema for updating user data."""
 
     full_name: Optional[str] = None
     preferred_language: Optional[str] = None
     timezone: Optional[str] = None
-    password: Optional[constr(min_length=8, max_length=100)] = None
-    confirm_password: Optional[str] = None
-    is_verified: Optional[bool] = None
-
-    @model_validator(mode="after")
-    def validate_password_match(self):
-        """Validate that password and confirm_password match when both are provided."""
-        password = self.password
-        confirm_password = self.confirm_password
-
-        # Only validate if both password and confirm_password are provided
-        if password and confirm_password:
-            if password != confirm_password:
-                raise ValueError("Passwords do not match")
-
-        return self
-
-    @field_validator("password")
-    @classmethod
-    def validate_password_strength(cls, v):
-        """Validate password strength requirements if password is provided."""
-        if v is not None:
-            if len(v) < 8:
-                raise ValueError("Password must be at least 8 characters long")
-            if not any(c.isupper() for c in v):
-                raise ValueError("Password must contain at least one uppercase letter")
-            if not any(c.islower() for c in v):
-                raise ValueError("Password must contain at least one lowercase letter")
-            if not any(c.isdigit() for c in v):
-                raise ValueError("Password must contain at least one digit")
-        return v
-
-
-class UserLogin(BaseModel):
-    """Schema for user login."""
-
-    email: EmailStr
-    password: str
 
 
 class UserResponse(UserBase):
     """Schema for user data in API responses."""
 
-    id: UUID
-    is_active: bool
-    is_verified: bool
-    created_at: datetime
+    id: str = Field(..., description="User's unique identifier")
+    is_verified: bool = Field(False, description="Whether the user is verified")
+    created_at: Optional[datetime] = Field(
+        None, description="Timestamp of user creation"
+    )
+    updated_at: Optional[datetime] = Field(None, description="Timestamp of last update")
 
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TokenData(BaseModel):
-    """Schema for JWT token data."""
-
-    user_id: Optional[str] = None
+    class Config:
+        from_attributes = True
 
 
 class TokenResponse(BaseModel):
-    """Schema for authentication token response."""
+    """Schema for token responses."""
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int  # seconds
+    expires_in: int
+
+
+class RefreshTokenRequest(BaseModel):
+    """Schema for token refresh requests."""
+
+    refresh_token: str
 
 
 class AuthResponse(BaseModel):
-    """Schema for comprehensive authentication response."""
+    """Schema for successful authentication responses."""
 
     user: UserResponse
     tokens: TokenResponse
     message: str
 
 
-class ErrorResponse(BaseModel):
-    """Schema for API error responses."""
-
-    error: str
-    message: Optional[str] = None
-    details: Optional[dict] = None
-
-
-class PasswordResetRequest(BaseModel):
-    """Schema for password reset request."""
-
-    email: EmailStr
-
-
-class PasswordResetConfirm(BaseModel):
-    """Schema for password reset confirmation."""
-
-    token: str
-    new_password: constr(min_length=8, max_length=100)
-    confirm_password: str
-
-    @field_validator("confirm_password")
-    @classmethod
-    def validate_password_match(cls, v, info):
-        """Validate that new_password and confirm_password match."""
-        if "new_password" in info.data and v != info.data["new_password"]:
-            raise ValueError("Passwords do not match")
-        return v
-
-
 class LinkedInAuthRequest(BaseModel):
-    """Schema for LinkedIn OAuth authentication request."""
+    """Schema for initiating LinkedIn OAuth."""
 
     redirect_to: Optional[str] = None
 
 
-class PasswordChangeRequest(BaseModel):
-    """Schema for password change request."""
-
-    current_password: str
-    new_password: constr(min_length=8, max_length=100)
-    confirm_password: str
-
-    @field_validator("confirm_password")
-    @classmethod
-    def validate_password_match(cls, v, info):
-        """Validate that new_password and confirm_password match."""
-        if "new_password" in info.data and v != info.data["new_password"]:
-            raise ValueError("Passwords do not match")
-        return v
-
-
-class RefreshTokenRequest(BaseModel):
-    """Schema for refresh token request."""
-
-    refresh_token: str
-
-
-class ResendVerificationRequest(BaseModel):
-    """Schema for resending email verification."""
-
-    email: EmailStr
-
-
-class SessionResponse(BaseModel):
-    """Schema for user session response."""
-
-    id: str
-    device_info: Optional[str] = None
-    ip_address: Optional[str] = None
-    created_at: datetime
-    last_used_at: Optional[datetime] = None
-    is_valid: bool
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class SuccessResponse(BaseModel):
-    """Schema for simple success responses."""
+    """Schema for generic success responses."""
 
-    success: bool = True
     message: str
+
+
+class ErrorResponse(BaseModel):
+    """Schema for generic error responses."""
+
+    error: str
+    details: Optional[dict] = None

@@ -21,7 +21,6 @@ export interface Post {
   content: string;
   platform: string;
   topics: string[];
-  recommendation_score: number;
   status: "suggested" | "saved" | "scheduled" | "posted" | "dismissed";
   user_feedback?: "positive" | "negative";
   feedback_comment?: string;
@@ -52,7 +51,6 @@ export interface CreatePostRequest {
   content: string;
   platform?: string;
   topics?: string[];
-  recommendation_score?: number;
   status?: string;
   media_urls?: string[];
 }
@@ -62,7 +60,6 @@ export interface UpdatePostRequest {
   content?: string;
   platform?: string;
   topics?: string[];
-  recommendation_score?: number;
   status?: string;
   scheduled_at?: string;
   media_urls?: string[];

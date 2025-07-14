@@ -294,7 +294,7 @@ Avoid using hashtags."""
         if not settings.linkedin_client_id:
             raise ValueError("LINKEDIN_CLIENT_ID is not configured")
 
-        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
+        redirect_uri = f"{settings.frontend_url}/auth/callback"
 
         params = {
             "response_type": "code",
@@ -322,7 +322,7 @@ Avoid using hashtags."""
         if not settings.linkedin_client_id or not settings.linkedin_client_secret:
             raise ValueError("LinkedIn client ID or secret is not configured")
 
-        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
+        redirect_uri = f"{settings.frontend_url}/auth/callback"
         token_url = "https://www.linkedin.com/oauth/v2/accessToken"
 
         payload = {

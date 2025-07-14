@@ -96,9 +96,6 @@ class PostGenerationResult(BaseModel):
     post_id: UUID = Field(..., description="The generated post ID")
     content: str = Field(..., description="The generated post content")
     topics: List[str] = Field(..., description="Relevant topics for the post")
-    recommendation_score: int = Field(
-        ..., description="Recommendation score from 0 to 100"
-    )
 
 
 class ConversationListResponse(BaseModel):

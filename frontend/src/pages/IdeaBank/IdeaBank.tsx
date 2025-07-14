@@ -49,7 +49,7 @@ interface SortConfig {
   direction: "asc" | "desc";
 }
 
-const IdeaBankPage: React.FC = () => {
+const IdeaBank: React.FC = () => {
   const [ideaBanksWithPosts, setIdeaBanksWithPosts] = useState<
     IdeaBankWithPost[]
   >([]);
@@ -314,7 +314,7 @@ const IdeaBankPage: React.FC = () => {
 
   const navigateToSuggestedPost = (post: SuggestedPost) => {
     // Navigate to the my content page with this post selected
-    window.open(`/my-content?post=${post.id}`, "_blank");
+    window.open(`/my-posts?post=${post.id}`, "_blank");
   };
 
   const renderIdeaBankContent = (ideaBank: IdeaBankWithPost["idea_bank"]) => {
@@ -785,4 +785,4 @@ const IdeaBankPage: React.FC = () => {
   );
 };
 
-export default IdeaBankPage;
+export default IdeaBank;

@@ -24,7 +24,6 @@ class TestPosts:
             "content": "This is a test post\nwith multiple lines\nof content.",
             "platform": "linkedin",
             "topics": ["technology", "AI"],
-            "recommendation_score": 85,
             "status": "suggested",
         }
 
@@ -102,7 +101,6 @@ class TestPosts:
             user_id=uuid4(),
             content="Test content",
             platform="linkedin",
-            recommendation_score=80,
             status="suggested",
         )
 

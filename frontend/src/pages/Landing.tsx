@@ -34,12 +34,6 @@ const Landing = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { clearPendingVerification } = useAuth();
-
-  // Clear pending verification when landing on home page
-  useEffect(() => {
-    clearPendingVerification();
-  }, [clearPendingVerification]);
 
   // Handle OAuth callback with code parameter or verification tokens
   useEffect(() => {
@@ -321,13 +315,6 @@ const Landing = () => {
                 description:
                   "Wake up to 3-5 ready-to-post suggestions based on your bio, interests, and recent content from your sources.",
                 gradient: "from-orange-600 to-orange-700",
-              },
-              {
-                icon: BarChart3,
-                title: "AI Recommendation Scoring",
-                description:
-                  "Each post gets a 0-100 engagement score based on LinkedIn best practices, so you always post winners.",
-                gradient: "from-indigo-600 to-indigo-700",
               },
               {
                 icon: Globe,
