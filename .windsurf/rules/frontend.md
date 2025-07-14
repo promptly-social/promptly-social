@@ -1,6 +1,5 @@
 ---
-trigger: model_decision
-description:
+trigger: glob
 globs: frontend/**/*
 ---
 

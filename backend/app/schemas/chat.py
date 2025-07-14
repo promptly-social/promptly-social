@@ -95,7 +95,10 @@ class PostGenerationResult(BaseModel):
 
     post_id: UUID = Field(..., description="The generated post ID")
     content: str = Field(..., description="The generated post content")
-    topics: List[str] = Field(..., description="Relevant topics for the post")
+    topics: List[str] = Field(
+        ...,
+        description="Relevant topics for the post: education, story-telling, analysis, validation, and/or promotion.",
+    )
 
 
 class ConversationListResponse(BaseModel):
