@@ -344,7 +344,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
+                        <div className="col-span-2">
                           <label className="text-xs font-medium mb-1 block">
                             Timezone
                           </label>
@@ -489,7 +489,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                               </SelectContent>
                             </Select>
                           </div>
-                          <div>
+                          <div className="col-span-2">
                             <label className="text-sm font-medium mb-2 block">
                               Timezone
                             </label>

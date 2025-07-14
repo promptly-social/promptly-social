@@ -253,7 +253,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
             </>
           ) : (
             <>
-              {post?.status === "scheduled" && (
+              {/* {post?.status === "scheduled" && (
                 <Button
                   onClick={handlePublish}
                   disabled={isPublishing || isProcessing}
@@ -266,7 +266,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
                   )}
                   Post Now
                 </Button>
-              )}
+              )} */}
               {onSaveForLater && (
                 <Button
                   variant="outline"
