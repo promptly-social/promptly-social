@@ -139,19 +139,35 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
     }
   };
 
+  // Save handler that works whether parent supplies an `onUpdatePost` callback or not.
   const handleSave = async () => {
-    if (post && onUpdatePost) {
-      await onUpdatePost(post.id, editedContent, editedTopics);
+    if (!post) return;
 
-      if (articleUrl) {
-        await postsApi.updatePost(post.id, { article_url: articleUrl });
+    try {
+      // If the parent provided an explicit updater, use that first so it can manage its own cache/state.
+      if (onUpdatePost) {
+        await onUpdatePost(post.id, editedContent, editedTopics);
+      } else {
+        // Fallback: update the post directly via API.
+        await postsApi.updatePost(post.id, {
+          content: editedContent,
+          topics: editedTopics,
+        });
       }
+
+      // Handle article URL changes (including clearing the field)
+      await postsApi.updatePost(post.id, { article_url: articleUrl || null });
+
+      // Upload any newly-selected media files
       if (mediaFiles.length > 0) {
         await postsApi.uploadPostMedia(post.id, mediaFiles);
       }
 
       setIsEditing(false);
-      // NOTE: We might need to refetch the post data here to show the new media
+      // TODO: consider refreshing post data so UI reflects new media without closing dialog
+    } catch (error) {
+      console.error("Failed to save scheduled post edits:", error);
+      // You might want to show a toast notification here
     }
   };
 

@@ -764,7 +764,9 @@ const IdeaBank: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Post Details</DialogTitle>
           </DialogHeader>
-          {selectedPost && <PostCard post={selectedPost} index={0} />}
+          {selectedPost && (
+            <PostCard post={selectedPost} onPostUpdate={loadIdeaBanks} />
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>

@@ -1,15 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Clock,
-  Zap,
-  CheckCircle,
-  XCircle,
-  Bookmark,
-  Info,
-  ThumbsUp,
-  ThumbsDown,
-} from "lucide-react";
+import { Clock, Zap, CheckCircle, XCircle, Bookmark, Info } from "lucide-react";
 import { Post } from "@/types/posts";
 
 interface PostCardMetaProps {
@@ -76,26 +67,6 @@ export const PostCardMeta: React.FC<PostCardMetaProps> = ({ post }) => {
           {getStatusIcon(post.status)}
           <span className="ml-1 capitalize">{post.status}</span>
         </Badge>
-        {post.user_feedback && (
-          <Badge
-            variant={
-              post.user_feedback === "positive" ? "default" : "destructive"
-            }
-            className="text-xs"
-          >
-            {post.user_feedback === "positive" ? (
-              <>
-                <ThumbsUp className="w-3 h-3 mr-1" />
-                Liked
-              </>
-            ) : (
-              <>
-                <ThumbsDown className="w-3 h-3 mr-1" />
-                Disliked
-              </>
-            )}
-          </Badge>
-        )}
       </div>
       <div className="flex items-center gap-1">
         <Clock className="w-3 h-3" />

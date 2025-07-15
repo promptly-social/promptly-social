@@ -10,7 +10,7 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import Home from "./pages/NewContent/Home";
+import Home from "./pages/Home/Home";
 import Profile from "./pages/Profile/Profile";
 import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
 import { MyPosts } from "./pages/MyPosts";

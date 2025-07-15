@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface PostCardProps {
   post: Post;
-  onPostUpdate: () => void;
+  onPostUpdate?: (updatedPost?: Post) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
@@ -120,7 +120,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         updatedPostData.article_url = editedArticleUrl;
       }
 
-      await postsApi.updatePost(post.id, updatedPostData);
+      const updatedPost = await postsApi.updatePost(post.id, updatedPostData);
 
       if (editedMediaFiles.length > 0) {
         await postsApi.uploadPostMedia(post.id, editedMediaFiles);
@@ -128,7 +128,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
       }
 
       toast({ title: "Success", description: "Post updated successfully." });
-      onPostUpdate();
+      onPostUpdate?.(updatedPost);
       handleCancelEdit();
     } catch (error) {
       toast({
@@ -196,7 +196,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     try {
       await postsApi.submitFeedback(post.id, { feedback_type: "positive" });
       // TODO: change this to avoid re-fetching the posts
-      onPostUpdate();
+      onPostUpdate?.();
       toast({ title: "Feedback submitted" });
     } catch (error) {
       toast({
@@ -213,8 +213,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         feedback_type: "negative",
         comment,
       });
+      // Use dismiss endpoint which will also clean up any uploaded media
+      await postsApi.dismissPost(post.id);
       // TODO: change this to avoid re-fetching the posts
-      onPostUpdate();
+      onPostUpdate?.();
       toast({ title: "Feedback submitted" });
     } catch (error) {
       toast({
@@ -222,14 +224,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         description: "Failed to submit feedback",
         variant: "destructive",
       });
+      throw error; // Let modal keep open if needed
     }
-    setFeedbackModal(false);
   };
 
   const handleScheduleSubmit = async (postId: string, scheduledAt: string) => {
     try {
       await postsApi.schedulePost(postId, scheduledAt);
-      onPostUpdate();
+      onPostUpdate?.();
       toast({ title: "Post scheduled" });
     } catch (error) {
       toast({
@@ -245,8 +247,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     setIsProcessingConfirmation(true);
     setIsDismissing(true);
     try {
-      await postsApi.updatePost(post.id, { status: "dismissed" });
-      onPostUpdate();
+      await postsApi.dismissPost(post.id);
+      onPostUpdate?.();
       toast({ title: "Post deleted" });
     } catch (error) {
       toast({
@@ -265,7 +267,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     setIsSaving(true);
     try {
       await postsApi.updatePost(post.id, { status: "draft" });
-      onPostUpdate();
+      onPostUpdate?.();
       toast({ title: "Post moved to Drafts" });
     } catch (error) {
       toast({
@@ -285,7 +287,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         status: "draft",
         scheduled_at: null,
       });
-      onPostUpdate();
+      onPostUpdate?.();
       toast({ title: "Post unscheduled and moved to Drafts" });
     } catch (error) {
       toast({

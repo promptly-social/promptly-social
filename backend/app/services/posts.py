@@ -291,7 +291,30 @@ class PostsService:
             if not post:
                 return None
 
+            # Delete any associated media files (GCS & DB)
+            if post.media:
+                for media_item in list(post.media):
+                    # Remove from GCS if we have a storage path & bucket is configured
+                    if media_item.storage_path and self.bucket:
+                        try:
+                            blob = self.bucket.blob(media_item.storage_path)
+                            if blob.exists():
+                                # TODO: use async delete when available
+                                blob.delete()
+                        except Exception as e:
+                            logger.error(
+                                f"Error deleting media {media_item.storage_path} from GCS during dismiss: {e}"
+                            )
+
+                    # Delete the media record from the DB
+                    await self._db.delete(media_item)
+
+                # Flush deletes so relationships are updated
+                await self._db.flush()
+
+            # Finally mark post as dismissed
             post.status = "dismissed"
+
             await self._db.commit()
             await self._db.refresh(post)
             return post

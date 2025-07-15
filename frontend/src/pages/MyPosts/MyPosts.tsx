@@ -98,9 +98,24 @@ export const MyPosts: React.FC = () => {
     fetchPosts();
   }, [fetchPosts]);
 
-  // Invalidate caches & refresh counts when a post is updated
-  const handlePostUpdate = async () => {
-    // Clear cache for current tab
+  // Handle post updates more intelligently to avoid full reloads when unnecessary
+  const handlePostUpdate = async (updatedPost?: Post) => {
+    // If we receive an updated post object, update local state & cache without network calls
+    if (updatedPost) {
+      setPosts((prev) =>
+        prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
+      );
+
+      const cachePage = postsCache.current[activeTab]?.[currentPage];
+      if (cachePage) {
+        cachePage.items = cachePage.items.map((p) =>
+          p.id === updatedPost.id ? updatedPost : p
+        );
+      }
+      return;
+    }
+
+    // Otherwise invalidate caches & refetch, since the post likely moved tabs or was deleted
     delete postsCache.current[activeTab];
     await fetchPosts();
     await fetchCounts();
