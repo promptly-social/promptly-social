@@ -189,3 +189,8 @@ variable "openrouter_large_model_temperature_name" {
   description = "The name of the Secret Manager secret for the OpenRouter large model temperature."
   type        = string
 }
+
+variable "post_media_bucket_name_name" {
+  description = "The name of the Secret Manager secret for the post media bucket name."
+  type        = string
+}

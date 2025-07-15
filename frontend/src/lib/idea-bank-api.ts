@@ -1,5 +1,5 @@
 import { apiClient } from "./auth-api";
-import type { Post } from "./posts-api";
+import type { Post } from "@/types/posts";
 
 export interface IdeaBankData {
   type: "url" | "text" | "product";
@@ -43,7 +43,6 @@ export interface IdeaBankFilters {
   order_by?: string;
   order_direction?: "asc" | "desc";
   ai_suggested?: boolean;
-  evergreen?: boolean;
   has_post?: boolean;
   post_status?: string[];
 }
@@ -104,14 +103,6 @@ export const ideaBankApi = {
       params.append("ai_suggested", filters.ai_suggested.toString());
     }
 
-    if (filters?.evergreen !== undefined) {
-      params.append("evergreen", filters.evergreen.toString());
-    }
-
-    if (filters?.has_post !== undefined) {
-      params.append("has_post", filters.has_post.toString());
-    }
-
     if (filters?.post_status) {
       filters.post_status.forEach((status) =>
         params.append("post_status", status)
@@ -151,10 +142,6 @@ export const ideaBankApi = {
 
     if (filters?.ai_suggested !== undefined) {
       params.append("ai_suggested", filters.ai_suggested.toString());
-    }
-
-    if (filters?.evergreen !== undefined) {
-      params.append("evergreen", filters.evergreen.toString());
     }
 
     if (filters?.has_post !== undefined) {

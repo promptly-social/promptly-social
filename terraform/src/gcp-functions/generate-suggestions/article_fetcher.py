@@ -101,8 +101,6 @@ class ArticleFetcher:
         for url in random.sample(website_urls, website_sample_size):
             articles.extend(self._fetch_article_list(url, is_substack))
 
-        print("found", len(articles), "articles")
-
         # use LLM to filter the articles by user preferences
         sampled_articles = await self._filter_articles_by_user_preferences(
             articles,
@@ -110,8 +108,6 @@ class ArticleFetcher:
             bio,
             sample_size,
         )
-
-        print("selected", len(sampled_articles), "articles")
 
         scraped_articles = []
         for article in sampled_articles:
@@ -121,8 +117,6 @@ class ArticleFetcher:
                 article_content["title"] = article.title
                 article_content["subtitle"] = article.subtitle
                 scraped_articles.append(article_content)
-
-        print("scraped", len(scraped_articles), "articles")
 
         return scraped_articles
 

@@ -29,6 +29,8 @@ from app.schemas.posts import (
     PostUpdate,
     PostFeedback,
     PostBatchUpdate,
+    PostCountsResponse,
+    PostMediaResponse,
 )
 from app.services.posts import PostsService
 from app.core.config import settings
@@ -71,6 +73,24 @@ async def get_posts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch posts",
+        )
+
+
+@router.get("/counts", response_model=PostCountsResponse)
+async def get_post_counts(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Get counts of posts by status categories for the current user."""
+    try:
+        service = PostsService(db)
+        counts = await service.get_post_counts(current_user.id)
+        return PostCountsResponse(**counts)
+    except Exception as e:
+        logger.error(f"Error getting post counts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch post counts",
         )
 
 
@@ -148,23 +168,65 @@ async def update_post(
         )
 
 
-@router.post("/{post_id}/media", response_model=PostResponse)
-async def upload_post_media(
+@router.post("/{post_id}/media", response_model=List[PostMediaResponse])
+async def upload_post_media_files(
     post_id: UUID,
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Upload media for a post."""
+    """Upload one or more media files for a post."""
     try:
         service = PostsService(db)
-        post = await service.upload_media_for_post(current_user.id, post_id, file)
-        return PostResponse.model_validate(post)
+        media_files = await service.upload_media_for_post(
+            current_user.id, post_id, files
+        )
+        return [PostMediaResponse.model_validate(mf) for mf in media_files]
     except Exception as e:
         logger.error(f"Error uploading media for post {post_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload media",
+        )
+
+
+@router.get("/{post_id}/media", response_model=List[PostMediaResponse])
+async def get_post_media(
+    post_id: UUID,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Retrieve signed media URLs for a post so that media can be displayed securely."""
+    try:
+        service = PostsService(db)
+        media_items = await service.get_signed_media_for_post(current_user.id, post_id)
+        return [PostMediaResponse.model_validate(m) for m in media_items]
+    except Exception as e:
+        logger.error(f"Error fetching media for post {post_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch media for post",
+        )
+
+
+@router.delete("/{post_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_post_media(
+    post_id: UUID,
+    media_id: UUID,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Delete a media file from a post."""
+    try:
+        service = PostsService(db)
+        await service.delete_media_for_post(current_user.id, post_id, media_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting media {media_id} for post {post_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete media",
         )
 
 

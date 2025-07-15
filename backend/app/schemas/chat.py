@@ -97,7 +97,7 @@ class PostGenerationResult(BaseModel):
     content: str = Field(..., description="The generated post content")
     topics: List[str] = Field(
         ...,
-        description="Relevant topics for the post: education, story-telling, analysis, validation, and/or promotion.",
+        description="Relevant topics for the post: Education, Story-telling, Analysis, Validation, and/or Promotion.",
     )
 
 

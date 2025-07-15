@@ -3,7 +3,7 @@ Posts service for business logic.
 """
 
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from fastapi import UploadFile
@@ -11,12 +11,15 @@ from fastapi import UploadFile
 from loguru import logger
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from google.cloud import storage
+import asyncio
 
-from app.models.posts import Post
-from app.schemas.posts import PostCreate, PostUpdate, PostBatchUpdate, PostResponse
+from app.core.config import settings
+from app.models.posts import Post, PostMedia
+from app.schemas.posts import PostCreate, PostUpdate, PostBatchUpdate
 from app.services.profile import ProfileService
 from app.services.linkedin_service import LinkedInService
-from app.utils.supabase import supabase_client
 
 
 class PostsService:
@@ -24,80 +27,81 @@ class PostsService:
 
     def __init__(self, db: AsyncSession):
         self._db = db
+        self.storage_client = storage.Client()
+        self.bucket = self.storage_client.bucket(settings.post_media_bucket_name)
 
     async def upload_media_for_post(
-        self, user_id: UUID, post_id: UUID, file: UploadFile
-    ) -> Post:
-        """Uploads media for a post to Supabase storage and updates the post."""
+        self, user_id: UUID, post_id: UUID, files: List[UploadFile]
+    ) -> List[PostMedia]:
+        """Uploads media for a post to GCS and creates PostMedia records."""
         post = await self.get_post(user_id, post_id)
         if not post:
             raise Exception("Post not found")
 
-        file_path = f"{user_id}/{post_id}/{file.filename}"
+        created_media = []
+        for file in files:
+            storage_path = f"{user_id}/{post_id}/{file.filename}"
+            blob = self.bucket.blob(storage_path)
 
-        # Upload to Supabase Storage
-        try:
-            supabase_client.client.storage.from_("post-media").upload(
-                path=file_path,
-                file=await file.read(),
-                file_options={"content-type": file.content_type},
+            try:
+                # TODO: Use async upload method when available in google-cloud-storage
+                blob.upload_from_string(
+                    await file.read(), content_type=file.content_type
+                )
+            except Exception as e:
+                logger.error(f"Error uploading to GCS: {e}")
+                raise
+
+            media_type = "image" if "image" in file.content_type else "video"
+
+            post_media = PostMedia(
+                post_id=post_id,
+                user_id=user_id,
+                media_type=media_type,
+                file_name=file.filename,
+                storage_path=storage_path,
+                gcs_url=blob.public_url,
             )
-        except Exception as e:
-            logger.error(f"Error uploading to Supabase Storage: {e}")
-            raise
+            self._db.add(post_media)
+            await self._db.commit()
+            await self._db.refresh(post_media)
+            created_media.append(post_media)
 
-        media_url = supabase_client.client.storage.from_("post-media").get_public_url(
-            file_path
+        return created_media
+
+    async def delete_media_for_post(self, user_id: UUID, post_id: UUID, media_id: UUID):
+        """Deletes a media file from GCS and the database."""
+        post = await self.get_post(user_id, post_id)
+        if not post:
+            raise Exception("Post not found or access denied")
+
+        media_query = select(PostMedia).where(
+            PostMedia.id == media_id, PostMedia.post_id == post_id
         )
+        result = await self._db.execute(media_query)
+        media = result.scalar_one_or_none()
 
-        # Register upload with LinkedIn
-        profile_service = ProfileService(self._db)
-        connection = await profile_service.get_social_connection(user_id, "linkedin")
-        if not connection:
-            raise Exception("LinkedIn connection not found")
+        if not media:
+            raise Exception("Media not found")
 
-        linkedin_service = LinkedInService(connection)
+        # Delete from GCS
+        if media.storage_path:
+            try:
+                blob = self.bucket.blob(media.storage_path)
+                if blob.exists():
+                    # TODO: Use async delete method
+                    blob.delete()
+            except Exception as e:
+                logger.error(f"Error deleting {media.storage_path} from GCS: {e}")
 
-        # Determine media type from content type
-        media_type = "image" if "image" in file.content_type else "video"
-
-        registration_response = await linkedin_service._register_upload(media_type)
-        upload_url = registration_response["value"]["uploadMechanism"][
-            "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
-        ]["uploadUrl"]
-        asset_urn = registration_response["value"]["asset"]
-
-        # The _upload_media function expects a local file path.
-        # This needs to be adapted to work with the uploaded file content.
-        # For now, let's assume we can write it to a temp file.
-        # This part of the logic will need refinement.
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=file.filename
-        ) as temp_file:
-            temp_file.write(await file.read())
-            temp_file_path = temp_file.name
-
-        await linkedin_service._upload_media(upload_url, temp_file_path)
-
-        # Update post with media details
-        update_data = PostUpdate(
-            media_type=media_type,
-            media_url=media_url,
-            linkedin_asset_urn=asset_urn,
-        )
-        updated_post = await self.update_post(user_id, post_id, update_data)
-
-        import os
-
-        os.unlink(temp_file_path)
-
-        return updated_post
+        await self._db.delete(media)
+        await self._db.commit()
 
     async def _get_post_by_ids(self, post_ids: List[UUID]) -> List[Post]:
         """Get a post by id."""
-        query = select(Post).where(Post.id.in_(post_ids))
+        query = (
+            select(Post).where(Post.id.in_(post_ids)).options(selectinload(Post.media))
+        )
         result = await self._db.execute(query)
         return result.scalars().all()
 
@@ -127,16 +131,15 @@ class PostsService:
             if before_date:
                 filters.append(Post.scheduled_at <= before_date)
 
-            # Build query for total count
             count_query = select(func.count()).select_from(Post).where(and_(*filters))
             count_result = await self._db.execute(count_query)
             total = count_result.scalar() or 0
             total_pages = math.ceil(total / size) if size > 0 else 0
 
-            # Build query for paginated posts
             query = (
                 select(Post)
                 .where(and_(*filters))
+                .options(selectinload(Post.media))
                 .order_by(
                     desc(getattr(Post, order_by))
                     if order_direction == "desc"
@@ -150,7 +153,7 @@ class PostsService:
             posts = result.scalars().all()
 
             return {
-                "items": [PostResponse.model_validate(p) for p in posts],
+                "items": posts,
                 "total": total,
                 "page": page,
                 "size": size,
@@ -163,11 +166,15 @@ class PostsService:
     async def get_post(self, user_id: UUID, post_id: UUID) -> Optional[Post]:
         """Get a specific post."""
         try:
-            query = select(Post).where(
-                and_(
-                    Post.id == post_id,
-                    Post.user_id == user_id,
+            query = (
+                select(Post)
+                .where(
+                    and_(
+                        Post.id == post_id,
+                        Post.user_id == user_id,
+                    )
                 )
+                .options(selectinload(Post.media))
             )
             result = await self._db.execute(query)
             return result.scalar_one_or_none()
@@ -340,22 +347,56 @@ class PostsService:
 
             linkedin_service = LinkedInService(connection)
 
+            media_payloads = []
+            if post.media:
+                for media_item in post.media:
+                    if (
+                        media_item.media_type in ["image", "video"]
+                        and media_item.storage_path
+                    ):
+                        blob = self.bucket.blob(media_item.storage_path)
+                        # TODO: Use async download
+                        media_content = blob.download_as_bytes()
+
+                        asset_urn = await linkedin_service.upload_media(
+                            media_content, media_item.media_type
+                        )
+                        media_item.linkedin_asset_urn = asset_urn
+                        self._db.add(media_item)
+                        media_payloads.append({"media": asset_urn})
+
+                await self._db.commit()
+
             share_result = await linkedin_service.share_post(
                 text=post.content,
-                media_type=post.media_type,
-                media_url=post.media_url,
-                linkedin_asset_urn=post.linkedin_asset_urn,
+                media_items=media_payloads,
             )
 
-            # Mark post as "posted"
             await self.update_post(
                 user_id,
                 post_id,
                 PostUpdate(status="posted", posted_at=datetime.utcnow()),
             )
+
+            # Delete media from GCS after posting
+            if post.media:
+                for media_item in post.media:
+                    if media_item.storage_path:
+                        try:
+                            blob = self.bucket.blob(media_item.storage_path)
+                            if blob.exists():
+                                blob.delete()
+                            media_item.storage_path = None
+                            media_item.gcs_url = None
+                            self._db.add(media_item)
+                        except Exception as e:
+                            logger.error(
+                                f"Error deleting media {media_item.storage_path} from GCS: {e}"
+                            )
+                await self._db.commit()
+
             return share_result
 
-        # Placeholder for other platforms
         raise NotImplementedError(f"Publishing to {platform} is not supported.")
 
     async def schedule_post(
@@ -392,7 +433,7 @@ class PostsService:
             if not post:
                 return None
 
-            post.status = "saved"
+            post.status = "draft"
             post.scheduled_at = None
 
             await self._db.commit()
@@ -402,4 +443,71 @@ class PostsService:
         except Exception as e:
             await self._db.rollback()
             logger.error(f"Error unscheduling post {post_id}: {e}")
+            raise
+
+    async def get_signed_media_for_post(
+        self, user_id: UUID, post_id: UUID
+    ) -> List[PostMedia]:
+        """Retrieve media for a post with signed GCS URLs."""
+        post = await self.get_post(user_id, post_id)
+        if not post:
+            raise Exception("Post not found")
+
+        media_items: List[PostMedia] = []
+        for media in post.media:
+            if media.storage_path:
+                try:
+                    blob = self.bucket.blob(media.storage_path)
+                    # Generate a signed URL valid for 1 hour
+                    signed_url = blob.generate_signed_url(
+                        version="v4", expiration=timedelta(hours=1), method="GET"
+                    )
+                    # Do not persist to DB; modify in-memory only
+                    media.gcs_url = signed_url  # type: ignore
+                except Exception as e:
+                    logger.error(
+                        f"Error generating signed URL for {media.storage_path}: {e}"
+                    )
+            media_items.append(media)
+
+        return media_items
+
+    async def get_post_counts(self, user_id: UUID) -> Dict[str, int]:
+        """Return counts of drafts, scheduled, and posted posts for a user.
+
+        Drafts are considered any posts in status: suggested, saved, or draft.
+        """
+        try:
+            # Drafts (multiple statuses)
+            draft_statuses = ["suggested", "draft"]
+
+            draft_count_query = (
+                select(func.count())
+                .select_from(Post)
+                .where(Post.user_id == user_id, Post.status.in_(draft_statuses))
+            )
+            scheduled_count_query = (
+                select(func.count())
+                .select_from(Post)
+                .where(Post.user_id == user_id, Post.status == "scheduled")
+            )
+            posted_count_query = (
+                select(func.count())
+                .select_from(Post)
+                .where(Post.user_id == user_id, Post.status == "posted")
+            )
+
+            draft_result, scheduled_result, posted_result = await asyncio.gather(
+                self._db.execute(draft_count_query),
+                self._db.execute(scheduled_count_query),
+                self._db.execute(posted_count_query),
+            )
+
+            drafts = draft_result.scalar() or 0
+            scheduled = scheduled_result.scalar() or 0
+            posted = posted_result.scalar() or 0
+
+            return {"drafts": drafts, "scheduled": scheduled, "posted": posted}
+        except Exception as e:
+            logger.error(f"Error fetching post counts for user {user_id}: {e}")
             raise

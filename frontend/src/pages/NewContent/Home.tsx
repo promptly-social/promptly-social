@@ -2,9 +2,9 @@ import React from "react";
 import { SuggestedPosts } from "@/components/SuggestedPosts";
 import AppLayout from "@/components/AppLayout";
 
-const NewContent: React.FC = () => {
+const Home: React.FC = () => {
   return (
-    <AppLayout title="New Content">
+    <AppLayout title="Home">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <SuggestedPosts />
@@ -14,4 +14,4 @@ const NewContent: React.FC = () => {
   );
 };
 
-export default NewContent;
+export default Home;

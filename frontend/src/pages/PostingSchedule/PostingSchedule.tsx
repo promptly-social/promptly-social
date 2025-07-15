@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   DndContext,
   DragEndEvent,
@@ -20,18 +12,19 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import AppLayout from "@/components/AppLayout";
-import { RescheduleModal } from "@/components/RescheduleModal";
-import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
-import { DraggablePostCard } from "@/components/posting-schedule/DraggablePostCard";
+import { RescheduleModal } from "@/components/schedule-modal/RescheduleModal";
+import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
+import { DraggablePostCard } from "@/components/dnd-schedule/DraggablePostCard";
 import { toast } from "@/hooks/use-toast";
-import { postsApi, Post } from "@/lib/posts-api";
-import { List, CalendarDays, Loader2, Share2, Globe, User } from "lucide-react";
-import { ListView } from "@/components/posting-schedule/ListView";
-import { MonthView } from "@/components/posting-schedule/MonthView";
+import { postsApi } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
+import { List, CalendarDays, Loader2 } from "lucide-react";
+import { ListView } from "@/components/dnd-schedule/ListView";
+import { MonthView } from "@/components/dnd-schedule/MonthView";
 import {
   DropActionModal,
   DropActionData,
-} from "@/components/posting-schedule/DropActionModal";
+} from "@/components/dnd-schedule/DropActionModal";
 
 const PostingSchedule: React.FC = () => {
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
@@ -239,7 +232,7 @@ const PostingSchedule: React.FC = () => {
     try {
       setIsRescheduling(true);
       const updatedPost = await postsApi.updatePost(post.id, {
-        status: "saved",
+        status: "draft",
         scheduled_at: undefined,
       });
 
@@ -252,7 +245,7 @@ const PostingSchedule: React.FC = () => {
 
       toast({
         title: "Saved for Later",
-        description: "Post has been removed from schedule and saved for later.",
+        description: "Post has been removed from schedule and moved to Drafts.",
       });
     } catch (error) {
       console.error("Error saving post for later:", error);
@@ -689,7 +682,6 @@ const PostingSchedule: React.FC = () => {
           setIsRescheduleModalOpen(false);
         }}
         post={postToReschedule}
-        scheduledPosts={scheduledPosts}
         onReschedule={handleReschedulePost}
         isRescheduling={isRescheduling}
       />

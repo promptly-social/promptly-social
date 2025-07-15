@@ -1,8 +1,8 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ListViewPostCard } from "@/components/posting-schedule/ListViewPostCard";
-import { Post } from "@/lib/posts-api";
+import { ListViewPostCard } from "./ListViewPostCard";
+import { Post } from "@/types/posts";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
 interface PostListViewProps {

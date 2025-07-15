@@ -37,12 +37,14 @@ import {
   type IdeaBankFilters,
   type SuggestedPost,
 } from "@/lib/idea-bank-api";
-import { postsApi, type Post } from "@/lib/posts-api";
+import { postsApi } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
 import AppLayout from "@/components/AppLayout";
-import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
-import { RescheduleModal } from "@/components/RescheduleModal";
-import { PostScheduleModal } from "@/components/PostScheduleModal";
+import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
+import { RescheduleModal } from "@/components/schedule-modal/RescheduleModal";
+import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
 import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
+import { PostCard } from "@/components/shared/post-card/PostCard";
 
 interface SortConfig {
   key: "updated_at";
@@ -72,7 +74,6 @@ const IdeaBank: React.FC = () => {
   const [generatedPost, setGeneratedPost] = useState<Post | null>(null);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [formData, setFormData] = useState<IdeaBankCreate>({
     data: {
       type: "text",
@@ -82,6 +83,8 @@ const IdeaBank: React.FC = () => {
       ai_suggested: false,
     },
   });
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const resetFormData = () => {
     setFormData({
@@ -97,22 +100,8 @@ const IdeaBank: React.FC = () => {
 
   useEffect(() => {
     loadIdeaBanks();
-    loadScheduledPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortConfig]);
-
-  const loadScheduledPosts = async () => {
-    try {
-      const response = await postsApi.getPosts({
-        status: ["scheduled"],
-        size: 100,
-      });
-      setScheduledPosts(response.items);
-    } catch (error) {
-      console.error("Failed to load scheduled posts:", error);
-      // Do not show toast here as it's a background fetch
-    }
-  };
 
   const loadIdeaBanks = async () => {
     try {
@@ -203,8 +192,8 @@ const IdeaBank: React.FC = () => {
 
   const handleSavePostForLater = async (post: Post) => {
     try {
-      await postsApi.updatePost(post.id, { status: "saved" });
-      toast.success("Post saved for later.");
+      await postsApi.updatePost(post.id, { status: "draft" });
+      toast.success("Post moved to Drafts.");
       setGeneratedPost(null);
       loadIdeaBanks(); // Refresh to show updated post status
     } catch (error) {
@@ -226,12 +215,6 @@ const IdeaBank: React.FC = () => {
 
   const openScheduleModal = async (postToSchedule: Post) => {
     try {
-      // Always fetch the latest scheduled posts before opening the modal
-      const response = await postsApi.getPosts({
-        status: ["scheduled"],
-        size: 100,
-      });
-      setScheduledPosts(response.items);
       setGeneratedPost(postToSchedule);
       setShowScheduleModal(true);
     } catch (error) {
@@ -248,8 +231,6 @@ const IdeaBank: React.FC = () => {
       setShowRescheduleModal(false);
       setShowScheduleModal(false);
       loadIdeaBanks();
-      // Optimistically update the scheduled posts list
-      setScheduledPosts((prev) => [...prev, scheduledPost]);
     } catch (error) {
       console.error("Failed to schedule post:", error);
       toast.error("Failed to schedule post.");
@@ -303,7 +284,7 @@ const IdeaBank: React.FC = () => {
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
       suggested: "bg-gray-100 text-gray-800",
-      saved: "bg-purple-100 text-purple-800",
+      draft: "bg-purple-100 text-purple-800",
       posted: "bg-green-100 text-green-800",
       scheduled: "bg-yellow-100 text-yellow-800",
       canceled: "bg-orange-100 text-orange-800",
@@ -312,9 +293,9 @@ const IdeaBank: React.FC = () => {
     return statusColors[status] || "bg-gray-100 text-gray-800";
   };
 
-  const navigateToSuggestedPost = (post: SuggestedPost) => {
-    // Navigate to the my content page with this post selected
-    window.open(`/my-posts?post=${post.id}`, "_blank");
+  const viewPostDetails = (post: SuggestedPost) => {
+    setSelectedPost(post as Post);
+    setIsModalOpen(true);
   };
 
   const renderIdeaBankContent = (ideaBank: IdeaBankWithPost["idea_bank"]) => {
@@ -352,7 +333,7 @@ const IdeaBank: React.FC = () => {
     return (
       <div className="space-y-1">
         <button
-          onClick={() => navigateToSuggestedPost(latestPost)}
+          onClick={() => viewPostDetails(latestPost)}
           className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
         >
           View Post
@@ -648,9 +629,7 @@ const IdeaBank: React.FC = () => {
                           {latestPost ? (
                             <div className="space-y-1">
                               <button
-                                onClick={() =>
-                                  navigateToSuggestedPost(latestPost)
-                                }
+                                onClick={() => viewPostDetails(latestPost)}
                                 className="text-blue-600 hover:text-blue-800 hover:underline text-xs flex items-center gap-1"
                               >
                                 View
@@ -767,7 +746,6 @@ const IdeaBank: React.FC = () => {
           isOpen={showRescheduleModal}
           onClose={() => setShowRescheduleModal(false)}
           onReschedule={handleSchedulePost}
-          scheduledPosts={scheduledPosts}
         />
       )}
 
@@ -778,9 +756,17 @@ const IdeaBank: React.FC = () => {
           isOpen={showScheduleModal}
           onClose={() => setShowScheduleModal(false)}
           onSchedule={handleSchedulePost}
-          scheduledPosts={scheduledPosts}
         />
       )}
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Post Details</DialogTitle>
+          </DialogHeader>
+          {selectedPost && <PostCard post={selectedPost} index={0} />}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

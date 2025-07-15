@@ -9,17 +9,17 @@ import {
   AssistantRuntimeProvider,
   useLocalRuntime,
   type ChatModelAdapter,
-  type TextContentPart,
   type ThreadMessage,
-  type ToolCallContentPart,
 } from "@assistant-ui/react";
 import { Thread } from "@/components/assistant-ui/thread";
 import { createContext, useContext, useEffect, useState } from "react";
 import { createOrGetConversation } from "@/lib/chat-api";
 import { Conversation, ConversationMessage } from "@/types/chat";
-import { Post, postsApi } from "@/lib/posts-api";
-import { PostScheduleModal } from "../PostScheduleModal";
+import { postsApi } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
+import { PostScheduleModal } from "../schedule-modal/PostScheduleModal";
 import { useToast } from "../ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type PostSchedulingContextType = {
   onSchedule: (content: string) => void;
@@ -58,53 +58,48 @@ const ChatDialogContent = ({
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [initialMessages, setInitialMessages] = useState<ThreadMessage[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
-  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
 
   const [postToSchedule, setPostToSchedule] = useState<Post | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const fetchScheduledPosts = async () => {
-    try {
-      const response = await postsApi.getPosts({ status: ["scheduled"] });
-      setScheduledPosts(response.items);
-    } catch (error) {
-      console.error("Failed to fetch scheduled posts", error);
-      toast({
-        title: "Error",
-        description: "Failed to load scheduled posts.",
-        variant: "destructive",
-      });
-    }
+  const handleOpenScheduleModal = (content: string) => {
+    if (!user) return;
+    const tempPost: Post = {
+      id: `temp-${Date.now()}`,
+      content,
+      idea_bank_id: idea.idea_bank.id,
+      status: "draft",
+      scheduled_at: undefined,
+      posted_at: undefined,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      user_id: user.id,
+      platform: "linkedin",
+      topics: [],
+      media: [],
+    };
+    setPostToSchedule(tempPost);
   };
 
-  const handleScheduleGeneratedPost = async (content: string) => {
+  const handleSchedule = async (_postId: string, scheduledAt: string) => {
+    if (!postToSchedule) return;
+
+    setIsScheduling(true);
     try {
       const newPost = await postsApi.createPost({
-        content,
+        content: postToSchedule.content,
         idea_bank_id: idea.idea_bank.id,
         status: "draft",
       });
-      setPostToSchedule(newPost);
-    } catch (error) {
-      console.error("Failed to create post", error);
-      toast({
-        title: "Error",
-        description: "Failed to create post for scheduling.",
-        variant: "destructive",
-      });
-    }
-  };
 
-  const handleSchedule = async (postId: string, scheduledAt: string) => {
-    setIsScheduling(true);
-    try {
-      await postsApi.schedulePost(postId, scheduledAt);
+      await postsApi.schedulePost(newPost.id, scheduledAt);
+
       toast({
         title: "Success",
         description: "Post scheduled successfully.",
       });
       setPostToSchedule(null); // Close modal on success
-      fetchScheduledPosts();
       onScheduleComplete();
       onClose();
     } catch (error) {
@@ -121,7 +116,6 @@ const ChatDialogContent = ({
 
   useEffect(() => {
     if (idea) {
-      fetchScheduledPosts();
       createOrGetConversation(idea.idea_bank.id).then((conv) => {
         setConversation(conv);
         const messages: ThreadMessage[] = conv.messages.map(
@@ -162,7 +156,7 @@ const ChatDialogContent = ({
 
   return (
     <PostSchedulingContext.Provider
-      value={{ onSchedule: handleScheduleGeneratedPost }}
+      value={{ onSchedule: handleOpenScheduleModal }}
     >
       <ChatThreadRuntime
         conversation={conversation}
@@ -174,7 +168,6 @@ const ChatDialogContent = ({
         isOpen={!!postToSchedule}
         onClose={() => setPostToSchedule(null)}
         post={postToSchedule}
-        scheduledPosts={scheduledPosts}
         onSchedule={handleSchedule}
         isScheduling={isScheduling}
       />

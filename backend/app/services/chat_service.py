@@ -322,7 +322,6 @@ class ChatService:
         Keep your questions concise.
         """
         deps = PostGeneratorService()
-        print(system_prompt)
         async for chunk in self._stream_with_agent(
             conversation_id,
             system_prompt,
@@ -361,7 +360,6 @@ class ChatService:
         - Previous Draft: {previous_draft}
         - User Feedback: {user_feedback}
         """
-        print(system_prompt)
         deps = PostGeneratorService()
         async for chunk in self._stream_with_agent(
             conversation_id,

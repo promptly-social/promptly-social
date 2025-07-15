@@ -180,6 +180,7 @@ class IdeaBankService:
                     and_(
                         Post.idea_bank_id == latest_post_subquery.c.idea_bank_id,
                         Post.updated_at == latest_post_subquery.c.latest_updated_at,
+                        Post.status != "dismissed",
                     ),
                 )
             )

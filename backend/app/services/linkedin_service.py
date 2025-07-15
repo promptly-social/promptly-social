@@ -2,7 +2,7 @@
 Service layer for LinkedIn interactions.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 import httpx
 from loguru import logger
 from app.core.config import settings
@@ -135,41 +135,54 @@ class LinkedInService:
                 logger.error(f"Error registering LinkedIn upload: {e.response.text}")
                 raise
 
-    async def _upload_media(self, upload_url: str, media_path: str):
+    async def _upload_media_content(self, upload_url: str, media_content: bytes):
         """
-        Upload an image or video to LinkedIn.
-
-        :param upload_url: The URL to upload the media to.
-        :param media_path: The local path to the media file.
+        Uploads media content (bytes) to the provided LinkedIn upload URL.
         """
         async with httpx.AsyncClient() as client:
             try:
-                with open(media_path, "rb") as f:
-                    response = await client.post(
-                        upload_url,
-                        content=f.read(),
-                        headers={"Authorization": f"Bearer {self.access_token}"},
-                    )
+                response = await client.post(
+                    upload_url,
+                    content=media_content,
+                    headers={"Authorization": f"Bearer {self.access_token}"},
+                )
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
-                logger.error(f"Error uploading media to LinkedIn: {e.response.text}")
+                logger.error(
+                    f"Error uploading media content to LinkedIn: {e.response.text}"
+                )
                 raise
+
+    async def upload_media(self, media_content: bytes, media_type: str) -> str:
+        """
+        Registers and uploads a media file from memory to LinkedIn.
+
+        :param media_content: The content of the media file in bytes.
+        :param media_type: The type of media ("image" or "video").
+        :return: The LinkedIn asset URN for the uploaded media.
+        """
+        registration = await self._register_upload(media_type)
+        upload_url = registration["value"]["uploadMechanism"][
+            "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+        ]["uploadUrl"]
+        asset_urn = registration["value"]["asset"]
+
+        await self._upload_media_content(upload_url, media_content)
+
+        return asset_urn
 
     async def share_post(
         self,
         text: str,
-        media_type: Optional[str] = None,
-        media_url: Optional[str] = None,
-        linkedin_asset_urn: Optional[str] = None,
+        media_items: Optional[List[Dict[str, Any]]] = None,
         visibility: str = "PUBLIC",
     ):
         """
-        Share a text post to LinkedIn.
+        Share a post to LinkedIn with optional media.
 
         :param text: The content of the post.
-        :param media_type: The type of media to share (image, video, article).
-        :param media_url: The URL of the article or local path to the media.
-        :param linkedin_asset_urn: The asset URN for already uploaded media.
+        :param media_items: A list of media items to share. Can include articles or
+                            media assets (images/videos) with their URNs.
         :param visibility: The visibility of the post ("PUBLIC" or "CONNECTIONS").
         """
         endpoint = f"{self.BASE_API_URL}/ugcPosts"
@@ -178,23 +191,18 @@ class LinkedInService:
             "shareMediaCategory": "NONE",
         }
 
-        if media_type == "article" and media_url:
-            share_content["shareMediaCategory"] = "ARTICLE"
+        if media_items:
+            # Determine media category based on the first item
+            first_item = media_items[0]
+            if "originalUrl" in first_item:
+                share_content["shareMediaCategory"] = "ARTICLE"
+            elif "media" in first_item and "image" in first_item["media"]:
+                share_content["shareMediaCategory"] = "IMAGE"
+            elif "media" in first_item and "video" in first_item["media"]:
+                share_content["shareMediaCategory"] = "VIDEO"
+
             share_content["media"] = [
-                {
-                    "status": "READY",
-                    "originalUrl": media_url,
-                }
-            ]
-        elif media_type in ["image", "video"] and linkedin_asset_urn:
-            share_content["shareMediaCategory"] = (
-                "IMAGE" if media_type == "image" else "VIDEO"
-            )
-            share_content["media"] = [
-                {
-                    "status": "READY",
-                    "media": linkedin_asset_urn,
-                }
+                {"status": "READY", **item} for item in media_items
             ]
 
         post_data = {

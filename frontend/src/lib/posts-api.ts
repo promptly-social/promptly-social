@@ -2,47 +2,16 @@
  * Posts API client
  */
 
+import { Post, PostMedia, PostUpdate } from "@/types/posts";
 import { apiClient } from "./auth-api";
 import { makeAuthenticatedRequest } from "./api-interceptor";
-
-export interface PostMedia {
-  id: string;
-  post_id: string;
-  url: string;
-  type: "image" | "video";
-  created_at: string;
-}
-
-export interface Post {
-  id: string;
-  user_id: string;
-  idea_bank_id?: string;
-  title?: string;
-  content: string;
-  platform: string;
-  topics: string[];
-  status: "suggested" | "saved" | "scheduled" | "posted" | "dismissed";
-  user_feedback?: "positive" | "negative";
-  feedback_comment?: string;
-  feedback_at?: string;
-  scheduled_at?: string;
-  created_at: string;
-  updated_at: string;
-  posted_at?: string;
-  media_type?: "image" | "video" | "article";
-  media_url?: string;
-  linkedin_asset_urn?: string;
-  // This is a client-side only field for optimistic updates
-  is_saving?: boolean;
-  media?: PostMedia[];
-}
 
 export interface PostsListResponse {
   items: Post[];
   total: number;
   page: number;
   size: number;
-  has_next: boolean;
+  total_pages: number;
 }
 
 export interface CreatePostRequest {
@@ -52,21 +21,11 @@ export interface CreatePostRequest {
   platform?: string;
   topics?: string[];
   status?: string;
-  media_urls?: string[];
-}
-
-export interface UpdatePostRequest {
-  title?: string;
-  content?: string;
-  platform?: string;
-  topics?: string[];
-  status?: string;
-  scheduled_at?: string;
-  media_urls?: string[];
+  article_url?: string;
 }
 
 export interface PostBatchUpdateRequest {
-  posts: UpdatePostRequest[];
+  posts: PostUpdate[];
 }
 
 export interface PostFeedbackRequest {
@@ -83,6 +42,12 @@ export interface GetPostsParams {
   size?: number;
   order_by?: string;
   order_direction?: "asc" | "desc";
+}
+
+export interface PostCounts {
+  drafts: number;
+  scheduled: number;
+  posted: number;
 }
 
 class PostsAPI {
@@ -134,7 +99,7 @@ class PostsAPI {
   /**
    * Update a post
    */
-  async updatePost(postId: string, data: UpdatePostRequest): Promise<Post> {
+  async updatePost(postId: string, data: PostUpdate): Promise<Post> {
     const response = await apiClient.request<Post>(`/posts/${postId}`, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -242,14 +207,38 @@ class PostsAPI {
     );
   }
 
-  async uploadPostMedia(postId: string, file: File): Promise<Post> {
+  async uploadPostMedia(postId: string, files: File[]): Promise<PostMedia[]> {
     const formData = new FormData();
-    formData.append("file", file);
+    if (files && files.length > 0) {
+      files.forEach((file) => {
+        formData.append("files", file, file.name);
+      });
+    }
 
-    return makeAuthenticatedRequest<Post>(`/posts/${postId}/media`, {
-      method: "POST",
-      body: formData,
+    const response = await apiClient.request<PostMedia[]>(
+      `/posts/${postId}/media`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+    return response;
+  }
+
+  async deletePostMedia(postId: string, mediaId: string): Promise<void> {
+    await makeAuthenticatedRequest<void>(`/posts/${postId}/media/${mediaId}`, {
+      method: "DELETE",
     });
+  }
+
+  async getPostMedia(postId: string): Promise<PostMedia[]> {
+    const response = await apiClient.request<PostMedia[]>(
+      `/posts/${postId}/media`,
+      {
+        method: "GET",
+      }
+    );
+    return response;
   }
 
   /**
@@ -262,6 +251,14 @@ class PostsAPI {
         method: "POST",
       }
     );
+    return response;
+  }
+
+  /**
+   * Get counts of posts by status categories
+   */
+  async getPostCounts(): Promise<PostCounts> {
+    const response = await apiClient.request<PostCounts>("/posts/counts");
     return response;
   }
 }

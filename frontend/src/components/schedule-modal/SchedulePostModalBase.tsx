@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,20 +17,22 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, Clock, Info } from "lucide-react";
-import { Post } from "@/lib/posts-api";
+import { Calendar as CalendarIcon, Clock, Info, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Post } from "@/types/posts";
+import { postsApi } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
-import { profileApi, type UserPreferences } from "@/lib/profile-api";
+import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
+import { type UserPreferences, profileApi } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toDate, format, toZonedTime } from "date-fns-tz";
+import { addDays, endOfMonth, startOfMonth, subDays } from "date-fns";
 
 interface SchedulePostModalBaseProps {
   mode: "schedule" | "reschedule";
   isOpen: boolean;
   onClose: () => void;
   post: Post | null;
-  scheduledPosts: Post[];
   onSubmit: (postId: string, scheduledAt: string) => void;
   isSubmitting?: boolean;
 }
@@ -40,13 +42,14 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   isOpen,
   onClose,
   post,
-  scheduledPosts,
   onSubmit,
   isSubmitting = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedHour, setSelectedHour] = useState<string>("09");
   const [selectedMinute, setSelectedMinute] = useState<string>("00");
+  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
+  const [isLoadingScheduledPosts, setIsLoadingScheduledPosts] = useState(false);
   const [conflictingPosts, setConflictingPosts] = useState<Post[]>([]);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [selectedScheduledPost, setSelectedScheduledPost] =
@@ -82,6 +85,39 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   const conflictSubmitText = isScheduleMode
     ? "Schedule Anyway"
     : "Reschedule Anyway";
+
+  const fetchScheduledPosts = useCallback(async (month: Date) => {
+    setIsLoadingScheduledPosts(true);
+    try {
+      const startDate = subDays(startOfMonth(month), 10);
+      const endDate = addDays(endOfMonth(month), 10);
+
+      const response = await postsApi.getPosts({
+        status: ["scheduled"],
+        after_date: format(startDate, "yyyy-MM-dd"),
+        before_date: format(endDate, "yyyy-MM-dd"),
+        size: 100,
+      });
+      setScheduledPosts(response.items);
+    } catch (error) {
+      console.error("Failed to fetch scheduled posts", error);
+    } finally {
+      setIsLoadingScheduledPosts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      const initialDateForMonthView = post?.scheduled_at
+        ? new Date(post.scheduled_at)
+        : new Date();
+      fetchScheduledPosts(initialDateForMonthView);
+    }
+  }, [isOpen, post, fetchScheduledPosts]);
+
+  const handleMonthChange = (month: Date) => {
+    fetchScheduledPosts(month);
+  };
 
   useEffect(() => {
     setTimezones(Intl.supportedValuesOf("timeZone"));
@@ -301,6 +337,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                               'relative after:absolute after:top-1 after:right-1 after:w-2 after:h-2 after:bg-green-500 after:rounded-full after:content-[""]',
                           }}
                           className="rounded-md border"
+                          onMonthChange={handleMonthChange}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -373,51 +410,75 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                   <CardContent className="p-3">
                     <h3 className="font-medium mb-3">Scheduled Posts</h3>
                     <div className="max-h-80 overflow-y-auto">
-                      <div className="space-y-2">
-                        {scheduledPosts.length > 0 ? (
-                          scheduledPosts
-                            .sort(
-                              (a, b) =>
-                                new Date(a.scheduled_at || 0).getTime() -
-                                new Date(b.scheduled_at || 0).getTime()
-                            )
-                            .map((scheduledPost) => (
-                              <div
-                                key={scheduledPost.id}
-                                className={`border rounded p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                                  scheduledPost.id === post.id
-                                    ? "border-blue-300 bg-blue-50"
-                                    : ""
-                                }`}
-                                onClick={() =>
-                                  setSelectedScheduledPost(scheduledPost)
-                                }
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs text-gray-500">
-                                    {scheduledPost.scheduled_at &&
-                                      new Date(
-                                        scheduledPost.scheduled_at
-                                      ).toLocaleString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                  </span>
+                      {isLoadingScheduledPosts ? (
+                        <div className="text-center py-4 text-gray-500">
+                          <RefreshCw className="w-6 h-6 mx-auto mb-1 opacity-50 animate-spin" />
+                          <p className="text-xs">Loading scheduled posts...</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {scheduledPosts.length > 0 ? (
+                            scheduledPosts
+                              .sort(
+                                (a, b) =>
+                                  new Date(a.scheduled_at || 0).getTime() -
+                                  new Date(b.scheduled_at || 0).getTime()
+                              )
+                              .map((scheduledPost) => (
+                                <div
+                                  key={scheduledPost.id}
+                                  className={`border rounded p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                                    scheduledPost.id === post.id
+                                      ? "border-blue-300 bg-blue-50"
+                                      : ""
+                                  }`}
+                                  onClick={() =>
+                                    setSelectedScheduledPost(scheduledPost)
+                                  }
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-gray-500">
+                                      {scheduledPost.scheduled_at &&
+                                        new Date(
+                                          scheduledPost.scheduled_at
+                                        ).toLocaleString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-800 line-clamp-2 leading-relaxed">
+                                    {scheduledPost.content}
+                                  </p>
+                                  {scheduledPost.topics.length > 0 && (
+                                    <div className="space-y-2 pt-2">
+                                      <div className="flex flex-wrap gap-1 sm:gap-2">
+                                        {scheduledPost.topics.map(
+                                          (topic, idx) => (
+                                            <Badge
+                                              key={idx}
+                                              variant="outline"
+                                              className="text-xs"
+                                            >
+                                              {topic}
+                                            </Badge>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-xs text-gray-800 line-clamp-2 leading-relaxed">
-                                  {scheduledPost.content}
-                                </p>
-                              </div>
-                            ))
-                        ) : (
-                          <div className="text-center py-4 text-gray-500">
-                            <CalendarIcon className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                            <p className="text-xs">No posts scheduled yet</p>
-                          </div>
-                        )}
-                      </div>
+                              ))
+                          ) : (
+                            <div className="text-center py-4 text-gray-500">
+                              <CalendarIcon className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                              <p className="text-xs">No posts scheduled yet</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -446,6 +507,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                                 'relative after:absolute after:top-1 after:right-1 after:w-2 after:h-2 after:bg-green-500 after:rounded-full after:content-[""]',
                             }}
                             className="rounded-md border"
+                            onMonthChange={handleMonthChange}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -521,53 +583,77 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                   </div>
 
                   <ScrollArea className="flex-1">
-                    <div className="space-y-3">
-                      {scheduledPosts.length > 0 ? (
-                        scheduledPosts
-                          .sort(
-                            (a, b) =>
-                              new Date(a.scheduled_at || 0).getTime() -
-                              new Date(b.scheduled_at || 0).getTime()
-                          )
-                          .map((scheduledPost) => (
-                            <Card
-                              key={scheduledPost.id}
-                              className={`cursor-pointer hover:bg-gray-50 transition-colors ${
-                                scheduledPost.id === post.id
-                                  ? "border-blue-300 bg-blue-50"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                setSelectedScheduledPost(scheduledPost)
-                              }
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs text-gray-500">
-                                    {scheduledPost.scheduled_at &&
-                                      new Date(
-                                        scheduledPost.scheduled_at
-                                      ).toLocaleString("en-US", {
-                                        month: "short",
-                                        day: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-800 line-clamp-2">
-                                  {scheduledPost.content}
-                                </p>
-                              </CardContent>
-                            </Card>
-                          ))
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No posts scheduled yet</p>
-                        </div>
-                      )}
-                    </div>
+                    {isLoadingScheduledPosts ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <RefreshCw className="w-8 h-8 mx-auto mb-2 opacity-50 animate-spin" />
+                        <p className="text-sm">Loading scheduled posts...</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {scheduledPosts.length > 0 ? (
+                          scheduledPosts
+                            .sort(
+                              (a, b) =>
+                                new Date(a.scheduled_at || 0).getTime() -
+                                new Date(b.scheduled_at || 0).getTime()
+                            )
+                            .map((scheduledPost) => (
+                              <Card
+                                key={scheduledPost.id}
+                                className={`cursor-pointer hover:bg-gray-50 transition-colors ${
+                                  scheduledPost.id === post.id
+                                    ? "border-blue-300 bg-blue-50"
+                                    : ""
+                                }`}
+                                onClick={() =>
+                                  setSelectedScheduledPost(scheduledPost)
+                                }
+                              >
+                                <CardContent className="p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-gray-500">
+                                      {scheduledPost.scheduled_at &&
+                                        new Date(
+                                          scheduledPost.scheduled_at
+                                        ).toLocaleString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-800 line-clamp-2">
+                                    {scheduledPost.content}
+                                  </p>
+                                  {scheduledPost.topics.length > 0 && (
+                                    <div className="space-y-2 pt-2">
+                                      <div className="flex flex-wrap gap-1 sm:gap-2">
+                                        {scheduledPost.topics.map(
+                                          (topic, idx) => (
+                                            <Badge
+                                              key={idx}
+                                              variant="outline"
+                                              className="text-xs"
+                                            >
+                                              {topic}
+                                            </Badge>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            ))
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No posts scheduled yet</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </ScrollArea>
                 </div>
               </div>

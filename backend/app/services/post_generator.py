@@ -18,7 +18,7 @@ class GeneratedPost(BaseModel):
 
     linkedin_post: str = Field(description="The generated LinkedIn post content.")
     topics: List[str] = Field(
-        description="A list of relevant topics for the post: education, story-telling, analysis, validation, and/or promotion"
+        description="A list of relevant topics for the post: Education, Story-telling, Analysis, Validation, and/or Promotion"
     )
 
 
@@ -111,7 +111,7 @@ class PostGeneratorService:
 -   **Plain Text Only:** The entire post must be plain text. Do NOT use any Markdown formatting (like `*bold*`, `_italics_`, or `- lists`).
 -   **No AI- giveaways:** Avoid generic phrases, emojis, or special characters (like em-dashes or arrows) that scream "AI-generated".
 -   **No Source Link:** Do NOT include the link to the original article in the post.
--   **Topics, not Hashtags:** Identify up to 2 relevant topics for the post. Your options are: education, story-telling, analysis, validation, and promotion. DO NOT format them as #hashtags.
+-   **Topics, not Hashtags:** Identify up to 2 relevant topics for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
 
 Finally, return the generated post and the topics in the required JSON format.
 """
@@ -170,7 +170,7 @@ Finally, return the generated post and the topics in the required JSON format.
             4.  The revised post should be engaging and likely to get high engagement on LinkedIn.
             5.  The post must be plain text. DO NOT use markdown or special characters (like em-dashes) that suggest AI generation.
             6.  If the content idea was a URL, cite the source within the post but do not include the URL itself.
-            7.  Identify up to 2 relevant topics for the post. Your options are: education, story-telling, analysis, validation, and promotion. DO NOT format them as #hashtags.
+            7.  Identify up to 2 relevant topics for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
 
             Finally, return the generated post and the topics in the required JSON format.
             """

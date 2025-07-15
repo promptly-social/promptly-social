@@ -207,10 +207,24 @@ class ApiClient {
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+
+    const headers = new Headers(this.getAuthHeaders());
+
+    if (options.headers) {
+      new Headers(options.headers).forEach((value, key) => {
+        headers.set(key, value);
+      });
+    }
+
     const config: RequestInit = {
-      headers: this.getAuthHeaders(),
       ...options,
+      headers,
     };
+
+    if (config.body instanceof FormData) {
+      // Let the browser set the Content-Type header for FormData
+      headers.delete("Content-Type");
+    }
 
     try {
       const response = await fetch(url, config);

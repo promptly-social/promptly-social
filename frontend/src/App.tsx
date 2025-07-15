@@ -10,10 +10,10 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import NewContent from "./pages/NewContent/NewContent";
+import Home from "./pages/NewContent/Home";
 import Profile from "./pages/Profile/Profile";
 import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
-import MyContent from "./pages/MyPosts/MyPosts";
+import { MyPosts } from "./pages/MyPosts";
 import PostingSchedule from "./pages/PostingSchedule/PostingSchedule";
 import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
@@ -108,7 +108,7 @@ const App = () => (
                 path="/home"
                 element={
                   <ProtectedRoute>
-                    <NewContent />
+                    <Home />
                   </ProtectedRoute>
                 }
               />
@@ -132,7 +132,7 @@ const App = () => (
                 path="/my-posts"
                 element={
                   <ProtectedRoute>
-                    <MyContent />
+                    <MyPosts />
                   </ProtectedRoute>
                 }
               />

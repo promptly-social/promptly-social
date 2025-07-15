@@ -67,6 +67,34 @@ resource "google_artifact_registry_repository" "backend_repo" {
   depends_on = [google_project_service.application_apis]
 }
 
+# Create Storage Bucket for post media
+resource "google_storage_bucket" "post_media_bucket" {
+  name          = "${var.app_name}-post-media-${var.environment}"
+  project       = var.project_id
+  location      = "US"
+  storage_class = "STANDARD"
+
+  force_destroy = true # Consider setting to false in production
+
+  uniform_bucket_level_access = true
+
+  cors {
+    origin          = local.cors_origins
+    method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+    response_header = ["Content-Type", "Authorization", "x-goog-resumable"]
+    max_age_seconds = 3600
+  }
+
+  depends_on = [google_project_service.application_apis]
+}
+
+# Grant App SA access to the post media bucket
+resource "google_storage_bucket_iam_member" "app_sa_post_media_bucket_admin" {
+  bucket = google_storage_bucket.post_media_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${data.google_service_account.app_sa.email}"
+}
+
 # Reference service accounts created by bootstrap module
 data "google_service_account" "app_sa" {
   account_id = "${var.app_name}-app-sa-${var.environment}"
@@ -384,6 +412,22 @@ resource "google_secret_manager_secret_version" "apify_api_key_initial_version" 
   secret_data = "placeholder"
 }
 
+resource "google_secret_manager_secret" "post_media_bucket_name" {
+  secret_id = "POST_MEDIA_BUCKET_NAME"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "post_media_bucket_name_initial_version" {
+  secret      = google_secret_manager_secret.post_media_bucket_name.id
+  secret_data = google_storage_bucket.post_media_bucket.name
+  depends_on = [
+    google_storage_bucket.post_media_bucket
+  ]
+}
+
 
 # Grant Secret Manager access to the service account
 resource "google_secret_manager_secret_iam_member" "secrets_access" {
@@ -402,6 +446,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     database_url          = google_secret_manager_secret.database_url
     zyte_api_key          = google_secret_manager_secret.zyte_api_key
     apify_api_key         = google_secret_manager_secret.apify_api_key
+    post_media_bucket_name = google_secret_manager_secret.post_media_bucket_name
   }
 
   secret_id = each.value.secret_id
@@ -441,6 +486,7 @@ module "cloud_run_service" {
   linkedin_client_id_name    = google_secret_manager_secret.linkedin_client_id.secret_id
   linkedin_client_secret_name = google_secret_manager_secret.linkedin_client_secret.secret_id
   database_url_name          = google_secret_manager_secret.database_url.secret_id
+  post_media_bucket_name_name = google_secret_manager_secret.post_media_bucket_name.secret_id
   openrouter_model_primary_name = google_secret_manager_secret.openrouter_model_primary.secret_id
   openrouter_models_fallback_name = google_secret_manager_secret.openrouter_models_fallback.secret_id
   openrouter_model_temperature_name = google_secret_manager_secret.openrouter_model_temperature.secret_id

@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { DroppableMonthDay } from "@/components/posting-schedule/DroppableMonthDay";
-import { Post } from "@/lib/posts-api";
+import { DroppableMonthDay } from "./DroppableMonthDay";
+import { Post } from "@/types/posts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface MonthViewProps {

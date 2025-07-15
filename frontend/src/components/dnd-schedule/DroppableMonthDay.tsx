@@ -1,7 +1,6 @@
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Badge } from "@/components/ui/badge";
-import { Post } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
 import { MonthViewPostCard } from "./MonthViewPostCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 

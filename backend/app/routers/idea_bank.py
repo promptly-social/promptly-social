@@ -34,9 +34,6 @@ async def get_idea_bank_list(
     ai_suggested: Optional[bool] = Query(
         None, description="Filter by AI suggested ideas"
     ),
-    evergreen: Optional[bool] = Query(
-        None, description="Filter by evergreen (non-time-sensitive) ideas"
-    ),
     has_post: Optional[bool] = Query(
         None, description="Filter by whether the idea has associated posts"
     ),

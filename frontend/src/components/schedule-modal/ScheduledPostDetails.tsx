@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Calendar,
   Bookmark,
@@ -17,14 +16,12 @@ import {
   RefreshCw,
   Save,
   X,
-  Share2,
 } from "lucide-react";
-import { Post, postsApi } from "@/lib/posts-api";
-import { PostCardHeader } from "./shared/PostCardHeader";
-import { PostContent } from "./shared/PostContent";
-import { Textarea } from "./ui/textarea";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { Post, PostMedia } from "@/types/posts";
+import { postsApi } from "@/lib/posts-api";
+import { PostCardHeader } from "../shared/post-card/components/PostCardHeader";
+import { PostContent } from "../shared/post-card/components/PostContent";
+import { PostEditorFields } from "../shared/post-card/components/PostEditorFields";
 
 interface ScheduledPostDetailsProps {
   isOpen: boolean;
@@ -33,7 +30,11 @@ interface ScheduledPostDetailsProps {
   onSaveForLater?: (post: Post) => void;
   onReschedule?: (post: Post) => void;
   onDelete?: (post: Post) => void;
-  onUpdatePost?: (postId: string, newContent: string) => Promise<void>;
+  onUpdatePost?: (
+    postId: string,
+    newContent: string,
+    newTopics: string[]
+  ) => Promise<void>;
   onPostPublished?: (postId: string) => void;
   isProcessing?: boolean;
   isNewPost?: boolean;
@@ -55,14 +56,21 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedContent, setEditedContent] = React.useState("");
+  const [editedTopics, setEditedTopics] = React.useState<string[]>([]);
+  const [topicInput, setTopicInput] = React.useState("");
   const [isPublishing, setIsPublishing] = React.useState(false);
   const [articleUrl, setArticleUrl] = React.useState("");
-  const [mediaFile, setMediaFile] = React.useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = React.useState<File[]>([]);
+  const [existingMedia, setExistingMedia] = React.useState<PostMedia[]>([]);
+  const [mediaPreviews, setMediaPreviews] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (post) {
       setEditedContent(post.content);
-      setArticleUrl(post.media_url || "");
+      setEditedTopics(post.topics || []);
+      setExistingMedia(post.media || []);
+      const article = post.media?.find((m) => m.media_type === "article");
+      setArticleUrl(article?.gcs_url || "");
     }
   }, [post]);
 
@@ -71,23 +79,78 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
       setIsEditing(false);
       setIsPublishing(false);
       setArticleUrl("");
-      setMediaFile(null);
+      setMediaFiles([]);
+      mediaPreviews.forEach(URL.revokeObjectURL);
+      setMediaPreviews([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const handleTopicAdd = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && topicInput.trim() !== "") {
+      e.preventDefault();
+      const newTopic = topicInput.trim();
+      if (!editedTopics.includes(newTopic)) {
+        setEditedTopics([...editedTopics, newTopic]);
+      }
+      setTopicInput("");
+    }
+  };
+
+  const handleTopicRemove = (topicToRemove: string) => {
+    setEditedTopics(editedTopics.filter((topic) => topic !== topicToRemove));
+  };
+
+  const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setMediaFiles((prevFiles) => [...prevFiles, ...newFiles]);
+      const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+      setMediaPreviews((prevPreviews) => [...prevPreviews, ...newPreviews]);
+    }
+  };
+
+  const handleMediaRemove = async (media: PostMedia | File, index?: number) => {
+    if ("id" in media) {
+      // It's a PostMedia object, so it exists on the server
+      if (post) {
+        try {
+          await postsApi.deletePostMedia(post.id, media.id);
+          setExistingMedia((prev) => prev.filter((m) => m.id !== media.id));
+          if (media.media_type === "article") {
+            setArticleUrl("");
+          }
+        } catch (error) {
+          console.error("Failed to delete media:", error);
+          // TODO: Add user-facing error notification
+        }
+      }
+    } else {
+      // It's a File object, so it's a new file that hasn't been uploaded yet
+      if (index === undefined) return;
+      setMediaFiles((prev) => prev.filter((_f, i) => i !== index));
+      setMediaPreviews((prev) => {
+        const newPreviews = [...prev];
+        const [removed] = newPreviews.splice(index, 1);
+        URL.revokeObjectURL(removed);
+        return newPreviews;
+      });
+    }
+  };
 
   const handleSave = async () => {
     if (post && onUpdatePost) {
-      await onUpdatePost(post.id, editedContent);
+      await onUpdatePost(post.id, editedContent, editedTopics);
 
       if (articleUrl) {
-        await postsApi.updatePost(post.id, {
-          media_urls: [articleUrl],
-        });
-      } else if (mediaFile) {
-        await postsApi.uploadPostMedia(post.id, mediaFile);
+        await postsApi.updatePost(post.id, { article_url: articleUrl });
+      }
+      if (mediaFiles.length > 0) {
+        await postsApi.uploadPostMedia(post.id, mediaFiles);
       }
 
       setIsEditing(false);
+      // NOTE: We might need to refetch the post data here to show the new media
     }
   };
 
@@ -112,7 +175,12 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
   const handleCancel = () => {
     if (post) {
       setEditedContent(post.content);
+      setEditedTopics(post.topics || []);
+      setExistingMedia(post.media || []);
+      const article = post.media?.find((m) => m.media_type === "article");
+      setArticleUrl(article?.gcs_url || "");
     }
+    setMediaFiles([]);
     setIsEditing(false);
   };
 
@@ -144,67 +212,41 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
               <PostCardHeader />
               <div className="mt-4">
                 {isEditing ? (
-                  <Textarea
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    className="min-h-[200px] max-h-[400px] resize-y w-full"
-                    autoFocus
-                  />
+                  <div className="space-y-4">
+                    <PostEditorFields
+                      content={editedContent}
+                      onContentChange={setEditedContent}
+                      topics={editedTopics}
+                      topicInput={topicInput}
+                      onTopicInputChange={setTopicInput}
+                      onTopicAdd={() => {
+                        if (topicInput.trim() !== "") {
+                          const newTopic = topicInput.trim();
+                          if (!editedTopics.includes(newTopic)) {
+                            setEditedTopics([...editedTopics, newTopic]);
+                          }
+                          setTopicInput("");
+                        }
+                      }}
+                      onTopicRemove={handleTopicRemove}
+                      articleUrl={articleUrl}
+                      onArticleUrlChange={setArticleUrl}
+                      existingMedia={existingMedia}
+                      mediaFiles={mediaFiles}
+                      mediaPreviews={mediaPreviews}
+                      onMediaFileChange={handleMediaFileChange}
+                      onExistingMediaRemove={(media) =>
+                        handleMediaRemove(media)
+                      }
+                      onNewMediaRemove={(file, index) =>
+                        handleMediaRemove(file, index)
+                      }
+                    />
+                  </div>
                 ) : (
                   <PostContent post={{ ...post, content: editedContent }} />
                 )}
               </div>
-              {isEditing && (
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <Label htmlFor="article-url">Article URL</Label>
-                    <Input
-                      id="article-url"
-                      placeholder="https://example.com/article"
-                      value={articleUrl}
-                      onChange={(e) => setArticleUrl(e.target.value)}
-                      disabled={!!mediaFile}
-                    />
-                  </div>
-                  <div className="text-center text-sm text-gray-500">OR</div>
-                  <div>
-                    <Label htmlFor="media-file">Image/Video</Label>
-                    <Input
-                      id="media-file"
-                      type="file"
-                      onChange={(e) =>
-                        setMediaFile(e.target.files?.[0] || null)
-                      }
-                      accept="image/*,video/*"
-                      disabled={!!articleUrl}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {post.media_url && !isEditing && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-gray-700">
-                    Attachment:
-                  </p>
-                  {post.media_type === "article" ? (
-                    <a
-                      href={post.media_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      {post.media_url}
-                    </a>
-                  ) : (
-                    <img
-                      src={post.media_url}
-                      alt="Post media"
-                      className="mt-2 rounded-lg border max-h-60"
-                    />
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="flex-shrink-0 flex items-center gap-4 text-sm text-gray-600">
@@ -216,7 +258,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
               </div>
             </div>
 
-            {post.topics.length > 0 && (
+            {!isEditing && post.topics.length > 0 && (
               <div className="flex-shrink-0 space-y-2">
                 <p className="text-sm font-medium text-gray-700">Categories:</p>
                 <div className="flex flex-wrap gap-1">
@@ -253,20 +295,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
             </>
           ) : (
             <>
-              {/* {post?.status === "scheduled" && (
-                <Button
-                  onClick={handlePublish}
-                  disabled={isPublishing || isProcessing}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isPublishing ? (
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Share2 className="w-4 h-4 mr-2" />
-                  )}
-                  Post Now
-                </Button>
-              )} */}
               {onSaveForLater && (
                 <Button
                   variant="outline"
@@ -281,7 +309,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
                   ) : (
                     <>
                       <Bookmark className="w-4 h-4 mr-2" />
-                      Save for Later
+                      Remove from Schedule
                     </>
                   )}
                 </Button>
