@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DailySuggestionSchedule from "@/components/preferences/DailySuggestionSchedule";
 import {
   Select,
@@ -21,47 +22,56 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { profileApi, UserPreferences } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 export const ContentScheduleSettings: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [preferences, setPreferences] = useState<Partial<UserPreferences>>({});
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [timezones, setTimezones] = useState<string[]>([]);
+
+  // React Query --------------------------------------------------------
+  const queryClient = useQueryClient();
+  const {
+    data: fetchedPreferences,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["userPreferences"],
+    queryFn: profileApi.getUserPreferences,
+    enabled: !!user, // Only run once user is available
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+
+  // Show load error (once)
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Could not load schedule settings.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
+
+  // Sync fetched preferences into local editable state once loaded
+  useEffect(() => {
+    if (fetchedPreferences) {
+      const newPrefs = { ...fetchedPreferences };
+      if (!newPrefs.timezone) {
+        newPrefs.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      }
+      if (!newPrefs.preferred_posting_time) {
+        newPrefs.preferred_posting_time = "09:00";
+      }
+      setPreferences(newPrefs);
+    }
+  }, [fetchedPreferences]);
 
   useEffect(() => {
     setTimezones(Intl.supportedValuesOf("timeZone"));
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      setIsLoading(true);
-      profileApi
-        .getUserPreferences()
-        .then((data) => {
-          const newPrefs = { ...data };
-          if (!newPrefs.timezone) {
-            newPrefs.timezone =
-              Intl.DateTimeFormat().resolvedOptions().timeZone;
-          }
-          if (!newPrefs.preferred_posting_time) {
-            // Set default to 9:00 AM
-            newPrefs.preferred_posting_time = "09:00";
-          }
-          setPreferences(newPrefs);
-        })
-        .catch((err) => {
-          console.error("Failed to get user preferences", err);
-          toast({
-            title: "Error",
-            description: "Could not load schedule settings.",
-            variant: "destructive",
-          });
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [user, toast]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -70,6 +80,10 @@ export const ContentScheduleSettings: React.FC = () => {
         preferred_posting_time: preferences.preferred_posting_time,
         timezone: preferences.timezone,
       });
+
+      // Refresh cached preferences so other components stay in sync
+      await queryClient.invalidateQueries({ queryKey: ["userPreferences"] });
+
       toast({
         title: "Success",
         description: "Your settings have been saved.",
@@ -92,29 +106,16 @@ export const ContentScheduleSettings: React.FC = () => {
     </CardHeader>
   );
 
-  if (isLoading) {
-    return (
-      <Card>
-        {headerSection}
-        <CardContent>
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-4 w-1/2" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       {headerSection}
       <CardContent className="space-y-4">
         {/* Daily Suggestions Schedule */}
-        <DailySuggestionSchedule />
+        {isLoading ? (
+          <Skeleton className="h-8 w-full rounded-md" />
+        ) : (
+          <DailySuggestionSchedule />
+        )}
 
         <div className="w-full gap-4 mt-2">
           <div className="space-y-2">
@@ -123,38 +124,49 @@ export const ContentScheduleSettings: React.FC = () => {
               The default values in your datepicker when scheduling new posts.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                id="posting-time"
-                type="time"
-                value={preferences.preferred_posting_time || ""}
-                onChange={(e) =>
-                  setPreferences((p) => ({
-                    ...p,
-                    preferred_posting_time: e.target.value,
-                  }))
-                }
-              />
-              <Select
-                value={preferences.timezone || ""}
-                onValueChange={(value) =>
-                  setPreferences((p) => ({ ...p, timezone: value }))
-                }
-              >
-                <SelectTrigger id="timezone">
-                  <SelectValue placeholder="Select a timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timezones.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Input
+                  id="posting-time"
+                  type="time"
+                  value={preferences.preferred_posting_time || ""}
+                  onChange={(e) =>
+                    setPreferences((p) => ({
+                      ...p,
+                      preferred_posting_time: e.target.value,
+                    }))
+                  }
+                />
+              )}
+              {isLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Select
+                  value={preferences.timezone || ""}
+                  onValueChange={(value) =>
+                    setPreferences((p) => ({ ...p, timezone: value }))
+                  }
+                >
+                  <SelectTrigger id="timezone">
+                    <SelectValue placeholder="Select a timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timezones.map((tz) => (
+                      <SelectItem key={tz} value={tz}>
+                        {tz}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving || isLoading}>
+          {(isSaving || isLoading) && (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          )}
           {isSaving ? "Saving..." : "Save"}
         </Button>
       </CardContent>

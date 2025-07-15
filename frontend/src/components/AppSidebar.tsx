@@ -26,11 +26,6 @@ import {
 
 const contentMenuItems = [
   {
-    title: "Home",
-    url: "/home",
-    icon: Home,
-  },
-  {
     title: "My Posts",
     url: "/my-posts",
     icon: List,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Table,
@@ -27,9 +28,10 @@ import {
   Trash2,
   ExternalLink,
   Edit,
-  RefreshCw,
   Sparkles,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   ideaBankApi,
   type IdeaBankWithPost,
@@ -55,7 +57,8 @@ const IdeaBank: React.FC = () => {
   const [ideaBanksWithPosts, setIdeaBanksWithPosts] = useState<
     IdeaBankWithPost[]
   >([]);
-  const [loading, setLoading] = useState(true);
+  // Local cache for quick UI updates; primary source is React Query data
+  // No explicit loading state – we use React Query's `isLoading`.
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "updated_at",
     direction: "desc",
@@ -98,29 +101,31 @@ const IdeaBank: React.FC = () => {
     });
   };
 
-  useEffect(() => {
-    loadIdeaBanks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortConfig]);
+  // React Query fetch + cache
+  const queryClient = useQueryClient();
 
-  const loadIdeaBanks = async () => {
-    try {
-      setLoading(true);
+  const { data: queryIdeaBanks = [], isLoading: isIdeasLoading } = useQuery({
+    queryKey: ["ideaBanks", sortConfig.direction],
+    queryFn: async () => {
       const filterParams: IdeaBankFilters = {
         order_by: "updated_at",
         order_direction: sortConfig.direction,
         size: 100,
         ai_suggested: false,
       };
-
       const response = await ideaBankApi.listWithPosts(filterParams);
-      setIdeaBanksWithPosts(response.items);
-    } catch (error) {
-      console.error("Failed to load idea banks:", error);
-      toast.error("Failed to load idea banks");
-    } finally {
-      setLoading(false);
-    }
+      return response.items;
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+
+  useEffect(() => {
+    setIdeaBanksWithPosts(queryIdeaBanks);
+  }, [queryIdeaBanks]);
+
+  // Wrapper to refresh cached data (keeps existing call sites)
+  const loadIdeaBanks = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["ideaBanks"] });
   };
 
   const handleSort = (key: SortConfig["key"]) => {
@@ -136,7 +141,7 @@ const IdeaBank: React.FC = () => {
       toast.success("Idea bank created successfully");
       setShowCreateDialog(false);
       resetFormData();
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to create idea bank:", error);
       toast.error("Failed to create idea bank");
@@ -168,7 +173,7 @@ const IdeaBank: React.FC = () => {
       setShowEditDialog(false);
       setEditingIdeaBank(null);
       setEditFormData(null);
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to update idea bank:", error);
       toast.error("Failed to update idea bank");
@@ -183,7 +188,7 @@ const IdeaBank: React.FC = () => {
     try {
       await ideaBankApi.delete(id);
       toast.success("Idea bank deleted successfully");
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to delete idea bank:", error);
       toast.error("Failed to delete idea bank");
@@ -195,7 +200,7 @@ const IdeaBank: React.FC = () => {
       await postsApi.updatePost(post.id, { status: "draft" });
       toast.success("Post moved to Drafts.");
       setGeneratedPost(null);
-      loadIdeaBanks(); // Refresh to show updated post status
+      await loadIdeaBanks(); // Refresh to show updated post status
     } catch (error) {
       console.error("Failed to save post for later:", error);
       toast.error("Failed to save post for later.");
@@ -230,7 +235,7 @@ const IdeaBank: React.FC = () => {
       setGeneratedPost(null);
       setShowRescheduleModal(false);
       setShowScheduleModal(false);
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to schedule post:", error);
       toast.error("Failed to schedule post.");
@@ -424,7 +429,7 @@ const IdeaBank: React.FC = () => {
           <div className="space-y-2">
             <Textarea
               id="value"
-              placeholder="Enter your idea or drop in a URL to an article or post..."
+              placeholder="Enter your idea or drop in a URL to an article..."
               value={formData.data.value}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -449,20 +454,37 @@ const IdeaBank: React.FC = () => {
     </Dialog>
   );
 
-  if (loading) {
-    return (
-      <AppLayout title="Ideas" emailBreakpoint="md">
-        <main className="py-4 px-4 sm:py-8 sm:px-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
-              <p className="text-gray-600">Loading your ideas...</p>
+  // Skeleton components --------------------------------------------------
+  const MobileSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <Card key={idx} className="border">
+          <CardContent className="p-4 space-y-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+            <div className="flex gap-2">
+              <Skeleton className="h-4 w-16 rounded-full" />
+              <Skeleton className="h-4 w-16 rounded-full" />
             </div>
-          </div>
-        </main>
-      </AppLayout>
-    );
-  }
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  const TableSkeleton = ({ cols }: { cols: number }) => (
+    <>
+      {Array.from({ length: 5 }).map((_, rowIdx) => (
+        <TableRow key={rowIdx}>
+          {Array.from({ length: cols }).map((__, colIdx) => (
+            <TableCell key={colIdx}>
+              <Skeleton className="h-4 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
 
   return (
     <AppLayout title="Ideas" emailBreakpoint="md">
@@ -491,7 +513,9 @@ const IdeaBank: React.FC = () => {
               <span>{getSortedData().length} ideas</span>
             </div>
 
-            {getSortedData().length === 0 ? (
+            {isIdeasLoading ? (
+              <MobileSkeleton />
+            ) : getSortedData().length === 0 ? (
               <div className="text-center py-8 bg-white rounded-lg border">
                 <div className="text-muted-foreground">
                   No ideas found. Create your first idea to get started.
@@ -551,7 +575,9 @@ const IdeaBank: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {getSortedData().length === 0 ? (
+                {isIdeasLoading ? (
+                  <TableSkeleton cols={4} />
+                ) : getSortedData().length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -597,7 +623,9 @@ const IdeaBank: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {getSortedData().length === 0 ? (
+                {isIdeasLoading ? (
+                  <TableSkeleton cols={4} />
+                ) : getSortedData().length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
                       <div className="text-muted-foreground">

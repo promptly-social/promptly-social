@@ -10,7 +10,6 @@ import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import Landing from "./pages/Landing";
-import Home from "./pages/Home/Home";
 import Profile from "./pages/Profile/Profile";
 import ContentPreferences from "./pages/ContentPreferences/ContentPreferences";
 import { MyPosts } from "./pages/MyPosts";
@@ -67,7 +66,7 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (user && user.is_verified) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/my-posts" replace />;
   }
 
   return <>{children}</>;
@@ -102,14 +101,6 @@ const App = () => (
                   <AuthRoute>
                     <EarlyAccess />
                   </AuthRoute>
-                }
-              />
-              <Route
-                path="/home"
-                element={
-                  <ProtectedRoute>
-                    <Home />
-                  </ProtectedRoute>
                 }
               />
               <Route

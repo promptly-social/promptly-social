@@ -191,8 +191,8 @@ export const UserPreferences: React.FC = () => {
           Content Preferences
         </CardTitle>
         <p className="text-xs sm:text-sm text-gray-600">
-          Configure your topics of interest and favorite websites to get
-          personalized content suggestions. Changes are saved automatically.
+          Configure your topics of interest and favorite websites to get daily
+          personalized content suggestions.
           {isSaving && (
             <span className="ml-2 text-blue-600 font-medium">Saving...</span>
           )}

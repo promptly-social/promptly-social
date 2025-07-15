@@ -115,9 +115,14 @@ class DailySuggestionScheduleService:
         except NotFound:
             # Update failed because job doesn't exist – create it.
             job_to_create = dict(job)
-            job_to_create.pop("name", None)
             try:
-                client.create_job(parent=self._parent_path(), job=job_to_create)
+                # Provide the full job resource (including `name`) so GCP honors deterministic
+                # job naming. `CloudSchedulerClient.create_job` does not support a `job_id`
+                # keyword argument, so we pass only `parent` and `job`.
+                client.create_job(
+                    parent=self._parent_path(),
+                    job=job_to_create,
+                )
                 logger.info(f"Created Cloud Scheduler job {name}")
             except GoogleAPICallError as e:
                 logger.error(

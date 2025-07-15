@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DndContext,
@@ -18,7 +18,10 @@ import { DraggablePostCard } from "@/components/dnd-schedule/DraggablePostCard";
 import { toast } from "@/hooks/use-toast";
 import { postsApi } from "@/lib/posts-api";
 import { Post } from "@/types/posts";
-import { List, CalendarDays, Loader2 } from "lucide-react";
+import { List, CalendarDays } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { ListView } from "@/components/dnd-schedule/ListView";
 import { MonthView } from "@/components/dnd-schedule/MonthView";
 import {
@@ -28,7 +31,6 @@ import {
 
 const PostingSchedule: React.FC = () => {
   const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "month">("list");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -76,9 +78,17 @@ const PostingSchedule: React.FC = () => {
     });
   };
 
-  const fetchScheduledPosts = useCallback(async () => {
-    try {
-      setLoading(true);
+  // React Query – cache scheduled posts per view mode/date window
+  const queryClient = useQueryClient();
+  const { data: queryPosts = [], isLoading: isPostsLoading } = useQuery({
+    queryKey: [
+      "scheduledPosts",
+      viewMode,
+      viewMode === "list"
+        ? "list"
+        : `${currentDate.getFullYear()}-${currentDate.getMonth()}`,
+    ],
+    queryFn: async () => {
       let after_date: string | undefined;
       let before_date: string | undefined;
 
@@ -101,22 +111,38 @@ const PostingSchedule: React.FC = () => {
         order_direction: "asc",
         size: 100,
       });
-      setScheduledPosts(sortPostsByScheduledAt(response.items));
-    } catch (error) {
-      console.error("Error fetching scheduled posts:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load scheduled posts. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [viewMode, currentDate]);
+      return sortPostsByScheduledAt(response.items);
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
 
+  // Keep local state in sync with cached data but avoid unnecessary updates
   useEffect(() => {
-    fetchScheduledPosts();
-  }, [fetchScheduledPosts]);
+    setScheduledPosts((prev) => {
+      // If the reference is identical, or the arrays have equal length and the
+      // same ids in the same order, skip updating state to avoid extra renders.
+      if (prev === queryPosts) return prev;
+
+      if (prev.length === queryPosts.length) {
+        let isSame = true;
+        for (let i = 0; i < prev.length; i++) {
+          const a = prev[i];
+          const b = queryPosts[i];
+          if (
+            a.id !== b.id ||
+            a.scheduled_at !== b.scheduled_at ||
+            a.updated_at !== b.updated_at
+          ) {
+            isSame = false;
+            break;
+          }
+        }
+        if (isSame) return prev;
+      }
+
+      return queryPosts;
+    });
+  }, [queryPosts]);
 
   useEffect(() => {
     if (!isDropActionModalOpen) {
@@ -170,6 +196,7 @@ const PostingSchedule: React.FC = () => {
         title: "Post Rescheduled",
         description: "Post has been successfully rescheduled.",
       });
+      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
     } catch (error) {
       console.error("Error rescheduling post:", error);
       toast({
@@ -210,6 +237,7 @@ const PostingSchedule: React.FC = () => {
         title: "Post Updated",
         description: "Your post has been successfully updated.",
       });
+      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
     } catch (error) {
       console.error("Error updating post:", error);
       toast({
@@ -256,6 +284,7 @@ const PostingSchedule: React.FC = () => {
         title: "Saved for Later",
         description: "Post has been removed from schedule and moved to Drafts.",
       });
+      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
     } catch (error) {
       console.error("Error saving post for later:", error);
       toast({
@@ -290,6 +319,7 @@ const PostingSchedule: React.FC = () => {
         title: "Post Deleted",
         description: "The post has been permanently deleted.",
       });
+      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
     } catch (error) {
       console.error("Error deleting post:", error);
       toast({
@@ -554,7 +584,7 @@ const PostingSchedule: React.FC = () => {
     } finally {
       setIsRescheduling(false);
       setIsDropActionModalOpen(false);
-      await fetchScheduledPosts();
+      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
     }
   };
 
@@ -576,20 +606,37 @@ const PostingSchedule: React.FC = () => {
     setCurrentDate(newDate);
   };
 
-  if (loading) {
-    return (
-      <AppLayout title="Posting Schedule" emailBreakpoint="md">
-        <main className="py-4 px-4 sm:py-8 sm:px-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin mr-3" />
-              <span>Loading scheduled posts...</span>
+  // Skeleton components
+  const ListSkeleton = () => (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, idx) => (
+        <Card key={idx}>
+          <CardContent className="p-3 space-y-2">
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+            <div className="flex gap-1">
+              <Skeleton className="h-4 w-12 rounded-full" />
+              <Skeleton className="h-4 w-12 rounded-full" />
             </div>
-          </div>
-        </main>
-      </AppLayout>
-    );
-  }
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  const MonthSkeleton = () => (
+    <div className="grid grid-cols-7 gap-2">
+      {Array.from({ length: 35 }).map((_, idx) => (
+        <Card key={idx} className="h-24">
+          <CardContent className="p-2 space-y-1">
+            <Skeleton className="h-3 w-6" />
+            <Skeleton className="h-2 w-full" />
+            <Skeleton className="h-2 w-3/4" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 
   return (
     <AppLayout title="Posting Schedule" emailBreakpoint="md">
@@ -630,28 +677,35 @@ const PostingSchedule: React.FC = () => {
                 </Tabs>
               </div>
 
-              {viewMode === "list" && (
-                <ListView
-                  posts={scheduledPosts}
-                  onPostClick={(post) => {
-                    setSelectedPost(post);
-                    setIsExpanded(true);
-                  }}
-                  isDragDropEnabled={isDragDropEnabled()}
-                />
-              )}
-              {viewMode === "month" && (
-                <MonthView
-                  currentDate={currentDate}
-                  posts={scheduledPosts}
-                  onNavigateMonth={navigateMonth}
-                  onPostClick={(post) => {
-                    setSelectedPost(post);
-                    setIsExpanded(true);
-                  }}
-                  isDragDropEnabled={isDragDropEnabled()}
-                />
-              )}
+              {viewMode === "list" &&
+                (isPostsLoading ? (
+                  <ListSkeleton />
+                ) : (
+                  <ListView
+                    posts={scheduledPosts}
+                    onPostClick={(post) => {
+                      setSelectedPost(post);
+                      setIsExpanded(true);
+                    }}
+                    isDragDropEnabled={isDragDropEnabled()}
+                  />
+                ))}
+
+              {viewMode === "month" &&
+                (isPostsLoading ? (
+                  <MonthSkeleton />
+                ) : (
+                  <MonthView
+                    currentDate={currentDate}
+                    posts={scheduledPosts}
+                    onNavigateMonth={navigateMonth}
+                    onPostClick={(post) => {
+                      setSelectedPost(post);
+                      setIsExpanded(true);
+                    }}
+                    isDragDropEnabled={isDragDropEnabled()}
+                  />
+                ))}
             </div>
           </div>
         </main>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -21,6 +22,7 @@ import {
   Link2,
   AlertTriangle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +42,19 @@ export const WritingAnalysis: React.FC = () => {
   const [selectedSource, setSelectedSource] = useState<string>("import");
   const [analysisData, setAnalysisData] =
     useState<PlatformAnalysisResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  // React Query for fetching analysis
+  const queryClient = useQueryClient();
+  const { data: queryAnalysis, isLoading: isAnalysisLoading } = useQuery({
+    queryKey: ["writingAnalysis"],
+    queryFn: async () => {
+      return await profileApi.getWritingStyleAnalysis();
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  useEffect(() => {
+    setAnalysisData(queryAnalysis || null);
+  }, [queryAnalysis]);
   const [analyzing, setAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState("");
@@ -71,18 +85,8 @@ export const WritingAnalysis: React.FC = () => {
     }
   };
 
-  const fetchAnalysisData = async () => {
-    setLoading(true);
-    try {
-      const data = await profileApi.getWritingStyleAnalysis();
-      setAnalysisData(data);
-      setEditedText(data.analysis_data || "");
-    } catch (error) {
-      console.error("Error fetching analysis data:", error);
-      setAnalysisData(null);
-    } finally {
-      setLoading(false);
-    }
+  const refetchAnalysis = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["writingAnalysis"] });
   };
 
   const handleEditClick = () => {
@@ -143,7 +147,7 @@ export const WritingAnalysis: React.FC = () => {
       setImportText("");
 
       // Refresh analysis data
-      await fetchAnalysisData();
+      await refetchAnalysis();
     } catch (error) {
       console.error("Error running analysis:", error);
       const apiError = error as { response?: { data?: { detail?: string } } };
@@ -159,11 +163,12 @@ export const WritingAnalysis: React.FC = () => {
     }
   };
 
-  // Fetch analysis data on component mount and when user changes
+  // Trigger refetch when user changes (ensures query runs)
   useEffect(() => {
     if (user) {
-      fetchAnalysisData();
+      refetchAnalysis();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Check if there's existing analysis data to show warning
@@ -182,10 +187,13 @@ export const WritingAnalysis: React.FC = () => {
         <CardContent>
           {selectedSource && (
             <>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="ml-2">Loading analysis...</span>
+              {isAnalysisLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-5/6" />
+                  <Skeleton className="h-3 w-4/6" />
+                  <Skeleton className="h-3 w-2/3" />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -386,7 +394,7 @@ export const WritingAnalysis: React.FC = () => {
                       </div>
                       {analysisData.last_analyzed && (
                         <div className="text-xs text-gray-500">
-                          Last analyzed:{" "}
+                          Last updated:{" "}
                           {new Date(
                             analysisData.last_analyzed
                           ).toLocaleString()}

@@ -115,8 +115,16 @@ class PostListResponse(BaseModel):
     total_pages: int
 
 
+class PostBatchItem(PostUpdate):
+    """Schema for a single post in a batch update request (must include id)."""
+
+    id: UUID4
+
+
 class PostBatchUpdate(BaseModel):
-    posts: list[dict[str, Any]]
+    """Schema for batch updating multiple posts."""
+
+    posts: List[PostBatchItem]
 
 
 class PostCountsResponse(BaseModel):

@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import AppLayout from "@/components/AppLayout";
+import { CreatePostModal } from "@/components/post-modal/CreatePostModal";
+import { PlusIcon } from "lucide-react";
 
 const PostListLayout = ({ children }: { children: React.ReactNode }) => (
   <div className="space-y-6 p-4 sm:p-6 max-w-4xl mx-auto w-full">
@@ -18,6 +21,7 @@ export const MyPosts: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("drafts");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [postCounts, setPostCounts] = useState<{
     drafts: number;
     scheduled: number;
@@ -130,15 +134,19 @@ export const MyPosts: React.FC = () => {
   }
 
   return (
-    <div className="h-full w-full flex flex-col">
+    <AppLayout title="My Posts" emailBreakpoint="md">
       <div className="p-4 sm:p-6 border-b">
         <div className="max-w-4xl mx-auto w-full">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold">My Posts</h1>
-            <p className="text-gray-600">
-              Here you can find all your posts, from suggested to posted.
-            </p>
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              <PlusIcon className="h-5 w-5 mr-2" /> New Post
+            </Button>
           </div>
+
           <Tabs
             value={activeTab}
             onValueChange={(value) => {
@@ -160,49 +168,58 @@ export const MyPosts: React.FC = () => {
             </TabsList>
           </Tabs>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-scroll">
-        {isLoading ? (
-          <PostListLayout>
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} className="h-96 w-full" />
-            ))}
-          </PostListLayout>
-        ) : (
-          <PostListLayout>
-            {posts.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                onPostUpdate={handlePostUpdate}
-              />
-            ))}
-          </PostListLayout>
-        )}
-      </div>
+        <div className="flex-1 overflow-y-scroll">
+          {isLoading ? (
+            <PostListLayout>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-96 w-full" />
+              ))}
+            </PostListLayout>
+          ) : (
+            <PostListLayout>
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onPostUpdate={handlePostUpdate}
+                />
+              ))}
+            </PostListLayout>
+          )}
+        </div>
 
-      <div className="flex justify-center items-center p-4">
-        <Button
-          onClick={() => setCurrentPage((p) => p - 1)}
-          disabled={currentPage === 1}
-          variant="outline"
-          size="sm"
-        >
-          Previous
-        </Button>
-        <span className="mx-4 text-sm">
-          Page {currentPage} of {totalPages}
-        </span>
-        <Button
-          onClick={() => setCurrentPage((p) => p + 1)}
-          disabled={currentPage === totalPages}
-          variant="outline"
-          size="sm"
-        >
-          Next
-        </Button>
+        <div className="flex justify-center items-center p-4">
+          <Button
+            onClick={() => setCurrentPage((p) => p - 1)}
+            disabled={currentPage === 1}
+            variant="outline"
+            size="sm"
+          >
+            Previous
+          </Button>
+          <span className="mx-4 text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            onClick={() => setCurrentPage((p) => p + 1)}
+            disabled={currentPage === totalPages}
+            variant="outline"
+            size="sm"
+          >
+            Next
+          </Button>
+        </div>
       </div>
-    </div>
+      <CreatePostModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={(post) => {
+          // Invalidate cache and refresh lists/counts
+          delete postsCache.current["drafts"];
+          handlePostUpdate();
+        }}
+      />
+    </AppLayout>
   );
 };

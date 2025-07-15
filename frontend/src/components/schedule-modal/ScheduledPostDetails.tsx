@@ -23,6 +23,7 @@ import { PostCardHeader } from "../shared/post-card/components/PostCardHeader";
 import { PostContent } from "../shared/post-card/components/PostContent";
 import { PostEditorFields } from "../shared/post-card/components/PostEditorFields";
 import { usePostEditor } from "@/hooks/usePostEditor";
+import { PostCardTopics } from "../shared/post-card/components/PostCardTopics";
 
 interface ScheduledPostDetailsProps {
   isOpen: boolean;
@@ -241,16 +242,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
             </div>
 
             {!isEditing && post.topics.length > 0 && (
-              <div className="flex-shrink-0 space-y-2">
-                <p className="text-sm font-medium text-gray-700">Categories:</p>
-                <div className="flex flex-wrap gap-1">
-                  {post.topics.map((topic, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
-                      {topic}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+              <PostCardTopics topics={post.topics} />
             )}
           </div>
         )}

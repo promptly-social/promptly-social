@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 // Using browser-native time input provides a dynamic picker across platforms.
 // We store the value as "HH:MM" 24-hour format.
@@ -17,6 +18,7 @@ const DailySuggestionSchedule: React.FC = () => {
   );
   const [timeValue, setTimeValue] = useState<string>("09:00");
   const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -54,6 +56,7 @@ const DailySuggestionSchedule: React.FC = () => {
 
   const handleSave = async () => {
     const cron = buildCron(timeValue);
+    setSaving(true);
     try {
       let res: DailySuggestionSchedule;
       if (schedule) {
@@ -77,11 +80,14 @@ const DailySuggestionSchedule: React.FC = () => {
         description: err.message,
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async () => {
     if (!schedule) return;
+    setSaving(true);
     try {
       await scheduleApi.deleteSchedule();
       setSchedule(null);
@@ -93,6 +99,8 @@ const DailySuggestionSchedule: React.FC = () => {
         description: err.message,
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -113,9 +121,14 @@ const DailySuggestionSchedule: React.FC = () => {
         <div className="space-y-2">
           <Label htmlFor="suggestion-time">Daily Suggestions Time</Label>
           <p className="text-sm text-gray-500">
-            Note: It could take up to 10 minutes for the suggestions to be
-            generated.
+            The time of day when up to 5 daily suggested posts will be generated
+            in the Drafts tab.
           </p>
+          <p className="text-sm text-gray-500">
+            Note: it may take up to 10 minutes for the suggestions to be
+            populated.
+          </p>
+
           <Input
             id="suggestion-time"
             type="time"
@@ -124,16 +137,29 @@ const DailySuggestionSchedule: React.FC = () => {
           />
         </div>
         <div className="mt-4 flex space-x-2">
-          <Button onClick={handleSave} disabled={loading}>
-            {schedule ? "Update" : "Schedule"}
+          <Button onClick={handleSave} disabled={loading || saving}>
+            {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {schedule
+              ? saving
+                ? "Updating..."
+                : "Update"
+              : saving
+              ? "Scheduling..."
+              : "Schedule"}
           </Button>
           {schedule && (
             <Button
               onClick={handleDelete}
               className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50"
-              disabled={loading}
+              disabled={loading || saving}
             >
-              Disable
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Disabling...
+                </>
+              ) : (
+                "Disable"
+              )}
             </Button>
           )}
         </div>

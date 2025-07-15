@@ -116,10 +116,6 @@ export const ContentStrategies: React.FC = () => {
     setEditingStrategy("");
   };
 
-  const getPlatformLabel = (platform: string): string => {
-    return platform === LINKEDIN_PLATFORM ? "LinkedIn" : platform;
-  };
-
   return (
     <Card>
       <CardHeader>

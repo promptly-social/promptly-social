@@ -214,7 +214,12 @@ class PostsService:
 
             self._db.add(post)
             await self._db.commit()
-            await self._db.refresh(post)
+
+            # Eagerly load media relationship to prevent lazy-loading outside of async context
+            result = await self._db.execute(
+                select(Post).options(selectinload(Post.media)).where(Post.id == post.id)
+            )
+            post = result.scalar_one()
             return post
 
         except Exception as e:
@@ -251,17 +256,23 @@ class PostsService:
         """Batch update posts."""
         try:
             items = posts.posts
-            for post in items:
-                await self.update_post(user_id, post.id, post)
+            for post_item in items:
+                # Convert batch item to PostUpdate while excluding the id to avoid primary key updates
+                update_data = PostUpdate.model_validate(
+                    post_item.model_dump(exclude={"id"}, exclude_unset=True)
+                )
+                await self.update_post(user_id, post_item.id, update_data)
 
-            updated_posts = await self._get_post_by_ids([post.id for post in items])
+            updated_posts = await self._get_post_by_ids(
+                [post_item.id for post_item in items]
+            )
 
             return {
                 "items": updated_posts,
                 "total": len(updated_posts),
                 "page": 1,
                 "size": len(updated_posts),
-                "has_next": False,
+                "total_pages": 1,
             }
         except Exception as e:
             await self._db.rollback()
