@@ -22,6 +22,7 @@ import { postsApi } from "@/lib/posts-api";
 import { PostCardHeader } from "../shared/post-card/components/PostCardHeader";
 import { PostContent } from "../shared/post-card/components/PostContent";
 import { PostEditorFields } from "../shared/post-card/components/PostEditorFields";
+import { usePostEditor } from "@/hooks/usePostEditor";
 
 interface ScheduledPostDetailsProps {
   isOpen: boolean;
@@ -55,119 +56,100 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
   formatDateTime,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
-  const [editedContent, setEditedContent] = React.useState("");
-  const [editedTopics, setEditedTopics] = React.useState<string[]>([]);
-  const [topicInput, setTopicInput] = React.useState("");
+  const [isSaving, setIsSaving] = React.useState(false);
+  const editor = usePostEditor();
   const [isPublishing, setIsPublishing] = React.useState(false);
-  const [articleUrl, setArticleUrl] = React.useState("");
-  const [mediaFiles, setMediaFiles] = React.useState<File[]>([]);
-  const [existingMedia, setExistingMedia] = React.useState<PostMedia[]>([]);
-  const [mediaPreviews, setMediaPreviews] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (post) {
-      setEditedContent(post.content);
-      setEditedTopics(post.topics || []);
-      setExistingMedia(post.media || []);
-      setArticleUrl(post.article_url || "");
+      editor.reset({
+        content: post.content,
+        topics: post.topics || [],
+        articleUrl: post.article_url || "",
+        existingMedia: post.media || [],
+      });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
 
   React.useEffect(() => {
     if (!isOpen) {
       setIsEditing(false);
       setIsPublishing(false);
-      setArticleUrl("");
-      setMediaFiles([]);
-      mediaPreviews.forEach(URL.revokeObjectURL);
-      setMediaPreviews([]);
+      editor.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const handleTopicAdd = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && topicInput.trim() !== "") {
-      e.preventDefault();
-      const newTopic = topicInput.trim();
-      if (!editedTopics.includes(newTopic)) {
-        setEditedTopics([...editedTopics, newTopic]);
-      }
-      setTopicInput("");
-    }
-  };
-
-  const handleTopicRemove = (topicToRemove: string) => {
-    setEditedTopics(editedTopics.filter((topic) => topic !== topicToRemove));
-  };
-
-  const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      // Revoke previous previews
-      mediaPreviews.forEach(URL.revokeObjectURL);
-
-      const file = e.target.files[0];
-      setMediaFiles([file]);
-      setMediaPreviews([URL.createObjectURL(file)]);
-    }
-  };
+  // Topic & media handlers now encapsulated within editor hook
 
   const handleMediaRemove = async (media: PostMedia | File, index?: number) => {
     if ("id" in media) {
-      // It's a PostMedia object, so it exists on the server
-      if (post) {
-        try {
-          await postsApi.deletePostMedia(post.id, media.id);
-          setExistingMedia((prev) => prev.filter((m) => m.id !== media.id));
-          if (media.media_type === "article") {
-            setArticleUrl("");
-          }
-        } catch (error) {
-          console.error("Failed to delete media:", error);
-          // TODO: Add user-facing error notification
+      if (!post) return;
+      try {
+        await postsApi.deletePostMedia(post.id, media.id);
+        editor.removeExistingMedia(media);
+        if (media.media_type === "article") {
+          editor.setArticleUrl("");
         }
+      } catch (error) {
+        console.error("Failed to delete media:", error);
       }
     } else {
-      // It's a File object, so it's a new file that hasn't been uploaded yet
       if (index === undefined) return;
-      setMediaFiles((prev) => prev.filter((_f, i) => i !== index));
-      setMediaPreviews((prev) => {
-        const newPreviews = [...prev];
-        const [removed] = newPreviews.splice(index, 1);
-        URL.revokeObjectURL(removed);
-        return newPreviews;
-      });
+      editor.removeNewMedia(media as File, index);
     }
   };
 
   // Save handler that works whether parent supplies an `onUpdatePost` callback or not.
   const handleSave = async () => {
     if (!post) return;
+    setIsSaving(true);
 
     try {
       // If the parent provided an explicit updater, use that first so it can manage its own cache/state.
       if (onUpdatePost) {
-        await onUpdatePost(post.id, editedContent, editedTopics);
+        await onUpdatePost(post.id, editor.content, editor.topics);
       } else {
         // Fallback: update the post directly via API.
         await postsApi.updatePost(post.id, {
-          content: editedContent,
-          topics: editedTopics,
+          content: editor.content,
+          topics: editor.topics,
         });
       }
 
       // Handle article URL changes (including clearing the field)
-      await postsApi.updatePost(post.id, { article_url: articleUrl || null });
+      await postsApi.updatePost(post.id, {
+        article_url: editor.articleUrl || null,
+      });
 
-      // Upload any newly-selected media files
-      if (mediaFiles.length > 0) {
-        await postsApi.uploadPostMedia(post.id, mediaFiles);
+      // Upload any newly-selected media files first (if any)
+      if (editor.mediaFiles.length > 0) {
+        await postsApi.uploadPostMedia(post.id, editor.mediaFiles);
       }
 
+      // Immediately exit edit mode – background refresh afterwards
       setIsEditing(false);
+
+      // Refresh media list (non-blocking for user perception)
+      try {
+        const refreshedMedia = await postsApi.getPostMedia(post.id);
+        editor.reset({
+          content: editor.content,
+          topics: editor.topics,
+          articleUrl: editor.articleUrl,
+          existingMedia: refreshedMedia,
+        });
+      } catch (err) {
+        console.error("Failed to refresh media", err);
+      }
+
       // TODO: consider refreshing post data so UI reflects new media without closing dialog
     } catch (error) {
       console.error("Failed to save scheduled post edits:", error);
       // You might want to show a toast notification here
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -191,13 +173,13 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
 
   const handleCancel = () => {
     if (post) {
-      setEditedContent(post.content);
-      setEditedTopics(post.topics || []);
-      setExistingMedia(post.media || []);
-      const article = post.media?.find((m) => m.media_type === "article");
-      setArticleUrl(post.article_url || article?.gcs_url || "");
+      editor.reset({
+        content: post.content,
+        topics: post.topics || [],
+        articleUrl: post.article_url || "",
+        existingMedia: post.media || [],
+      });
     }
-    setMediaFiles([]);
     setIsEditing(false);
   };
 
@@ -231,37 +213,20 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
                 {isEditing ? (
                   <div className="space-y-4">
                     <PostEditorFields
-                      content={editedContent}
-                      onContentChange={setEditedContent}
-                      topics={editedTopics}
-                      topicInput={topicInput}
-                      onTopicInputChange={setTopicInput}
-                      onTopicAdd={() => {
-                        if (topicInput.trim() !== "") {
-                          const newTopic = topicInput.trim();
-                          if (!editedTopics.includes(newTopic)) {
-                            setEditedTopics([...editedTopics, newTopic]);
-                          }
-                          setTopicInput("");
-                        }
-                      }}
-                      onTopicRemove={handleTopicRemove}
-                      articleUrl={articleUrl}
-                      onArticleUrlChange={setArticleUrl}
-                      existingMedia={existingMedia}
-                      mediaFiles={mediaFiles}
-                      mediaPreviews={mediaPreviews}
-                      onMediaFileChange={handleMediaFileChange}
+                      editor={editor}
                       onExistingMediaRemove={(media) =>
-                        handleMediaRemove(media)
-                      }
-                      onNewMediaRemove={(file, index) =>
-                        handleMediaRemove(file, index)
+                        handleMediaRemove(media as PostMedia)
                       }
                     />
                   </div>
                 ) : (
-                  <PostContent post={{ ...post, content: editedContent }} />
+                  <PostContent
+                    post={{
+                      ...post,
+                      content: editor.content,
+                      media: editor.existingMedia,
+                    }}
+                  />
                 )}
               </div>
             </div>
@@ -296,13 +261,13 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
               <Button
                 variant="outline"
                 onClick={handleCancel}
-                disabled={isProcessing}
+                disabled={isProcessing || isSaving}
               >
                 <X className="w-4 h-4 mr-2" />
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isProcessing}>
-                {isProcessing ? (
+              <Button onClick={handleSave} disabled={isProcessing || isSaving}>
+                {isProcessing || isSaving ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Save className="w-4 h-4 mr-2" />

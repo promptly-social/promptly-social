@@ -21,6 +21,7 @@ import { NegativeFeedbackModal } from "@/components/shared/modals/NegativeFeedba
 import { ConfirmationModal } from "@/components/shared/modals/ConfirmationModal";
 import { postsApi } from "@/lib/posts-api";
 import { useToast } from "@/hooks/use-toast";
+import { usePostEditor } from "@/hooks/usePostEditor";
 
 interface PostCardProps {
   post: Post;
@@ -29,15 +30,15 @@ interface PostCardProps {
 
 export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(post.content);
-  const [editedTopics, setEditedTopics] = useState(post.topics);
-  const [topicInput, setTopicInput] = useState("");
-  const [editedArticleUrl, setEditedArticleUrl] = useState(
-    post.media?.find((m) => m.media_type === "article")?.gcs_url || ""
-  );
-  const [editedMediaFiles, setEditedMediaFiles] = useState<File[]>([]);
-  const [existingMedia, setExistingMedia] = useState(post.media || []);
-  const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
+
+  // Editor hook consolidates all field state & handlers
+  const editor = usePostEditor({
+    content: post.content,
+    topics: post.topics,
+    articleUrl: post.article_url,
+    existingMedia: post.media || [],
+  });
+
   const [signedMedia, setSignedMedia] = useState<PostMedia[]>(post.media);
 
   // Helper to fetch the latest signed media from backend
@@ -45,11 +46,16 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     try {
       const media = await postsApi.getPostMedia(post.id);
       setSignedMedia(media);
-      setExistingMedia(media);
+      editor.reset({
+        content: editor.content,
+        topics: editor.topics,
+        articleUrl: editor.articleUrl,
+        existingMedia: media,
+      });
     } catch (error) {
       console.error("Failed to refresh media", error);
     }
-  }, [post.id]);
+  }, [post.id, editor]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
@@ -69,12 +75,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
   // Sync editor fields when entering edit mode
   useEffect(() => {
     if (isEditing) {
-      setEditedContent(post.content);
-      setEditedTopics(post.topics);
-      setEditedArticleUrl(post.article_url);
-      setEditedMediaFiles([]);
-      setExistingMedia(signedMedia);
+      editor.reset({
+        content: post.content,
+        topics: post.topics,
+        articleUrl: post.article_url,
+        existingMedia: signedMedia,
+      });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, post, signedMedia]);
 
   useEffect(() => {
@@ -83,7 +91,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         const media = await postsApi.getPostMedia(post.id);
         setSignedMedia(media);
         if (!isEditing) {
-          setExistingMedia(media);
+          editor.reset({
+            content: post.content,
+            topics: post.topics,
+            articleUrl: post.article_url,
+            existingMedia: media,
+          });
         }
       } catch (error) {
         console.error("Failed to load media", error);
@@ -97,33 +110,37 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
   // Cleanup object URLs
   useEffect(() => {
     return () => {
-      mediaPreviews.forEach(URL.revokeObjectURL);
+      editor.mediaPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [mediaPreviews]);
+  }, [editor.mediaPreviews]);
 
   const handleStartEditing = () => setIsEditing(true);
   const handleCancelEdit = () => {
     setIsEditing(false);
-    mediaPreviews.forEach(URL.revokeObjectURL);
-    setMediaPreviews([]);
+    editor.reset({
+      content: post.content,
+      topics: post.topics,
+      articleUrl: post.article_url,
+      existingMedia: signedMedia,
+    });
   };
 
   const handleSaveEdit = async () => {
     setIsSaving(true);
     try {
       const updatedPostData: PostUpdate = {
-        content: editedContent,
-        topics: editedTopics,
+        content: editor.content,
+        topics: editor.topics,
       };
 
-      if (editedArticleUrl) {
-        updatedPostData.article_url = editedArticleUrl;
+      if (editor.articleUrl) {
+        updatedPostData.article_url = editor.articleUrl;
       }
 
       const updatedPost = await postsApi.updatePost(post.id, updatedPostData);
 
-      if (editedMediaFiles.length > 0) {
-        await postsApi.uploadPostMedia(post.id, editedMediaFiles);
+      if (editor.mediaFiles.length > 0) {
+        await postsApi.uploadPostMedia(post.id, editor.mediaFiles);
         await refreshSignedMedia();
       }
 
@@ -142,42 +159,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     }
   };
 
-  const handleTopicAdd = () => {
-    if (topicInput && !editedTopics.includes(topicInput)) {
-      setEditedTopics([...editedTopics, topicInput]);
-      setTopicInput("");
-    }
-  };
-  const handleTopicRemove = (topic: string) =>
-    setEditedTopics(editedTopics.filter((t) => t !== topic));
+  // Topic handlers are now inside hook (editor)
 
-  const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      // Revoke previous previews to avoid memory leaks
-      mediaPreviews.forEach(URL.revokeObjectURL);
-
-      const file = e.target.files[0];
-      setEditedMediaFiles([file]);
-      setMediaPreviews([URL.createObjectURL(file)]);
-    }
-  };
-
-  const handleNewMediaRemove = (fileToRemove: File, indexToRemove: number) => {
-    setEditedMediaFiles((prev) =>
-      prev.filter((_, index) => index !== indexToRemove)
-    );
-    setMediaPreviews((prev) => {
-      const newPreviews = [...prev];
-      const [revokedUrl] = newPreviews.splice(indexToRemove, 1);
-      URL.revokeObjectURL(revokedUrl);
-      return newPreviews;
-    });
-  };
+  // Media change & removal now handled within "editor" hook and PostEditorFields
 
   const handleExistingMediaRemove = async (media: PostMedia) => {
     try {
       await postsApi.deletePostMedia(post.id, media.id);
-      setExistingMedia(existingMedia.filter((m) => m.id !== media.id));
       await refreshSignedMedia();
       toast({
         title: "Success",
@@ -334,21 +322,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
           {isEditing ? (
             <div className="space-y-3">
               <PostEditorFields
-                content={editedContent}
-                onContentChange={setEditedContent}
-                topics={editedTopics}
-                topicInput={topicInput}
-                onTopicInputChange={setTopicInput}
-                onTopicAdd={handleTopicAdd}
-                onTopicRemove={handleTopicRemove}
-                articleUrl={editedArticleUrl}
-                onArticleUrlChange={setEditedArticleUrl}
-                existingMedia={existingMedia}
-                mediaFiles={editedMediaFiles}
-                mediaPreviews={mediaPreviews}
-                onMediaFileChange={handleMediaFileChange}
+                editor={editor}
                 onExistingMediaRemove={handleExistingMediaRemove}
-                onNewMediaRemove={handleNewMediaRemove}
               />
               <div className="flex gap-2 py-2">
                 <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>

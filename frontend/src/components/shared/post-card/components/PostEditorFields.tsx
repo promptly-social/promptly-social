@@ -1,5 +1,6 @@
 import React from "react";
 import { PostMedia } from "@/types/posts";
+import { UsePostEditorReturn } from "@/hooks/usePostEditor";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,43 +14,31 @@ import { Badge } from "@/components/ui/badge";
 import { FileVideo, Trash2, X } from "lucide-react";
 
 interface PostEditorFieldsProps {
-  content: string;
-  onContentChange: (value: string) => void;
-
-  topics: string[];
-  topicInput: string;
-  onTopicInputChange: (value: string) => void;
-  onTopicAdd: () => void;
-  onTopicRemove: (topic: string) => void;
-
-  articleUrl: string;
-  onArticleUrlChange: (value: string) => void;
-
-  existingMedia: PostMedia[];
-  mediaFiles: File[];
-  mediaPreviews: string[];
-  onMediaFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onExistingMediaRemove: (media: PostMedia) => void;
-  onNewMediaRemove: (file: File, index: number) => void;
+  editor: UsePostEditorReturn;
+  onExistingMediaRemove?: (media: PostMedia) => void;
 }
 
 export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
-  content,
-  onContentChange,
-  topics,
-  topicInput,
-  onTopicInputChange,
-  onTopicAdd,
-  onTopicRemove,
-  articleUrl,
-  onArticleUrlChange,
-  existingMedia,
-  mediaFiles,
-  mediaPreviews,
-  onMediaFileChange,
+  editor,
   onExistingMediaRemove,
-  onNewMediaRemove,
 }) => {
+  const {
+    content,
+    setContent,
+    topics,
+    topicInput,
+    setTopicInput,
+    addTopic,
+    removeTopic,
+    articleUrl,
+    setArticleUrl,
+    existingMedia,
+    mediaFiles,
+    mediaPreviews,
+    handleMediaFileChange,
+    removeExistingMedia,
+    removeNewMedia,
+  } = editor;
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Tooltip open state ensures it only shows on explicit hover.
@@ -74,7 +63,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
     <div className="space-y-4">
       <Textarea
         value={content}
-        onChange={(e) => onContentChange(e.target.value)}
+        onChange={(e) => setContent(e.target.value)}
         className="min-h-[200px] max-h-[400px] resize-y w-full"
         autoFocus
         placeholder="Edit your post content..."
@@ -102,7 +91,10 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
                 variant="destructive"
                 size="icon"
                 className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                onClick={() => onExistingMediaRemove(media)}
+                onClick={() => {
+                  removeExistingMedia(media);
+                  onExistingMediaRemove?.(media);
+                }}
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -126,7 +118,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
               variant="destructive"
               size="icon"
               className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-              onClick={() => onNewMediaRemove(file, index)}
+              onClick={() => removeNewMedia(file, index)}
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -140,7 +132,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
           id="article-url"
           placeholder="https://example.com/article"
           value={articleUrl}
-          onChange={(e) => onArticleUrlChange(e.target.value)}
+          onChange={(e) => setArticleUrl(e.target.value)}
         />
       </div>
 
@@ -150,7 +142,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
           id="media-file"
           type="file"
           ref={fileInputRef}
-          onChange={onMediaFileChange}
+          onChange={handleMediaFileChange}
           accept="image/*,video/*"
           className="hidden"
         />
@@ -201,7 +193,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
               {topic}
               <button
                 type="button"
-                onClick={() => onTopicRemove(topic)}
+                onClick={() => removeTopic(topic)}
                 className="ml-1.5 -mr-1 p-0.5 rounded-full hover:bg-background"
               >
                 <X className="h-3 w-3" />
@@ -213,11 +205,11 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
           id="topics-input"
           placeholder="Type a category and press Enter to add"
           value={topicInput}
-          onChange={(e) => onTopicInputChange(e.target.value)}
+          onChange={(e) => setTopicInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              onTopicAdd();
+              addTopic();
             }
           }}
         />

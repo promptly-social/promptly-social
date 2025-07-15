@@ -182,10 +182,19 @@ const PostingSchedule: React.FC = () => {
     }
   };
 
-  const handleUpdatePost = async (postId: string, content: string) => {
+  const handleUpdatePost = async (
+    postId: string,
+    content: string,
+    topics?: string[]
+  ) => {
     try {
       setIsRescheduling(true);
-      const updatedPost = await postsApi.updatePost(postId, { content });
+      const payload: Record<string, unknown> = { content };
+      if (Array.isArray(topics)) {
+        payload.topics = topics;
+      }
+
+      const updatedPost = await postsApi.updatePost(postId, payload);
 
       setScheduledPosts((prev) =>
         sortPostsByScheduledAt(
