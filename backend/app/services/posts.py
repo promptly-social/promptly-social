@@ -27,8 +27,23 @@ class PostsService:
 
     def __init__(self, db: AsyncSession):
         self._db = db
-        self.storage_client = storage.Client()
-        self.bucket = self.storage_client.bucket(settings.post_media_bucket_name)
+
+        # Initialize GCS client only outside of test environment. This prevents
+        # Google Application Default Credentials look-ups during unit tests.
+        self.storage_client = None
+        self.bucket = None
+        if settings.environment != "test":
+            try:
+                self.storage_client = storage.Client()
+                if settings.post_media_bucket_name:
+                    self.bucket = self.storage_client.bucket(
+                        settings.post_media_bucket_name
+                    )
+            except Exception as e:
+                # Log but do not raise in non-test environments to keep app running.
+                logger.warning(
+                    f"Failed to initialize GCS client (env={settings.environment}): {e}"
+                )
 
     async def upload_media_for_post(
         self, user_id: UUID, post_id: UUID, files: List[UploadFile]
@@ -194,6 +209,7 @@ class PostsService:
                 platform=post_data.platform,
                 topics=post_data.topics,
                 status=post_data.status,
+                article_url=post_data.article_url,
             )
 
             self._db.add(post)
@@ -369,8 +385,28 @@ class PostsService:
 
             share_result = await linkedin_service.share_post(
                 text=post.content,
+                article_url=post.article_url,
                 media_items=media_payloads,
             )
+
+            # Capture LinkedIn shortened URL if possible
+            try:
+                share_id = (
+                    share_result.get("id") if isinstance(share_result, dict) else None
+                )
+                if share_id:
+                    linkedin_short_url = (
+                        f"https://www.linkedin.com/feed/update/urn:li:share:{share_id}"
+                    )
+                    await self.update_post(
+                        user_id,
+                        post_id,
+                        PostUpdate(linkedin_article_url=linkedin_short_url),
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Unable to parse LinkedIn share response for shortened URL: {e}"
+                )
 
             await self.update_post(
                 user_id,

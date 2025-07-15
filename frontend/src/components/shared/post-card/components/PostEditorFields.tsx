@@ -3,6 +3,11 @@ import { PostMedia } from "@/types/posts";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FileVideo, Trash2, X } from "lucide-react";
@@ -46,6 +51,24 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
   onNewMediaRemove,
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Tooltip open state ensures it only shows on explicit hover.
+  const [tooltipOpen, setTooltipOpen] = React.useState(false);
+
+  // Close tooltip automatically when the media limit is cleared.
+  React.useEffect(() => {
+    if (mediaFiles.length === 0 && existingMedia.length === 0) {
+      setTooltipOpen(false);
+    }
+  }, [mediaFiles.length, existingMedia.length]);
+
+  // Clear the file input value when no new media files remain so picking the
+  // same file again will still trigger the `onChange` event.
+  React.useEffect(() => {
+    if (mediaFiles.length === 0 && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [mediaFiles]);
 
   return (
     <div className="space-y-4">
@@ -127,14 +150,47 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
           id="media-file"
           type="file"
           ref={fileInputRef}
-          multiple
           onChange={onMediaFileChange}
           accept="image/*,video/*"
           className="hidden"
         />
-        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-          Choose Files
-        </Button>
+
+        {/* Determine if an image or video already exists */}
+        {(() => {
+          const hasExistingMedia =
+            existingMedia?.some((m) => m.media_type !== "article") || false;
+          const hasNewMedia = (mediaFiles?.length || 0) > 0;
+          const mediaLimitReached = hasExistingMedia || hasNewMedia;
+
+          return (
+            <Tooltip
+              open={tooltipOpen}
+              onOpenChange={(open) => setTooltipOpen(open)}
+              delayDuration={0}
+            >
+              <TooltipTrigger
+                asChild
+                onMouseEnter={() => setTooltipOpen(true)}
+                onMouseLeave={() => setTooltipOpen(false)}
+              >
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={mediaLimitReached}
+                    className={mediaLimitReached ? "cursor-not-allowed" : ""}
+                  >
+                    Choose File
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Only one image or video can be attached per post. Remove the
+                existing file to replace it.
+              </TooltipContent>
+            </Tooltip>
+          );
+        })()}
       </div>
 
       <div className="space-y-2">
@@ -155,7 +211,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
         </div>
         <Input
           id="topics-input"
-          placeholder="Type a topic and press Enter to add"
+          placeholder="Type a category and press Enter to add"
           value={topicInput}
           onChange={(e) => onTopicInputChange(e.target.value)}
           onKeyDown={(e) => {

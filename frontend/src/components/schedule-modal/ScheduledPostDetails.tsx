@@ -69,8 +69,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
       setEditedContent(post.content);
       setEditedTopics(post.topics || []);
       setExistingMedia(post.media || []);
-      const article = post.media?.find((m) => m.media_type === "article");
-      setArticleUrl(article?.gcs_url || "");
+      setArticleUrl(post.article_url || "");
     }
   }, [post]);
 
@@ -102,11 +101,13 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
   };
 
   const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setMediaFiles((prevFiles) => [...prevFiles, ...newFiles]);
-      const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
-      setMediaPreviews((prevPreviews) => [...prevPreviews, ...newPreviews]);
+    if (e.target.files && e.target.files[0]) {
+      // Revoke previous previews
+      mediaPreviews.forEach(URL.revokeObjectURL);
+
+      const file = e.target.files[0];
+      setMediaFiles([file]);
+      setMediaPreviews([URL.createObjectURL(file)]);
     }
   };
 
@@ -178,7 +179,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
       setEditedTopics(post.topics || []);
       setExistingMedia(post.media || []);
       const article = post.media?.find((m) => m.media_type === "article");
-      setArticleUrl(article?.gcs_url || "");
+      setArticleUrl(post.article_url || article?.gcs_url || "");
     }
     setMediaFiles([]);
     setIsEditing(false);

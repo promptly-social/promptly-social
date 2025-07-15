@@ -41,6 +41,7 @@ os.environ.update(
         "OPENROUTER_LARGE_MODEL_TEMPERATURE": "0.0",
         "OPENROUTER_LARGE_MODEL_PRIMARY": "google/gemini-2.5-pro",
         "OPENROUTER_LARGE_MODELS_FALLBACK": "anthropic/claude-sonnet-4",
+        "POST_MEDIA_BUCKET_NAME": "test-post-media",
     }
 )
 

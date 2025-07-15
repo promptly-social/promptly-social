@@ -49,8 +49,10 @@ class PostBase(BaseModel):
     platform: str = "linkedin"
     topics: Optional[List[str]] = []
     status: Optional[str] = "suggested"
+    article_url: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     idea_bank_id: Optional[UUID4] = None
+    linkedin_article_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -74,6 +76,8 @@ class PostUpdate(BaseModel):
     user_feedback: Optional[str] = None
     feedback_comment: Optional[str] = None
     posted_at: Optional[datetime] = None
+    article_url: Optional[str] = None
+    linkedin_article_url: Optional[str] = None
 
 
 class PostResponse(PostBase):

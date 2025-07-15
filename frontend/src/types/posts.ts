@@ -24,6 +24,8 @@ export interface Post {
   feedback_at?: string;
   scheduled_at?: string;
   posted_at?: string;
+  article_url?: string;
+  linkedin_article_url?: string;
   created_at: string;
   updated_at: string;
   media: PostMedia[];
@@ -40,4 +42,5 @@ export interface PostUpdate {
   feedback_comment?: string;
   posted_at?: string;
   article_url?: string;
+  linkedin_article_url?: string;
 }

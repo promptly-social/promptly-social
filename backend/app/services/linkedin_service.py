@@ -174,6 +174,7 @@ class LinkedInService:
     async def share_post(
         self,
         text: str,
+        article_url: Optional[str] = None,
         media_items: Optional[List[Dict[str, Any]]] = None,
         visibility: str = "PUBLIC",
     ):
@@ -191,9 +192,18 @@ class LinkedInService:
             "shareMediaCategory": "NONE",
         }
 
+        combined_media: List[Dict[str, Any]] = []
+
+        # Add article link first so it determines media category
+        if article_url:
+            combined_media.append({"originalUrl": article_url})
+
         if media_items:
+            combined_media.extend(media_items)
+
+        if combined_media:
             # Determine media category based on the first item
-            first_item = media_items[0]
+            first_item = combined_media[0]
             if "originalUrl" in first_item:
                 share_content["shareMediaCategory"] = "ARTICLE"
             elif "media" in first_item and "image" in first_item["media"]:
@@ -202,7 +212,7 @@ class LinkedInService:
                 share_content["shareMediaCategory"] = "VIDEO"
 
             share_content["media"] = [
-                {"status": "READY", **item} for item in media_items
+                {"status": "READY", **item} for item in combined_media
             ]
 
         post_data = {

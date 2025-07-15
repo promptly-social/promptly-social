@@ -2,13 +2,31 @@ import React, { useState } from "react";
 import { Post, PostMedia } from "@/types/posts";
 import { Link } from "lucide-react";
 
-const renderContentWithNewlines = (content: string) => {
-  return content.split("\n").map((line, index) => (
-    <React.Fragment key={index}>
-      {line}
-      {index < content.split("\n").length - 1 && <br />}
-    </React.Fragment>
-  ));
+const renderContentWithNewlines = (content: string, article_url?: string) => {
+  return (
+    <>
+      {content.split("\n").map((line, index) => (
+        <React.Fragment key={index}>
+          {line}
+          {index < content.split("\n").length - 1 && <br />}
+        </React.Fragment>
+      ))}
+      {article_url && (
+        <>
+          <br />
+          <br />
+          <a
+            href={article_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline font-semibold"
+          >
+            https://linkd.in/eXtRnaL
+          </a>
+        </>
+      )}
+    </>
+  );
 };
 
 interface PostContentProps {
@@ -35,15 +53,19 @@ export const PostContent: React.FC<PostContentProps> = ({
     if (!isTruncatable || isExpanded) {
       return (
         <>
-          {renderContentWithNewlines(post.content)}
+          {renderContentWithNewlines(post.content, post.article_url)}
           {isTruncatable && (
-            <a
-              href="#"
-              onClick={toggleExpansion}
-              className="text-blue-600 hover:underline ml-1"
-            >
-              ...less
-            </a>
+            <>
+              <br />
+              <br />
+              <a
+                href="#"
+                onClick={toggleExpansion}
+                className="text-blue-600 hover:underline ml-1"
+              >
+                ...less
+              </a>
+            </>
           )}
         </>
       );
