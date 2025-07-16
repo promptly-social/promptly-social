@@ -261,6 +261,22 @@ class PostsAPI {
     const response = await apiClient.request<PostCounts>("/posts/counts");
     return response;
   }
+
+  /**
+   * Generate an image prompt for a post
+   */
+  async generateImagePrompt(
+    postContent: string
+  ): Promise<{ imagePrompt: string }> {
+    const response = await apiClient.request<{ imagePrompt: string }>(
+      "/posts/image-prompt",
+      {
+        method: "POST",
+        body: JSON.stringify({ postContent }),
+      }
+    );
+    return response;
+  }
 }
 
 export const postsApi = new PostsAPI();

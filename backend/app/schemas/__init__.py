@@ -1,14 +1,5 @@
 """Schemas module."""
 
-from . import (
-    posts,
-    profile,
-    content_strategies,
-    daily_suggestion_schedule,
-    idea_bank,
-    chat,
-    auth,
-)
 from .auth import TokenResponse, UserResponse, UserUpdate
 
 
@@ -55,5 +46,7 @@ __all__ = [
     "DailySuggestionScheduleCreate",
     "DailySuggestionScheduleUpdate",
     "DailySuggestionScheduleResponse",
-    #
+    # image prompt schemas
+    "ImagePromptRequest",
+    "ImagePromptResponse",
 ]

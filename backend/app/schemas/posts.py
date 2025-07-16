@@ -3,7 +3,7 @@ Posts related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
-from typing import List, Optional, Any
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, UUID4
 
@@ -136,3 +136,15 @@ class PostCountsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ImagePromptRequest(BaseModel):
+    """Schema for requesting an image prompt."""
+
+    postContent: str
+
+
+class ImagePromptResponse(BaseModel):
+    """Schema for returning an image prompt."""
+
+    imagePrompt: str

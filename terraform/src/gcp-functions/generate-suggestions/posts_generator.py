@@ -191,7 +191,7 @@ From the list of candidate articles, select UP TO {number_of_posts_to_generate} 
 -   **Plain Text Only:** The entire post must be plain text. Do NOT use any Markdown formatting (like `*bold*`, `_italics_`, or `- lists`).
 -   **No AI- giveaways:** Avoid generic phrases, emojis, or special characters (like em-dashes or arrows) that scream "AI-generated".
 -   **No Source Link:** Do NOT include the link to the original article in the post.
--   **Topics, not Hashtags:** Identify up to 2 relevant topics for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
+-   **Topics, not Hashtags:** Identify a relevant topic for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
 
 Finally, return the generated post and the topics in the required JSON format.
 """

@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { FileVideo, Trash2, X } from "lucide-react";
+import { FileVideo, Trash2, X, Copy, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { postsApi } from "@/lib/posts-api";
 
 interface PostEditorFieldsProps {
   editor: UsePostEditorReturn;
@@ -40,6 +42,8 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
     removeNewMedia,
   } = editor;
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = React.useState(false);
 
   // Tooltip open state ensures it only shows on explicit hover.
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
@@ -58,6 +62,43 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
       fileInputRef.current.value = "";
     }
   }, [mediaFiles]);
+
+  // Function to generate and copy AI prompt
+  const generateAndCopyPrompt = async () => {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      toast({
+        title: "No content",
+        description: "Please enter some post content first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPrompt(true);
+
+    try {
+      const response = await postsApi.generateImagePrompt(trimmedContent);
+
+      // Copy the generated prompt to clipboard
+      await navigator.clipboard.writeText(response.imagePrompt);
+
+      toast({
+        title: "Prompt generated and copied!",
+        description:
+          "AI image generation prompt has been copied to your clipboard.",
+      });
+    } catch (err) {
+      console.error("Failed to generate image prompt:", err);
+      toast({
+        title: "Failed to generate prompt",
+        description: "Unable to generate image prompt. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -183,6 +224,29 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
             </Tooltip>
           );
         })()}
+
+        {/* New AI Image Generation Section */}
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="flex flex-col items-start gap-2">
+            <span className="text-sm text-muted-foreground">
+              Using AI to generate an image?
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateAndCopyPrompt}
+              disabled={isGeneratingPrompt}
+              className="flex items-center gap-2"
+            >
+              {isGeneratingPrompt ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+              {isGeneratingPrompt ? "Generating..." : "Generate Prompt"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">

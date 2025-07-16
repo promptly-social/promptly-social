@@ -18,7 +18,6 @@ from app.schemas.idea_bank import (
     IdeaBankResponse,
     IdeaBankUpdate,
 )
-from app.schemas.posts import PostResponse
 from app.services.idea_bank import IdeaBankService
 
 # Create router

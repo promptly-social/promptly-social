@@ -396,7 +396,7 @@ class ChatService:
         - Conversation History: {conversation_context or "No previous conversation"}
 
         INSTRUCTIONS:
-        1. When a user wants to create a LinkedIn post, ask 1-2 questions to understand their perspective, personal experiences, or key message they want to convey.
+        1. When a user wants to create a LinkedIn post, ask 1-3 questions to understand their perspective, personal experiences, or key message they want to convey.
 
         2. After getting their input, use the 'generate_linkedin_post_tool' to create their post.
 
@@ -407,7 +407,7 @@ class ChatService:
            - linkedin_post_strategy: "{profile_data["linkedin_post_strategy"]}"
            - conversation_context: Include all the conversation history
 
-        4. Don't have long conversations - after 1-2 exchanges, generate the post.
+        4. Don't have long conversations - after 1-3 exchanges, generate the post.
 
         Example flow:
         - User: "Help me create a post about this article"

@@ -13,9 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.idea_bank import IdeaBank
 from app.models.posts import Post
 from app.schemas.idea_bank import IdeaBankCreate, IdeaBankUpdate
-from app.schemas.posts import PostCreate, PostResponse
-from app.services.post_generator import post_generator_service
-from app.services.profile import ProfileService
 
 
 class IdeaBankService:

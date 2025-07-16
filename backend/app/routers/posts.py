@@ -31,10 +31,13 @@ from app.schemas.posts import (
     PostBatchUpdate,
     PostCountsResponse,
     PostMediaResponse,
+    ImagePromptRequest,
+    ImagePromptResponse,
 )
 from app.services.posts import PostsService
 from app.core.config import settings
 from app.utils.gcp import trigger_gcp_cloud_run
+from app.services.image_gen_service import ImageGenService
 
 # Create router
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -483,3 +486,24 @@ async def generate_suggestions(
     background_tasks.add_task(trigger_generation_task)
 
     return {"message": "Post generation started. Please check back in a few minutes."}
+
+
+@router.post("/image-prompt", response_model=ImagePromptResponse)
+async def generate_image_prompt(
+    postContent: ImagePromptRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Generate an image prompt for a post."""
+    try:
+        service = ImageGenService()
+        result = await service.generate_image_prompt(postContent.postContent)
+        return ImagePromptResponse(imagePrompt=result.output)
+    except Exception as e:
+        logger.error(
+            f"Error generating image prompt for post {postContent.postContent}: {e}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate image prompt",
+        )
