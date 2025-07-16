@@ -543,7 +543,7 @@ const Landing = () => {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-100 text-center text-gray-500">
-            <p>&copy; 2025 Impolester, LLC. All rights reserved.</p>
+            <p>&copy; 2025 Promptly AI, LLC. All rights reserved.</p>
           </div>
         </div>
       </footer>
