@@ -34,9 +34,6 @@ async def get_idea_bank_list(
     ai_suggested: Optional[bool] = Query(
         None, description="Filter by AI suggested ideas"
     ),
-    evergreen: Optional[bool] = Query(
-        None, description="Filter by evergreen (non-time-sensitive) ideas"
-    ),
     has_post: Optional[bool] = Query(
         None, description="Filter by whether the idea has associated posts"
     ),
@@ -209,39 +206,6 @@ async def update_idea_bank(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update idea bank",
-        )
-
-
-@router.post(
-    "/{idea_bank_id}/generate-post",
-    response_model=PostResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def generate_post_from_idea_bank(
-    idea_bank_id: UUID,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """Generate a new post from an idea bank entry."""
-    try:
-        idea_bank_service = IdeaBankService(db)
-        new_post = await idea_bank_service.generate_post_from_idea(
-            current_user.id, idea_bank_id
-        )
-
-        if not new_post:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Idea bank not found"
-            )
-
-        return new_post
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error generating post from idea bank {idea_bank_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate post from idea bank",
         )
 
 

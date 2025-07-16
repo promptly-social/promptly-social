@@ -3,18 +3,25 @@ Authentication service containing business logic for user management.
 Integrates Supabase auth with local database operations.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from loguru import logger
+import uuid
+from urllib.parse import urlencode, quote_plus
+from app.services.linkedin_service import LinkedInService
 
 from app.models.user import User, UserSession
+from app.models.idea_bank import IdeaBank
+from app.models.posts import Post
+from app.models.profile import SocialConnection, UserPreferences, WritingStyleAnalysis
+from app.models.content_strategies import ContentStrategy
+from app.models.daily_suggestion_schedule import DailySuggestionSchedule
+from app.models.chat import Conversation
 from app.schemas.auth import (
-    UserCreate,
-    UserLogin,
-    UserResponse,
     TokenResponse,
+    UserResponse,
     UserUpdate,
 )
 from app.core.security import (
@@ -34,154 +41,137 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def sign_up(
-        self, user_data: UserCreate, redirect_to: Optional[str] = None
+    # ------------------------------
+    # Native (3-legged) LinkedIn flow for w_member_social scope
+    # ------------------------------
+    async def initiate_linkedin_native(
+        self, redirect_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Generate LinkedIn authorization URL with extended scopes."""
+        try:
+            if not settings.linkedin_client_id:
+                return {"error": "LinkedIn client ID not configured", "url": None}
+
+            state = uuid.uuid4().hex
+            redirect_uri = redirect_to or f"{settings.frontend_url}/auth/callback"
+
+            params = {
+                "response_type": "code",
+                "client_id": settings.linkedin_client_id,
+                "redirect_uri": redirect_uri,
+                "state": state,
+                "scope": "openid profile email w_member_social",
+            }
+            query = urlencode(params, quote_via=quote_plus)
+            auth_url = f"https://www.linkedin.com/oauth/v2/authorization?{query}"
+
+            logger.info("Generated LinkedIn authorization URL")
+            return {"error": None, "url": auth_url, "state": state}
+        except Exception as e:
+            logger.error(f"LinkedIn OAuth sign in failed: {e}")
+            return {"error": "Native OAuth sign in failed", "url": None}
+
+    async def handle_linkedin_callback(
+        self, code: str, state: str, redirect_uri: str
     ) -> Dict[str, Any]:
         """
-        Register a new user with Supabase and create local user record.
-
-        Args:
-            user_data: User registration data
-            redirect_to: Optional redirect URL after email confirmation
-
-        Returns:
-            Dict containing user and token information
+        Handle LinkedIn OAuth callback for native 3-legged flow.
+        Exchanges code for token, gets user info, creates/updates user and social connection,
+        and creates a local session.
         """
         try:
-            # Check if user already exists locally
-            existing_user = await self._get_user_by_email(user_data.email)
-            if existing_user:
-                return {
-                    "error": "User with this email already exists",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            # Create user in Supabase with redirect to backend verification endpoint
-            backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
-
-            supabase_response = await supabase_client.sign_up(
-                email=user_data.email,
-                password=user_data.password,
-                redirect_to=backend_redirect_url,
+            # 1. Exchange authorization code for token
+            token_data = await LinkedInService.exchange_code_for_token(
+                code, redirect_uri
             )
+            access_token = token_data["access_token"]
+            refresh_token = token_data.get("refresh_token")
+            expires_in = token_data.get("expires_in")
+            scope = token_data.get("scope")
 
-            if supabase_response["error"]:
-                return {
-                    "error": supabase_response["error"],
-                    "user": None,
-                    "tokens": None,
-                }
+            # 2. Get user info from LinkedIn
+            user_info = await LinkedInService.get_user_info(access_token)
+            email = user_info.get("email")
+            linkedin_user_id = user_info.get("sub")
+            full_name = user_info.get("name")
+            avatar_url = user_info.get("picture")
 
-            supabase_user = supabase_response["user"]
-            if not supabase_user:
-                return {
-                    "error": "Failed to create user in Supabase",
-                    "user": None,
-                    "tokens": None,
-                }
+            if not email:
+                raise Exception("Email not returned from LinkedIn")
 
-            # Create local user record
-            local_user = User(
-                supabase_user_id=str(supabase_user.id),
-                email=user_data.email,
-                full_name=user_data.full_name,
-                preferred_language=user_data.preferred_language,
-                timezone=user_data.timezone,
-                is_verified=supabase_user.email_confirmed_at is not None,
-            )
-
-            self.db.add(local_user)
-            await self.db.commit()
-            await self.db.refresh(local_user)
-
-            # Don't create tokens for email signup - user needs to verify email first
-            tokens = None
-            # Only create tokens if user is already confirmed (which shouldn't happen with email signup)
-            if supabase_response["session"] and supabase_user.email_confirmed_at:
-                tokens = await self._create_tokens(local_user)
-                await self._create_session(
-                    local_user.id, tokens.access_token, tokens.refresh_token
-                )
-
-            logger.info(f"User registered successfully: {user_data.email}")
-
-            return {
-                "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
-                "tokens": tokens,
-                "message": "User registered successfully. Please check your email for verification.",
-            }
-
-        except Exception as e:
-            await self.db.rollback()
-            logger.error(f"Sign up failed for {user_data.email}: {e}")
-            return {"error": "Registration failed", "user": None, "tokens": None}
-
-    async def sign_in(self, login_data: UserLogin) -> Dict[str, Any]:
-        """
-        Sign in a user with email and password.
-
-        Args:
-            login_data: User login credentials
-
-        Returns:
-            Dict containing user and token information
-        """
-        try:
-            # Authenticate with Supabase
-            supabase_response = await supabase_client.sign_in(
-                email=login_data.email, password=login_data.password
-            )
-
-            if supabase_response["error"]:
-                return {
-                    "error": supabase_response["error"],
-                    "user": None,
-                    "tokens": None,
-                }
-
-            supabase_user = supabase_response["user"]
-            if not supabase_user:
-                return {"error": "Authentication failed", "user": None, "tokens": None}
-
-            # Get or create local user record
-            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
+            # 3. Get or create local user record
+            local_user = await self._get_user_by_email(email)
             if not local_user:
-                # Create local user if doesn't exist
                 local_user = User(
-                    supabase_user_id=str(supabase_user.id),
-                    email=login_data.email,
-                    is_verified=supabase_user.email_confirmed_at is not None,
+                    email=email,
+                    full_name=full_name,
+                    avatar_url=avatar_url,
+                    is_verified=True,  # Trusting LinkedIn email
                 )
                 self.db.add(local_user)
                 await self.db.commit()
                 await self.db.refresh(local_user)
-                logger.info(
-                    f"Created new local user: {login_data.email}, is_verified: {local_user.is_verified}"
-                )
             else:
-                logger.info(
-                    f"Found existing local user: {login_data.email}, is_verified: {local_user.is_verified}"
+                # Update user info with latest from LinkedIn
+                local_user.full_name = full_name
+                local_user.avatar_url = avatar_url
+                local_user.updated_at = datetime.now(timezone.utc)
+                await self.db.commit()
+                await self.db.refresh(local_user)
+
+            # 4. Create or update SocialConnection
+            stmt = select(SocialConnection).where(
+                SocialConnection.user_id == local_user.id,
+                SocialConnection.platform == "linkedin",
+            )
+            result = await self.db.execute(stmt)
+            connection = result.scalar_one_or_none()
+
+            expires_at = (
+                datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                if expires_in
+                else None
+            )
+
+            connection_data = {
+                "auth_method": "oauth2",
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "scope": scope,
+                "linkedin_user_id": linkedin_user_id,
+                "email": email,
+                "full_name": full_name,
+                "avatar_url": avatar_url,
+            }
+
+            if connection:
+                connection.connection_data = connection_data
+                connection.is_active = True
+                connection.updated_at = datetime.now(timezone.utc)
+            else:
+                connection = SocialConnection(
+                    user_id=local_user.id,
+                    platform="linkedin",
+                    connection_data=connection_data,
+                    is_active=True,
                 )
+                self.db.add(connection)
 
-            # Update last login
             await self._update_last_login(local_user.id)
+            await self.db.commit()
 
-            # Create tokens and session
+            # 5. Create backend tokens and session
             tokens = await self._create_tokens(local_user)
             await self._create_session(
                 local_user.id, tokens.access_token, tokens.refresh_token
             )
 
-            logger.info(f"User signed in successfully: {login_data.email}")
+            logger.info(f"User signed in successfully with LinkedIn: {email}")
 
             user_response = UserResponse.model_validate(
                 {**local_user.__dict__, "id": str(local_user.id)}
             )
-            logger.info(f"Returning user data: {user_response.model_dump()}")
 
             return {
                 "error": None,
@@ -191,40 +181,63 @@ class AuthService:
             }
 
         except Exception as e:
-            logger.error(f"Sign in failed for {login_data.email}: {e}")
-            return {"error": "Sign in failed", "user": None, "tokens": None}
+            await self.db.rollback()
+            logger.error(f"LinkedIn OAuth callback failed: {e}")
+            return {"error": "OAuth callback failed", "user": None, "tokens": None}
 
-    async def sign_in_with_google(
-        self, redirect_to: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def delete_account(self, user_id: str) -> Dict[str, Any]:
         """
-        Initiate Google OAuth sign in.
+        Delete a user's account and all associated data.
 
         Args:
-            redirect_to: Optional redirect URL after authentication
+            user_id: The ID of the user to delete.
 
         Returns:
-            Dict containing OAuth URL
+            Dict indicating success or failure.
         """
+        user = await self._get_user_by_id(user_id)
+        if not user:
+            return {"error": "User not found", "success": False}
+
         try:
-            response = await supabase_client.sign_in_with_oauth(
-                provider="google", redirect_to=redirect_to
-            )
+            logger.info(f"Starting account deletion for user_id: {user_id}")
 
-            if response["error"]:
-                return {"error": response["error"], "url": None}
+            # Delete related data. Order doesn't strictly matter here but it's good practice
+            # to delete child objects before parent objects if there are dependencies without ON DELETE CASCADE.
+            # In our case, we are deleting everything related to a user.
 
-            logger.info("Google OAuth sign in initiated")
+            # These models have a direct relationship with the user.
+            # The order matters here due to foreign key constraints that are not set to cascade on delete.
+            # Specifically, Posts and Conversations must be deleted before IdeaBanks.
+            models_to_delete = [
+                Post,
+                Conversation,
+                IdeaBank,
+                SocialConnection,
+                UserPreferences,
+                WritingStyleAnalysis,
+                ContentStrategy,
+                DailySuggestionSchedule,
+                UserSession,
+            ]
 
-            return {
-                "error": None,
-                "url": response["url"],
-                "message": "OAuth sign in initiated",
-            }
+            for model in models_to_delete:
+                stmt = delete(model).where(model.user_id == user.id)
+                await self.db.execute(stmt)
+                logger.info(f"Deleted {model.__tablename__} for user_id: {user_id}")
+
+            # Now delete the user from public.users
+            await self.db.delete(user)
+            logger.info(f"Deleted user object for user_id: {user_id}")
+
+            await self.db.commit()
+            logger.info(f"Successfully deleted account for user_id: {user_id}")
+            return {"success": True, "error": None}
 
         except Exception as e:
-            logger.error(f"Google OAuth sign in failed: {e}")
-            return {"error": "OAuth sign in failed", "url": None}
+            await self.db.rollback()
+            logger.error(f"Account deletion failed for {user_id}: {e}")
+            return {"error": "Account deletion failed", "success": False}
 
     async def sign_out(self, access_token: str) -> Dict[str, Any]:
         """
@@ -346,27 +359,6 @@ class AuthService:
             # Update fields if provided
             update_data = user_data.model_dump(exclude_unset=True)
 
-            # Handle password update if provided
-            if "password" in update_data and "confirm_password" in update_data:
-                if update_data["password"] != update_data["confirm_password"]:
-                    raise ValueError("Passwords do not match")
-
-                # Update password in Supabase if user has supabase_user_id
-                if user.supabase_user_id:
-                    from app.utils.supabase import supabase_client
-
-                    supabase_result = await supabase_client.update_user(
-                        user.supabase_user_id, password=update_data["password"]
-                    )
-                    if supabase_result.get("error"):
-                        raise ValueError(
-                            f"Failed to update password in Supabase: {supabase_result['error']}"
-                        )
-
-                # Remove password fields from update data
-                update_data.pop("password", None)
-                update_data.pop("confirm_password", None)
-
             # Update local user record
             for key, value in update_data.items():
                 if hasattr(user, key):
@@ -384,310 +376,8 @@ class AuthService:
             logger.error(f"Update user failed for {user_id}: {e}")
             raise
 
-    async def handle_oauth_callback(
-        self, code: str, redirect_to: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Handle OAuth callback and create user session.
-
-        Args:
-            code: OAuth authorization code
-            redirect_to: Optional redirect URL
-
-        Returns:
-            Dict containing user and token information
-        """
-        try:
-            # Exchange code for session with Supabase
-            supabase_response = await supabase_client.handle_oauth_callback(
-                code, redirect_to
-            )
-
-            # Handle case where supabase_response might be a string
-            if isinstance(supabase_response, str):
-                return {
-                    "error": supabase_response,
-                    "user": None,
-                    "tokens": None,
-                }
-
-            if not isinstance(supabase_response, dict):
-                return {
-                    "error": "Invalid response from Supabase",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            if supabase_response.get("error"):
-                return {
-                    "error": supabase_response["error"],
-                    "user": None,
-                    "tokens": None,
-                }
-
-            supabase_user = supabase_response.get("user")
-            if not supabase_user:
-                return {
-                    "error": "OAuth authentication failed",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            # Get or create local user record
-            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
-            if not local_user:
-                # Create local user if doesn't exist
-                local_user = User(
-                    supabase_user_id=str(supabase_user.id),
-                    email=supabase_user.email,
-                    full_name=supabase_user.user_metadata.get("full_name"),
-                    is_verified=supabase_user.email_confirmed_at is not None,
-                )
-                self.db.add(local_user)
-                await self.db.commit()
-                await self.db.refresh(local_user)
-
-            # Update last login
-            await self._update_last_login(local_user.id)
-
-            # Create tokens and session
-            tokens = await self._create_tokens(local_user)
-            await self._create_session(
-                local_user.id, tokens.access_token, tokens.refresh_token
-            )
-
-            return {
-                "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
-                "tokens": tokens,
-                "message": "OAuth sign in successful",
-            }
-
-        except Exception:
-            return {
-                "error": "OAuth authentication failed",
-                "user": None,
-                "tokens": None,
-            }
-
-    async def sign_in_with_google_token(
-        self, id_token: str, redirect_to: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Sign in with Google ID token.
-
-        Args:
-            id_token: Google ID token
-            redirect_to: Optional redirect URL
-
-        Returns:
-            Dict containing user and token information
-        """
-        try:
-            # Authenticate with Supabase using ID token
-            supabase_response = supabase_client.sign_in_with_google_token(id_token)
-
-            if supabase_response["error"]:
-                return {
-                    "error": supabase_response["error"],
-                    "user": None,
-                    "tokens": None,
-                }
-
-            supabase_user = supabase_response["user"]
-            if not supabase_user:
-                return {
-                    "error": "Google authentication failed",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            # Get or create local user record
-            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
-            if not local_user:
-                # Create local user if doesn't exist
-                local_user = User(
-                    supabase_user_id=str(supabase_user.id),
-                    email=supabase_user.email,
-                    full_name=supabase_user.user_metadata.get("full_name"),
-                    is_verified=supabase_user.email_confirmed_at is not None,
-                )
-                self.db.add(local_user)
-                await self.db.commit()
-                await self.db.refresh(local_user)
-
-            # Update last login
-            await self._update_last_login(local_user.id)
-
-            # Create tokens and session
-            tokens = await self._create_tokens(local_user)
-            await self._create_session(
-                local_user.id, tokens.access_token, tokens.refresh_token
-            )
-
-            return {
-                "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
-                "tokens": tokens,
-                "message": "Google sign in successful",
-            }
-
-        except Exception as e:
-            logger.error(f"Google OAuth sign in failed: {e}")
-            return {
-                "error": "Google authentication failed",
-                "user": None,
-                "tokens": None,
-            }
-
-    async def handle_email_verification(
-        self,
-        token: str,
-        type_param: str,
-        email: str,
-        redirect_to: Optional[str] = None,
-        use_token_hash: bool = False,
-    ) -> Dict[str, Any]:
-        """
-        Handle email verification callback.
-
-        Args:
-            token: Email verification token
-            type_param: Verification type (signup, recovery, etc.)
-            redirect_to: Optional redirect URL
-
-        Returns:
-            Dict containing user and token information
-        """
-        try:
-            # Verify the token with Supabase
-            supabase_response = await supabase_client.verify_email_token(
-                token, type_param, email, use_token_hash
-            )
-
-            if supabase_response["error"]:
-                return {
-                    "error": supabase_response["error"],
-                    "user": None,
-                    "tokens": None,
-                }
-
-            supabase_user = supabase_response["user"]
-            supabase_session = supabase_response.get("session")
-
-            if not supabase_user:
-                return {
-                    "error": "Email verification failed",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            # Get local user record
-            local_user = await self._get_user_by_supabase_id(str(supabase_user.id))
-            if not local_user:
-                return {
-                    "error": "User not found in local database",
-                    "user": None,
-                    "tokens": None,
-                }
-
-            # Update user as verified using UPDATE statement
-            stmt = update(User).where(User.id == local_user.id).values(is_verified=True)
-            await self.db.execute(stmt)
-            await self.db.commit()
-
-            # Refresh the user object to get updated data
-            await self.db.refresh(local_user)
-
-            # Update last login
-            await self._update_last_login(local_user.id)
-
-            # Always create backend tokens for email verification
-            tokens = await self._create_tokens(local_user)
-
-            # Create session in local database
-            await self._create_session(
-                local_user.id, tokens.access_token, tokens.refresh_token
-            )
-
-            logger.info(f"Email verification successful: {local_user.email}")
-
-            return {
-                "error": None,
-                "user": UserResponse.model_validate(
-                    {**local_user.__dict__, "id": str(local_user.id)}
-                ),
-                "tokens": tokens,
-                "message": "Email verification successful",
-            }
-
-        except Exception as e:
-            logger.error(f"Email verification failed: {e}")
-            return {
-                "error": "Email verification failed",
-                "user": None,
-                "tokens": None,
-            }
-
-    async def resend_verification_email(
-        self, email: str, redirect_to: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Resend email verification link.
-
-        Args:
-            email: User's email address
-            redirect_to: Optional redirect URL after verification
-
-        Returns:
-            Dict containing success or error information
-        """
-        try:
-            # Check if user exists
-            local_user = await self._get_user_by_email(email)
-            if not local_user:
-                return {
-                    "error": "User not found",
-                    "success": False,
-                }
-
-            # Check if user is already verified
-            if local_user.is_verified:
-                return {
-                    "error": "User is already verified",
-                    "success": False,
-                }
-
-            # Resend verification email via Supabase with redirect to backend
-            backend_redirect_url = f"{settings.backend_url}/api/v1/auth/verify"
-            supabase_response = await supabase_client.resend_verification_email(
-                email, backend_redirect_url
-            )
-
-            if supabase_response["error"]:
-                return {
-                    "error": supabase_response["error"],
-                    "success": False,
-                }
-
-            logger.info(f"Verification email resent: {email}")
-
-            return {
-                "error": None,
-                "success": True,
-                "message": "Verification email sent successfully",
-            }
-
-        except Exception as e:
-            logger.error(f"Failed to resend verification email for {email}: {e}")
-            return {
-                "error": "Failed to resend verification email",
-                "success": False,
-            }
+    # All email/password related methods have been removed.
+    # The file continues with private helper methods.
 
     # Private helper methods
 
@@ -700,14 +390,6 @@ class AuthService:
     async def _get_user_by_id(self, user_id: str) -> Optional[User]:
         """Get user by ID."""
         stmt = select(User).where(User.id == user_id, User.deleted_at.is_(None))
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def _get_user_by_supabase_id(self, supabase_user_id: str) -> Optional[User]:
-        """Get user by Supabase user ID."""
-        stmt = select(User).where(
-            User.supabase_user_id == supabase_user_id, User.deleted_at.is_(None)
-        )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 

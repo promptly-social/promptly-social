@@ -53,6 +53,8 @@ fastapi==0.115.0
     # via -r requirements.in
 google-auth==2.29.0
     # via -r requirements.in
+google-cloud-scheduler==2.16.1  # for Cloud Scheduler API integration
+google-cloud-storage
 gotrue==2.12.2
     # via supabase
 greenlet==3.1.1
@@ -240,4 +242,3 @@ websockets==15.0.1
     #   uvicorn
 zipp==3.23.0
     # via importlib-metadata
-google-cloud-scheduler==2.16.1  # for Cloud Scheduler API integration

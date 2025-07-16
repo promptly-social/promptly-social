@@ -37,7 +37,7 @@ class SubstackAnalyzer:
         self.models_fallback = [
             model.strip() for model in models_fallback_str.split(",")
         ]
-        self.temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.0"))
+        self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_substack(
         self, platform_username: str, current_bio: str, content_to_analyze: List[str]
@@ -169,7 +169,7 @@ class SubstackAnalyzer:
         You are an expert at analyzing writing style of a list of posts of an author.
         You are given a list of URLs to posts.
         Your task is to analyze the writing style of the posts using gender neutral descriptions.
-        Consider elements like:
+        Consider elements like based on different topics and themes:
         - Tone (formal, casual, conversational, etc.)
         - Voice (authoritative, friendly, analytical, etc.)
         - Sentence structure and length
@@ -283,6 +283,7 @@ class SubstackAnalyzer:
         Return the user bio in plain text format without any markdown. The substack bio and current bio might be empyt or incomplete.
         If the substack bio and/or the current bio are given, update them based on your analysis.
         The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.
+        If the information is available, also include the user's passions and interests in their personal life.
         This will be used as a persona for LLM to generate content in their style, preferences, and point of view.
         URLs: {urls}
         Substack bio: {substack_bio}

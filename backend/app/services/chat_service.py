@@ -2,9 +2,11 @@
 Chat service for handling conversations and messages.
 """
 
+import json
 from typing import List, AsyncGenerator, Optional
 from uuid import UUID
 from loguru import logger
+from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -89,8 +91,11 @@ class ChatService:
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_conversation_by_idea_bank(
-        self, user_id: UUID, idea_bank_id: UUID
+    async def get_conversation_by_params(
+        self,
+        user_id: UUID,
+        idea_bank_id: Optional[UUID] = None,
+        conversation_type: Optional[str] = None,
     ) -> Optional[Conversation]:
         """Get a conversation by idea_bank_id, ensuring it belongs to the user."""
         stmt = (
@@ -98,7 +103,10 @@ class ChatService:
             .where(
                 Conversation.idea_bank_id == idea_bank_id,
                 Conversation.user_id == user_id,
+                Conversation.conversation_type == conversation_type,
+                Conversation.status == "active",
             )
+            .order_by(Conversation.updated_at.desc())
             .options(selectinload(Conversation.messages))
         )
         result = await self.db.execute(stmt)
@@ -108,13 +116,15 @@ class ChatService:
         self, user: User, conversation_data: ConversationCreate
     ) -> Conversation:
         """Create a new conversation."""
-        idea_bank_stmt = select(IdeaBank).where(
-            IdeaBank.id == conversation_data.idea_bank_id, IdeaBank.user_id == user.id
-        )
-        result = await self.db.execute(idea_bank_stmt)
-        idea_bank = result.scalars().first()
-        if not idea_bank:
-            raise ValueError("Idea bank not found")
+        if conversation_data.idea_bank_id:
+            idea_bank_stmt = select(IdeaBank).where(
+                IdeaBank.id == conversation_data.idea_bank_id,
+                IdeaBank.user_id == user.id,
+            )
+            result = await self.db.execute(idea_bank_stmt)
+            idea_bank = result.scalars().first()
+            if not idea_bank:
+                raise ValueError("Idea bank not found")
 
         new_conversation = Conversation(
             user_id=user.id,
@@ -127,6 +137,26 @@ class ChatService:
         await self.db.commit()
         await self.db.refresh(new_conversation, attribute_names=["messages"])
         return new_conversation
+
+    async def update_conversation_status(
+        self, user_id: UUID, conversation_id: UUID, status: str
+    ) -> Conversation:
+        """Update the status of a conversation, ensuring it belongs to the user."""
+        conversation = await self.get_conversation(user_id, conversation_id)
+        if not conversation:
+            raise ValueError("Conversation not found or access denied")
+
+        conversation.status = status
+        await self.db.commit()
+
+        # Refresh the whole instance so that all attributes (e.g. `updated_at`)
+        # are eagerly loaded, avoiding lazy-load IO outside the async context.
+        await self.db.refresh(conversation)
+
+        # Ensure messages are available as well (they were previously selected
+        # via `selectinload`, but we refresh again to be safe).
+        await self.db.refresh(conversation, attribute_names=["messages"])
+        return conversation
 
     async def _get_user_profile_data(self, user_id: UUID) -> dict:
         """Get user's bio, writing style, and strategy as a dictionary."""
@@ -173,6 +203,112 @@ class ChatService:
         await self.db.refresh(message)
         return message
 
+    # ===================== Helper utilities =====================
+
+    async def _stream_with_agent(
+        self,
+        conversation_id: UUID,
+        system_prompt: str,
+        user_message_content: str,
+        history: list[ModelMessage],
+        deps: PostGeneratorService,
+        fallback_callable,
+    ) -> AsyncGenerator[ChatStreamResponse, None]:
+        """Core streaming logic used by both generation and revision flows."""
+        agent = self._create_agent(system_prompt)
+        tool_called = False
+
+        try:
+            async with agent.run_stream(
+                user_message_content,
+                deps=deps,
+                message_history=history,
+            ) as result:
+                full_response = ""
+                last_len = 0
+                async for text in result.stream_text():
+                    if text is None:
+                        continue
+                    delta = text[last_len:]
+                    last_len = len(text)
+                    if delta:
+                        yield ChatStreamResponse(type="message", content=delta)
+                    full_response = text
+
+                # Persist assistant reply
+                if full_response:
+                    await self._add_message_to_db(
+                        conversation_id, "assistant", full_response
+                    )
+
+                # Tool return parts
+                for msg in result.new_messages():
+                    for p in msg.parts:
+                        if isinstance(p, ToolReturnPart):
+                            tool_called = True
+                            content = p.content
+                            # Extract the actual result from wrapper if needed
+                            if hasattr(content, "output"):
+                                content = content.output
+                            tool_json = (
+                                content.model_dump_json()
+                                if isinstance(content, BaseModel)
+                                else str(content)
+                            )
+                            yield ChatStreamResponse(
+                                type="tool_output", content=tool_json
+                            )
+
+                # Fallback if tool not invoked and no assistant response
+                if (
+                    not tool_called
+                    and not full_response
+                    and fallback_callable is not None
+                ):
+                    try:
+                        fb_result = await fallback_callable()
+                        # Extract the actual result from AgentRunResult wrapper if needed
+                        if hasattr(fb_result, "output"):
+                            fb_result = fb_result.output
+                        tool_json = (
+                            fb_result.model_dump_json()
+                            if isinstance(fb_result, BaseModel)
+                            else str(fb_result)
+                        )
+                        await self._add_message_to_db(
+                            conversation_id, "tool", tool_json
+                        )
+                        yield ChatStreamResponse(type="tool_output", content=tool_json)
+                    except Exception as e:
+                        logger.error(f"Fallback error: {e}")
+                        yield ChatStreamResponse(type="error", error=str(e))
+        except Exception as e:
+            logger.error(f"Error streaming chat response: {e}")
+            # Try fallback if available
+            if fallback_callable is not None:
+                try:
+                    fb_result = await fallback_callable()
+                    # Extract the actual result from AgentRunResult wrapper if needed
+                    if hasattr(fb_result, "output"):
+                        fb_result = fb_result.output
+                    tool_json = (
+                        fb_result.model_dump_json()
+                        if isinstance(fb_result, BaseModel)
+                        else str(fb_result)
+                    )
+                    await self._add_message_to_db(conversation_id, "tool", tool_json)
+                    yield ChatStreamResponse(type="tool_output", content=tool_json)
+                except Exception as inner_e:
+                    logger.error(f"Fallback after error failed: {inner_e}")
+                    yield ChatStreamResponse(type="error", error=str(inner_e))
+            else:
+                yield ChatStreamResponse(type="error", error=str(e))
+        finally:
+            # Always send the "end" signal to properly close the stream
+            yield ChatStreamResponse(type="end")
+
+    # ===================== Original helpers continue =====================
+
     @staticmethod
     def _convert_to_message_history(
         chat_messages: List["ChatMessage"],
@@ -188,8 +324,171 @@ class ChatService:
                 history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
             # system messages and other roles are ignored here; adjust if needed
             elif msg.role == "tool":
-                history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
+                message = ""
+                try:
+                    message = json.loads(msg.content)["linkedin_post"]
+                except json.JSONDecodeError:
+                    message = msg.content
+                history.append(ModelResponse(parts=[TextPart(content=message)]))
         return history
+
+    @staticmethod
+    def _convert_to_conversation_context(
+        chat_messages: List["ChatMessage"],
+    ) -> str:
+        """Convert API `ChatMessage` items to a readable string format for context."""
+        if not chat_messages:
+            return ""
+
+        context_parts = []
+        for msg in chat_messages:
+            if msg.role == "user":
+                context_parts.append(f"USER: {msg.content}")
+            elif msg.role == "assistant":
+                context_parts.append(f"ASSISTANT: {msg.content}")
+            elif msg.role == "tool":
+                # Extract LinkedIn post content from tool output
+                try:
+                    parsed = json.loads(msg.content)
+                    if isinstance(parsed, dict) and "linkedin_post" in parsed:
+                        context_parts.append(
+                            f"GENERATED POST:\n{parsed['linkedin_post']}"
+                        )
+                    else:
+                        context_parts.append(f"TOOL OUTPUT: {msg.content}")
+                except json.JSONDecodeError:
+                    context_parts.append(f"TOOL OUTPUT: {msg.content}")
+
+        return "\n\n".join(context_parts)
+
+    async def _handle_generation(
+        self,
+        conversation_id: UUID,
+        idea_content: str,
+        user_message: ChatMessage,
+        history: list[ModelMessage],
+        profile_data: dict,
+        messages: List[ChatMessage],
+    ) -> AsyncGenerator[ChatStreamResponse, None]:
+        # Convert message history to conversation context
+        conversation_context = self._convert_to_conversation_context(messages[:-1])
+
+        system_prompt = f"""
+        You are a LinkedIn content strategist. Your job is to help users create LinkedIn posts.
+
+        AVAILABLE INFORMATION:
+        - Post Idea: {idea_content}
+        - User Bio: {profile_data["bio"]}
+        - User Writing Style: {profile_data["writing_style"]}
+        - User LinkedIn Strategy: {profile_data["linkedin_post_strategy"]}
+        - Conversation History: {conversation_context or "No previous conversation"}
+
+        INSTRUCTIONS:
+        1. When a user wants to create a LinkedIn post, ask 1-2 questions to understand their perspective, personal experiences, or key message they want to convey.
+
+        2. After getting their input, use the 'generate_linkedin_post_tool' to create their post.
+
+        3. The tool requires these parameters:
+           - idea_content: "{idea_content}"
+           - bio: "{profile_data["bio"]}"
+           - writing_style: "{profile_data["writing_style"]}"
+           - linkedin_post_strategy: "{profile_data["linkedin_post_strategy"]}"
+           - conversation_context: Include all the conversation history
+
+        4. Don't have long conversations - after 1-2 exchanges, generate the post.
+
+        Example flow:
+        - User: "Help me create a post about this article"
+        - You: "What's your main takeaway from this? Any personal experience related to it?"
+        - User: [provides their perspective]
+        - You: [call generate_linkedin_post_tool with all the information]
+        """
+        print("=====GENERATION===========")
+        print(f"System prompt: {system_prompt}")
+        print(f"User message: {user_message.content}")
+        print(
+            f"Available tools: generate_linkedin_post_tool, revise_linkedin_post_tool"
+        )
+        print("=====GENERATION===========")
+        deps = PostGeneratorService()
+        async for chunk in self._stream_with_agent(
+            conversation_id,
+            system_prompt,
+            user_message.content,
+            history,
+            deps,
+            lambda: deps.generate_post(
+                idea_content=idea_content,
+                bio=profile_data["bio"],
+                writing_style=profile_data["writing_style"],
+                linkedin_post_strategy=profile_data["linkedin_post_strategy"],
+                conversation_context=conversation_context,
+            ),
+        ):
+            yield chunk
+
+    async def _handle_revision(
+        self,
+        conversation_id: UUID,
+        idea_content: str,
+        user_message: ChatMessage,
+        history: list[ModelMessage],
+        profile_data: dict,
+        previous_draft: str,
+        user_feedback: str,
+        messages: List[ChatMessage],
+    ) -> AsyncGenerator[ChatStreamResponse, None]:
+        # Convert message history to conversation context
+        conversation_context = self._convert_to_conversation_context(messages[:-1])
+
+        system_prompt = f"""
+        You are an expert LinkedIn content strategist helping users refine their posts through conversation.
+        Your role is to understand what the user wants to change and either engage them in discussion or use the 'revise_linkedin_post_tool' when you have clear direction.
+
+        CONTEXT FOR REVISION:
+        - Original Post Idea: {idea_content}
+        - User Bio: {profile_data["bio"]}
+        - Writing Style: {profile_data["writing_style"]}
+        - LinkedIn Strategy: {profile_data["linkedin_post_strategy"]}
+        - Previous Draft: {previous_draft}
+        - User's Latest Request: {user_feedback}
+        - Conversation History: {conversation_context or "No previous conversation"}
+
+        REVISION APPROACH:
+        1. **Understand the request**: If the user's feedback is clear and specific (like "make it shorter", "add more emotion", "remove the question"), use the revise_linkedin_post_tool immediately.
+
+        2. **Engage when unclear**: If the feedback is vague (like "make it better", "I don't like it"), ask clarifying questions to understand:
+           - What specifically they want to change
+           - What they liked or didn't like about the current version
+           - What tone or approach they prefer
+           - Any specific elements they want added or removed
+
+        3. **Reference conversation history**: Use the conversation context to understand their preferences and previous feedback.
+
+        4. **Be conversational**: Keep the tone collaborative and helpful. You're working together to refine their post.
+
+        Remember: Always pass the conversation_context to the tool when you call it, as it contains valuable insights about their preferences and previous discussions.
+        """
+        deps = PostGeneratorService()
+        async for chunk in self._stream_with_agent(
+            conversation_id,
+            system_prompt,
+            user_message.content,
+            history,
+            deps,
+            lambda: deps.revise_post(
+                idea_content=idea_content,
+                bio=profile_data["bio"],
+                writing_style=profile_data["writing_style"],
+                linkedin_post_strategy=profile_data["linkedin_post_strategy"],
+                previous_draft=previous_draft,
+                user_feedback=user_message.content,
+                conversation_context=conversation_context,
+            ),
+        ):
+            yield chunk
+
+    # ================================================================
 
     async def stream_chat_response(
         self, user: User, conversation_id: UUID, messages: List[ChatMessage]
@@ -200,108 +499,79 @@ class ChatService:
             yield ChatStreamResponse(type="error", error="Conversation not found")
             return
 
-        idea_bank = await self.db.get(IdeaBank, conversation.idea_bank_id)
-        if not idea_bank:
-            yield ChatStreamResponse(type="error", error="Idea bank not found")
-            return
+        idea_content = "Please reference the chat history."
+        if conversation.idea_bank_id:
+            idea_bank = await self.db.get(IdeaBank, conversation.idea_bank_id)
+            if idea_bank:
+                idea_content = idea_bank.data.get("value", "")
 
         user_message = messages[-1]
         await self._add_message_to_db(
             conversation.id, user_message.role, user_message.content
         )
 
-        # Check for a previous draft in the conversation history
-        previous_draft = None
-        # Check messages before the current user message
-        for msg in reversed(messages[:-1]):
-            if msg.role == "tool":
-                previous_draft = msg.content
+        # Find the most recent tool-generated draft in the stored conversation history
+        previous_draft: Optional[str] = None
+        for m in reversed(conversation.messages):  # iterate over DB-persisted messages
+            if m.role != "tool":
+                continue
+            try:
+                parsed = json.loads(m.content)
+                if isinstance(parsed, dict) and "linkedin_post" in parsed:
+                    previous_draft = parsed["linkedin_post"]
+                else:
+                    previous_draft = m.content
+            except json.JSONDecodeError:
+                previous_draft = m.content
+            if previous_draft:
                 break
+
+        # Truncate long sections to guard against context overflow (approx 4k chars each)
+        MAX_SECTION_LEN = 4000
+        if previous_draft and len(previous_draft) > MAX_SECTION_LEN:
+            previous_draft = previous_draft[:MAX_SECTION_LEN] + "... [truncated]"
+        user_feedback = user_message.content
+        if user_feedback and len(user_feedback) > MAX_SECTION_LEN:
+            user_feedback = user_feedback[:MAX_SECTION_LEN] + "... [truncated]"
 
         profile_data = await self._get_user_profile_data(user.id)
         bio = profile_data["bio"]
         writing_style = profile_data["writing_style"]
         linkedin_post_strategy = profile_data["linkedin_post_strategy"]
-        idea_content = idea_bank.data.get("value") or idea_bank.data.get("title", "")
+
+        profile_data = {
+            "bio": bio,
+            "writing_style": writing_style,
+            "linkedin_post_strategy": linkedin_post_strategy,
+        }
 
         user_feedback = user_message.content
 
-        # Determine which prompt to use
-        if previous_draft:
-            # Revision prompt
-            system_prompt = f"""
-            You are an expert copy editor revising a LinkedIn post based on user feedback.
-            - Previous Draft: {previous_draft}
-            - User Feedback: {user_feedback}
-            - Post Idea (can be a URL or text): {idea_content}
-            - User Bio: {bio}
-            - User Writing Style: {writing_style}
-            - User LinkedIn Strategy: {linkedin_post_strategy}
-
-            You MUST use the 'revise_linkedin_post_tool' to revise the draft.
-            Do not ask questions. Do not add any extra text. ONLY return the revised draft.
-            """
-        else:
-            # Generation prompt
-            system_prompt = f"""
-            You are an expert at generating posts for LinkedIn to gain the most engagement.
-            Your task is to create a LinkedIn post based on the provided content idea and user profile information.
-            - Post Idea (can be a URL or text): {idea_content}
-            - User Bio: {bio}
-            - User Writing Style: {writing_style}
-            - User LinkedIn Strategy: {linkedin_post_strategy}
-
-            If you have enough information, use the 'generate_linkedin_post_tool'.
-            If not, ask clarifying questions one at a time to better understand the user's needs, perspective, anecdtoe, and angle, etc.
-            Keep your questions concise.
-            """
-
-        # Convert prior messages (exclude the latest user message) to the correct datatype
+        # Build message history for agent (exclude most recent user message)
         history = self._convert_to_message_history(messages[:-1])
 
-        agent = self._create_agent(system_prompt)
-
-        deps = PostGeneratorService()
-
-        try:
-            async with agent.run_stream(
-                user_message.content,
-                deps=deps,
-                message_history=history,
-            ) as result:
-                full_response = ""
-                last_len = 0
-                async for text in result.stream_text():
-                    if text is None:
-                        continue
-                    delta = text[last_len:]
-                    last_len = len(text)
-                    if delta:
-                        yield ChatStreamResponse(type="message", content=delta)
-                    # Keep track of the full accumulated response so we can persist it
-                    full_response = text
-
-                # Persist the assistant's final reply
-                if full_response:
-                    await self._add_message_to_db(
-                        conversation.id, "assistant", full_response
-                    )
-
-                # After the text stream ends, there might still be tool results pending
-                for msg in result.new_messages():
-                    for p in msg.parts:
-                        if isinstance(p, ToolReturnPart):
-                            tool_output = str(p.content)
-                            await self._add_message_to_db(
-                                conversation.id, "tool", tool_output
-                            )
-                            yield ChatStreamResponse(
-                                type="tool_output", content=tool_output
-                            )
-
-                # Signal the end of the stream to the client
-                yield ChatStreamResponse(type="end")
-
-        except Exception as e:
-            logger.error(f"Error streaming chat response: {e}")
-            yield ChatStreamResponse(type="error", error=str(e))
+        # Route to appropriate handler
+        if previous_draft:
+            async for chunk in self._handle_revision(
+                conversation_id,
+                idea_content,
+                user_message,
+                history,
+                profile_data,
+                previous_draft,
+                user_feedback,
+                messages,
+            ):
+                yield chunk
+            return
+        else:
+            async for chunk in self._handle_generation(
+                conversation_id,
+                idea_content,
+                user_message,
+                history,
+                profile_data,
+                messages,
+            ):
+                yield chunk
+            return

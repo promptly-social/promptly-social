@@ -16,8 +16,6 @@ from app.schemas.profile import (
     UserPreferencesResponse,
     UserPreferencesUpdate,
     WritingStyleAnalysisUpdate,
-    LinkedInAuthResponse,
-    LinkedInShareRequest,
     AnalysisRequest,
 )
 from app.schemas.content_strategies import ContentStrategyResponse
@@ -201,117 +199,6 @@ async def update_social_connection(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update social connection",
-        )
-
-
-# LinkedIn Integration Endpoints
-@router.get("/linkedin/auth-info")
-async def get_linkedin_auth_info():
-    """Get information about the current LinkedIn authentication method."""
-    from app.core.config import settings
-
-    return {
-        "auth_method": "native",
-        "provider": "LinkedIn OAuth",
-        "configured": bool(
-            settings.linkedin_client_id and settings.linkedin_client_secret
-        ),
-    }
-
-
-@router.get("/linkedin/authorize", response_model=LinkedInAuthResponse)
-async def linkedin_authorize(
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Get LinkedIn authorization URL.
-
-    This endpoint supports native LinkedIn OAuth.
-
-    - Native LinkedIn OAuth: Returns standard LinkedIn OAuth authorization URL
-    """
-    try:
-        # Using a simple state for now, but should be more robust in production
-        state = "linkedin_oauth_state_" + current_user.id.hex
-        profile_service = ProfileService(db)
-        auth_url = profile_service.create_linkedin_authorization_url(state)
-        return LinkedInAuthResponse(authorization_url=auth_url)
-    except Exception as e:
-        logger.error(f"Error creating LinkedIn auth URL: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create LinkedIn authorization URL",
-        )
-
-
-@router.get("/linkedin/callback", response_model=SocialConnectionResponse)
-async def linkedin_callback(
-    code: str,
-    state: str,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Handle LinkedIn callback, exchange code for token, and store connection.
-
-    This endpoint handles callbacks from native LinkedIn OAuth.
-    """
-    try:
-        # Validate state to prevent CSRF attacks
-        expected_state = "linkedin_oauth_state_" + current_user.id.hex
-        if state != expected_state:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid state parameter",
-            )
-
-        profile_service = ProfileService(db)
-
-        # Native LinkedIn OAuth flow
-        connection = await profile_service.exchange_linkedin_code_for_token(
-            code, current_user.id
-        )
-        return SocialConnectionResponse.model_validate(connection)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error in LinkedIn callback: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process LinkedIn callback",
-        )
-
-
-@router.post("/linkedin/share")
-async def share_on_linkedin(
-    share_request: LinkedInShareRequest,
-    current_user: UserResponse = Depends(get_current_user),
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Share a post on LinkedIn.
-
-    This endpoint supports sharing via native LinkedIn API.
-    """
-    try:
-        profile_service = ProfileService(db)
-        result = await profile_service.share_on_linkedin(
-            current_user.id, share_request.text
-        )
-        return result
-    except ValueError as e:
-        logger.error(f"Value error sharing to LinkedIn: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.error(f"Error sharing to LinkedIn: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to share on LinkedIn",
         )
 
 

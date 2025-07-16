@@ -46,8 +46,7 @@ export interface UserLogin {
   password: string;
 }
 
-export interface GoogleAuthRequest {
-  id_token: string;
+export interface LinkedInAuthRequest {
   redirect_to?: string;
 }
 

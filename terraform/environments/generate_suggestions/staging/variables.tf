@@ -39,7 +39,7 @@ variable "openrouter_models_fallback" {
   default     = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
 }
 
-variable "openrouter_temperature" {
+variable "openrouter_model_temperature" {
   description = "The temperature setting for OpenRouter model requests."
   type        = string
   default     = "0.0"

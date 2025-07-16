@@ -9,6 +9,7 @@ from typing import Optional
 from uuid import UUID
 
 from google.cloud import scheduler_v1
+from google.api_core.exceptions import NotFound, GoogleAPICallError
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +89,7 @@ class DailySuggestionScheduleService:
                 "headers": {"Content-Type": "application/json"},
                 "body": payload,
             },
-            "attempt_deadline": "10m",
+            "attempt_deadline": "600s",
         }
 
         # Add OIDC token if service account email is set
@@ -97,26 +98,41 @@ class DailySuggestionScheduleService:
                 "service_account_email": settings.gcp_app_service_account_email
             }
 
+        update_mask = {
+            "paths": [
+                "schedule",
+                "time_zone",
+                "http_target.http_method",
+                "http_target.uri",
+                "http_target.headers",
+                "http_target.body",
+                "http_target.oidc_token.service_account_email",
+            ]
+        }
         try:
-            # Try to get the existing job
-            client.get_job(name=name)
-            # If we get here, the job exists - update it with all fields
-            update_mask = {
-                "paths": [
-                    "schedule",
-                    "time_zone",
-                    "http_target.http_method",
-                    "http_target.uri",
-                    "http_target.headers",
-                    "http_target.body",
-                    "http_target.oidc_token.service_account_email",
-                ]
-            }
             client.update_job(job=job, update_mask=update_mask)
             logger.info(f"Updated Cloud Scheduler job {name}")
-        except Exception:
-            client.create_job(parent=self._parent_path(), job=job)
-            logger.info(f"Created Cloud Scheduler job {name}")
+        except NotFound:
+            # Update failed because job doesn't exist – create it.
+            job_to_create = dict(job)
+            try:
+                # Provide the full job resource (including `name`) so GCP honors deterministic
+                # job naming. `CloudSchedulerClient.create_job` does not support a `job_id`
+                # keyword argument, so we pass only `parent` and `job`.
+                client.create_job(
+                    parent=self._parent_path(),
+                    job=job_to_create,
+                )
+                logger.info(f"Created Cloud Scheduler job {name}")
+            except GoogleAPICallError as e:
+                logger.error(
+                    f"Failed to create Cloud Scheduler job {name}: {e.message if hasattr(e, 'message') else e}"
+                )
+        except GoogleAPICallError as e:
+            # Catch-all for other API errors.
+            logger.error(
+                f"Cloud Scheduler API error while upserting job {name}: {e.message if hasattr(e, 'message') else e}"
+            )
 
     def _delete_job(self, user_id: UUID):
         client = self._client()

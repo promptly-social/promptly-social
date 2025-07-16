@@ -3,11 +3,9 @@ import type {
   User,
   AuthResponse,
   TokenResponse,
-  UserCreate,
-  UserLogin,
   UserUpdate,
   SuccessResponse,
-  GoogleAuthRequest,
+  LinkedInAuthRequest,
 } from "@/types/auth";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -47,7 +45,10 @@ class ApiClient {
   private isRefreshing = false;
   private refreshSubscribers: ((token: string) => void)[] = [];
 
-  private async handleResponse<T>(response: Response, requestInfo: { url: string; options: RequestInit }): Promise<T> {
+  private async handleResponse<T>(
+    response: Response,
+    requestInfo: { url: string; options: RequestInit }
+  ): Promise<T> {
     const contentType = response.headers.get("content-type");
 
     // Short-circuit for 204 / 205 No-Content
@@ -67,7 +68,7 @@ class ApiClient {
     }
 
     // If unauthorized and not a refresh token request, try to refresh the token
-    if (response.status === 401 && !response.url.includes('auth/refresh')) {
+    if (response.status === 401 && !response.url.includes("auth/refresh")) {
       return this.handleUnauthorized(requestInfo) as Promise<T>;
     }
 
@@ -102,13 +103,16 @@ class ApiClient {
     return data;
   }
 
-  private async handleUnauthorized<T>(requestInfo: { url: string; options: RequestInit }): Promise<T> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    
+  private async handleUnauthorized<T>(requestInfo: {
+    url: string;
+    options: RequestInit;
+  }): Promise<T> {
+    const refreshToken = localStorage.getItem("refresh_token");
+
     if (!refreshToken) {
       // No refresh token available, redirect to login
       this.redirectToLogin();
-      throw new Error('No refresh token available');
+      throw new Error("No refresh token available");
     }
 
     // If we're already refreshing the token, add this request to the queue
@@ -117,12 +121,12 @@ class ApiClient {
         this.refreshSubscribers.push((newToken: string) => {
           // Update the token in the original request
           const headers = new Headers(requestInfo.options.headers);
-          headers.set('Authorization', `Bearer ${newToken}`);
-          
+          headers.set("Authorization", `Bearer ${newToken}`);
+
           // Retry the original request with the new token
-          this.request<T>(requestInfo.url, { 
-            ...requestInfo.options, 
-            headers 
+          this.request<T>(requestInfo.url, {
+            ...requestInfo.options,
+            headers,
           })
             .then(resolve)
             .catch(reject);
@@ -135,9 +139,9 @@ class ApiClient {
     try {
       // Try to refresh the token
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
       const data = await response.json();
@@ -146,23 +150,23 @@ class ApiClient {
         // If refresh fails, clear tokens and redirect to login
         this.clearAuthTokens();
         this.redirectToLogin();
-        throw new Error('Session expired. Please log in again.');
+        throw new Error("Session expired. Please log in again.");
       }
 
       // Update tokens in storage
-      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem("access_token", data.access_token);
       if (data.refresh_token) {
-        localStorage.setItem('refresh_token', data.refresh_token);
+        localStorage.setItem("refresh_token", data.refresh_token);
       }
 
       // Update the token in the original request
       const headers = new Headers(requestInfo.options.headers);
-      headers.set('Authorization', `Bearer ${data.access_token}`);
+      headers.set("Authorization", `Bearer ${data.access_token}`);
 
       // Retry the original request with the new token
       const retryResponse = await fetch(requestInfo.url, {
         ...requestInfo.options,
-        headers
+        headers,
       });
 
       // Process all queued requests with the new token
@@ -181,21 +185,21 @@ class ApiClient {
 
   private processRefreshQueue(newToken: string) {
     // Process all queued requests with the new token
-    this.refreshSubscribers.forEach(callback => callback(newToken));
+    this.refreshSubscribers.forEach((callback) => callback(newToken));
     this.refreshSubscribers = [];
   }
 
   private clearAuthTokens() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
   }
 
   private redirectToLogin() {
     // Clear any existing tokens
     this.clearAuthTokens();
-    
+
     // Redirect to login page
-    const loginUrl = '/login';
+    const loginUrl = "/login";
     if (window.location.pathname !== loginUrl) {
       window.location.href = loginUrl;
     }
@@ -203,10 +207,24 @@ class ApiClient {
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+
+    const headers = new Headers(this.getAuthHeaders());
+
+    if (options.headers) {
+      new Headers(options.headers).forEach((value, key) => {
+        headers.set(key, value);
+      });
+    }
+
     const config: RequestInit = {
-      headers: this.getAuthHeaders(),
       ...options,
+      headers,
     };
+
+    if (config.body instanceof FormData) {
+      // Let the browser set the Content-Type header for FormData
+      headers.delete("Content-Type");
+    }
 
     try {
       const response = await fetch(url, config);
@@ -214,9 +232,11 @@ class ApiClient {
     } catch (error) {
       if (error instanceof ApiError) {
         // If we get a 401 and it's not a login/refresh request, try to refresh the token
-        if (error.status === 401 && 
-            !endpoint.includes('auth/login') && 
-            !endpoint.includes('auth/refresh')) {
+        if (
+          error.status === 401 &&
+          !endpoint.includes("auth/login") &&
+          !endpoint.includes("auth/refresh")
+        ) {
           // This will be handled by the interceptor
           throw error;
         }
@@ -229,38 +249,24 @@ class ApiClient {
   }
 
   // Authentication endpoints
-  async signUp(
-    userData: Omit<UserCreate, "preferred_language" | "timezone">
-  ): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/auth/signup", {
-      method: "POST",
-      body: JSON.stringify(userData),
-    });
-  }
-
-  async signIn(credentials: UserLogin): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/auth/signin", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    });
-  }
-
-  async signInWithGoogle(
+  async signInWithLinkedIn(
     redirectTo?: string
   ): Promise<{ url: string; message: string }> {
+    const payload: Partial<LinkedInAuthRequest> = {};
+    if (redirectTo) {
+      payload.redirect_to = redirectTo;
+    }
     return this.request<{ url: string; message: string }>(
-      "/auth/signin/google",
+      "/auth/signin/linkedin",
       {
         method: "POST",
-        body: JSON.stringify({ redirect_to: redirectTo }),
+        body: JSON.stringify(payload),
       }
     );
   }
 
   async signOut(): Promise<SuccessResponse> {
-    return this.request<SuccessResponse>("/auth/signout", {
-      method: "POST",
-    });
+    return this.request<SuccessResponse>("/auth/signout", { method: "POST" });
   }
 
   async refreshToken(refreshToken: string): Promise<TokenResponse> {
@@ -271,9 +277,7 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.request<User>("/auth/me", {
-      method: "GET",
-    });
+    return this.request<User>("/auth/me");
   }
 
   async updateUser(userData: UserUpdate): Promise<User> {
@@ -283,21 +287,35 @@ class ApiClient {
     });
   }
 
-  async requestPasswordReset(email: string): Promise<SuccessResponse> {
-    return this.request<SuccessResponse>("/auth/password/reset", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  }
-
-  async resendVerificationEmail(email: string): Promise<SuccessResponse> {
-    return this.request<SuccessResponse>("/auth/resend-verification", {
-      method: "POST",
-      body: JSON.stringify({ email }),
+  async deleteAccount(): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>("/auth/me", {
+      method: "DELETE",
     });
   }
 }
 
 export const apiClient = new ApiClient();
+
+export const authApi = {
+  signInWithLinkedIn(redirectTo?: string) {
+    return apiClient.signInWithLinkedIn(redirectTo);
+  },
+  signOut() {
+    return apiClient.signOut();
+  },
+  refreshToken(refreshToken: string) {
+    return apiClient.refreshToken(refreshToken);
+  },
+  getCurrentUser() {
+    return apiClient.getCurrentUser();
+  },
+  updateUser(userData: UserUpdate) {
+    return apiClient.updateUser(userData);
+  },
+  deleteAccount() {
+    return apiClient.deleteAccount();
+  },
+};
+
 export { ApiError };
 export type { ApiResponse };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Table,
@@ -9,8 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogClose,
@@ -21,25 +20,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import {
-  ArrowUpDown,
-  Plus,
-  Trash2,
-  ExternalLink,
-  Edit,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
+import { ArrowUpDown, Plus } from "lucide-react";
+import IdeaBankContent from "@/components/idea-bank/IdeaBankContent";
+import IdeaBankLastPost from "@/components/idea-bank/IdeaBankLastPost";
+import IdeaBankActions from "@/components/idea-bank/IdeaBankActions";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   ideaBankApi,
   type IdeaBankWithPost,
@@ -47,41 +34,50 @@ import {
   type IdeaBankFilters,
   type SuggestedPost,
 } from "@/lib/idea-bank-api";
-import { postsApi, type Post } from "@/lib/posts-api";
+import { postsApi } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
 import AppLayout from "@/components/AppLayout";
-import { ScheduledPostDetails } from "@/components/ScheduledPostDetails";
-import { RescheduleModal } from "@/components/RescheduleModal";
-import { PostScheduleModal } from "@/components/PostScheduleModal";
+import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
+import { RescheduleModal } from "@/components/schedule-modal/RescheduleModal";
+import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
 import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
+import { PostCard } from "@/components/shared/post-card/PostCard";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
 
 interface SortConfig {
-  key: "type" | "value" | "evergreen" | "updated_at";
+  key: "updated_at";
   direction: "asc" | "desc";
 }
 
-interface Filters {
-  ai_suggested?: boolean;
-  evergreen?: boolean;
-  has_post?: boolean;
-}
-
-const IdeaBankPage: React.FC = () => {
+const IdeaBank: React.FC = () => {
   const [ideaBanksWithPosts, setIdeaBanksWithPosts] = useState<
     IdeaBankWithPost[]
   >([]);
-  const [loading, setLoading] = useState(true);
+  // Local cache for quick UI updates; primary source is React Query data
+  // No explicit loading state – we use React Query's `isLoading`.
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "updated_at",
     direction: "desc",
   });
-  const [filters, setFilters] = useState<Filters>({
-    // By default, exclude AI suggested content
-    ai_suggested: false,
-  });
-  const [pendingFilters, setPendingFilters] = useState<Filters>({
-    // By default, exclude AI suggested content
-    ai_suggested: false,
-  });
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingIdeaBank, setEditingIdeaBank] =
@@ -95,7 +91,6 @@ const IdeaBankPage: React.FC = () => {
   const [generatedPost, setGeneratedPost] = useState<Post | null>(null);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduledPosts, setScheduledPosts] = useState<Post[]>([]);
   const [formData, setFormData] = useState<IdeaBankCreate>({
     data: {
       type: "text",
@@ -105,6 +100,8 @@ const IdeaBankPage: React.FC = () => {
       ai_suggested: false,
     },
   });
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const resetFormData = () => {
     setFormData({
@@ -118,43 +115,35 @@ const IdeaBankPage: React.FC = () => {
     });
   };
 
-  useEffect(() => {
-    loadIdeaBanks();
-    loadScheduledPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortConfig, filters]);
+  // React Query fetch + cache
+  const queryClient = useQueryClient();
 
-  const loadScheduledPosts = async () => {
-    try {
-      const response = await postsApi.getPosts({
-        status: ["scheduled"],
-        size: 100,
-      });
-      setScheduledPosts(response.items);
-    } catch (error) {
-      console.error("Failed to load scheduled posts:", error);
-      // Do not show toast here as it's a background fetch
-    }
-  };
-
-  const loadIdeaBanks = async () => {
-    try {
-      setLoading(true);
+  const { data: queryIdeaBanksData, isLoading: isIdeasLoading } = useQuery({
+    queryKey: ["ideaBanks", sortConfig.direction, page, pageSize],
+    queryFn: async () => {
       const filterParams: IdeaBankFilters = {
         order_by: "updated_at",
         order_direction: sortConfig.direction,
-        size: 100,
-        ...filters,
+        size: pageSize,
+        page,
+        ai_suggested: false,
       };
+      return ideaBankApi.listWithPosts(filterParams);
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
 
-      const response = await ideaBankApi.listWithPosts(filterParams);
-      setIdeaBanksWithPosts(response.items);
-    } catch (error) {
-      console.error("Failed to load idea banks:", error);
-      toast.error("Failed to load idea banks");
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    setIdeaBanksWithPosts(queryIdeaBanksData?.items ?? []);
+  }, [queryIdeaBanksData]);
+
+  // Total pages calculation
+  const totalItems = queryIdeaBanksData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  // Wrapper to refresh cached data (keeps existing call sites)
+  const loadIdeaBanks = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["ideaBanks"] });
   };
 
   const handleSort = (key: SortConfig["key"]) => {
@@ -162,6 +151,7 @@ const IdeaBankPage: React.FC = () => {
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
+    setPage(1); // Reset to first page when sorting changes
   };
 
   const handleCreate = async () => {
@@ -170,7 +160,7 @@ const IdeaBankPage: React.FC = () => {
       toast.success("Idea bank created successfully");
       setShowCreateDialog(false);
       resetFormData();
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to create idea bank:", error);
       toast.error("Failed to create idea bank");
@@ -202,7 +192,7 @@ const IdeaBankPage: React.FC = () => {
       setShowEditDialog(false);
       setEditingIdeaBank(null);
       setEditFormData(null);
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to update idea bank:", error);
       toast.error("Failed to update idea bank");
@@ -217,7 +207,7 @@ const IdeaBankPage: React.FC = () => {
     try {
       await ideaBankApi.delete(id);
       toast.success("Idea bank deleted successfully");
-      loadIdeaBanks();
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to delete idea bank:", error);
       toast.error("Failed to delete idea bank");
@@ -226,10 +216,10 @@ const IdeaBankPage: React.FC = () => {
 
   const handleSavePostForLater = async (post: Post) => {
     try {
-      await postsApi.updatePost(post.id, { status: "saved" });
-      toast.success("Post saved for later.");
+      await postsApi.updatePost(post.id, { status: "draft" });
+      toast.success("Post moved to Drafts.");
       setGeneratedPost(null);
-      loadIdeaBanks(); // Refresh to show updated post status
+      await loadIdeaBanks(); // Refresh to show updated post status
     } catch (error) {
       console.error("Failed to save post for later:", error);
       toast.error("Failed to save post for later.");
@@ -249,12 +239,6 @@ const IdeaBankPage: React.FC = () => {
 
   const openScheduleModal = async (postToSchedule: Post) => {
     try {
-      // Always fetch the latest scheduled posts before opening the modal
-      const response = await postsApi.getPosts({
-        status: ["scheduled"],
-        size: 100,
-      });
-      setScheduledPosts(response.items);
       setGeneratedPost(postToSchedule);
       setShowScheduleModal(true);
     } catch (error) {
@@ -270,9 +254,7 @@ const IdeaBankPage: React.FC = () => {
       setGeneratedPost(null);
       setShowRescheduleModal(false);
       setShowScheduleModal(false);
-      loadIdeaBanks();
-      // Optimistically update the scheduled posts list
-      setScheduledPosts((prev) => [...prev, scheduledPost]);
+      await loadIdeaBanks();
     } catch (error) {
       console.error("Failed to schedule post:", error);
       toast.error("Failed to schedule post.");
@@ -304,15 +286,6 @@ const IdeaBankPage: React.FC = () => {
     return sorted;
   };
 
-  const isUrl = (value: string) => {
-    try {
-      new URL(value);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -323,107 +296,12 @@ const IdeaBankPage: React.FC = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    const statusColors: Record<string, string> = {
-      suggested: "bg-gray-100 text-gray-800",
-      saved: "bg-purple-100 text-purple-800",
-      posted: "bg-green-100 text-green-800",
-      scheduled: "bg-yellow-100 text-yellow-800",
-      canceled: "bg-orange-100 text-orange-800",
-      dismissed: "bg-red-100 text-red-800",
-    };
-    return statusColors[status] || "bg-gray-100 text-gray-800";
+  const viewPostDetails = (post: SuggestedPost) => {
+    setSelectedPost(post as Post);
+    setIsModalOpen(true);
   };
 
-  const navigateToSuggestedPost = (post: SuggestedPost) => {
-    // Navigate to the my content page with this post selected
-    window.open(`/my-content?post=${post.id}`, "_blank");
-  };
-
-  const renderIdeaBankContent = (ideaBank: IdeaBankWithPost["idea_bank"]) => {
-    return (
-      <div className="space-y-1">
-        {ideaBank.data.title && (
-          <div className="font-medium text-sm text-gray-900">
-            {ideaBank.data.title}
-          </div>
-        )}
-        {isUrl(ideaBank.data.value) ? (
-          <a
-            href={ideaBank.data.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
-          >
-            <span className="break-all">{ideaBank.data.value}</span>
-            <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
-          </a>
-        ) : (
-          <div className="whitespace-pre-wrap break-words text-sm">
-            {ideaBank.data.value}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderLastPostUsed = (latestPost: SuggestedPost | undefined) => {
-    if (!latestPost) {
-      return <span className="text-muted-foreground">No post created yet</span>;
-    }
-
-    return (
-      <div className="space-y-1">
-        <button
-          onClick={() => navigateToSuggestedPost(latestPost)}
-          className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-        >
-          View Post
-          <ExternalLink className="w-3 h-3" />
-        </button>
-        <div>
-          <Badge
-            className={getStatusColor(latestPost.status)}
-            variant="secondary"
-          >
-            {latestPost.status.charAt(0).toUpperCase() +
-              latestPost.status.slice(1)}
-          </Badge>
-        </div>
-      </div>
-    );
-  };
-
-  const Actions: React.FC<{ ideaBankWithPost: IdeaBankWithPost }> = ({
-    ideaBankWithPost,
-  }) => (
-    <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIdeaToGenerate(ideaBankWithPost)}
-        className="text-indigo-600 hover:text-indigo-800 p-1 h-8 w-8"
-      >
-        <Sparkles className="w-4 h-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleEdit(ideaBankWithPost)}
-        className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
-      >
-        <Edit className="w-4 h-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleDelete(ideaBankWithPost.idea_bank.id)}
-        className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
-    </div>
-  );
+  // Removed in-file render components; replaced with extracted ones
 
   const SortButton: React.FC<{
     column: SortConfig["key"];
@@ -464,89 +342,18 @@ const IdeaBankPage: React.FC = () => {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="type">Type</Label>
-            <Select
-              value={formData.data.type}
-              onValueChange={(value: "url" | "text") =>
+            <Textarea
+              id="value"
+              placeholder="Enter your idea or drop in a URL to an article..."
+              value={formData.data.value}
+              onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  data: {
-                    ...prev.data,
-                    type: value,
-                    title: value === "text" ? "" : prev.data.title,
-                  },
+                  data: { ...prev.data, value: e.target.value },
                 }))
               }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="url">URL</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {formData.data.type === "url" && (
-            <div className="space-y-2">
-              <Label htmlFor="title">Title (Optional)</Label>
-              <Input
-                id="title"
-                placeholder="Enter a title for this article or post..."
-                value={formData.data.title || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, title: e.target.value },
-                  }))
-                }
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="value">
-              {formData.data.type === "url" ? "URL" : "Content"}
-            </Label>
-            {formData.data.type === "url" ? (
-              <Input
-                id="value"
-                type="url"
-                placeholder={"https://example.com/url"}
-                value={formData.data.value}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, value: e.target.value },
-                  }))
-                }
-              />
-            ) : (
-              <Textarea
-                id="value"
-                placeholder="Enter your idea or text content..."
-                value={formData.data.value}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, value: e.target.value },
-                  }))
-                }
-                rows={4}
-                className="min-h-[100px] resize-none"
-              />
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="time-sensitive"
-              checked={formData.data.time_sensitive}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  data: { ...prev.data, time_sensitive: checked },
-                }))
-              }
+              rows={4}
+              className="min-h-[100px] resize-none"
             />
           </div>
         </div>
@@ -562,20 +369,37 @@ const IdeaBankPage: React.FC = () => {
     </Dialog>
   );
 
-  if (loading) {
-    return (
-      <AppLayout title="Ideas" emailBreakpoint="md">
-        <main className="py-4 px-4 sm:py-8 sm:px-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
-              <p className="text-gray-600">Loading your ideas...</p>
+  // Skeleton components --------------------------------------------------
+  const MobileSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <Card key={idx} className="border">
+          <CardContent className="p-4 space-y-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+            <div className="flex gap-2">
+              <Skeleton className="h-4 w-16 rounded-full" />
+              <Skeleton className="h-4 w-16 rounded-full" />
             </div>
-          </div>
-        </main>
-      </AppLayout>
-    );
-  }
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  const TableSkeleton = ({ cols }: { cols: number }) => (
+    <>
+      {Array.from({ length: 5 }).map((_, rowIdx) => (
+        <TableRow key={rowIdx}>
+          {Array.from({ length: cols }).map((__, colIdx) => (
+            <TableCell key={colIdx}>
+              <Skeleton className="h-4 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
 
   return (
     <AppLayout title="Ideas" emailBreakpoint="md">
@@ -589,6 +413,27 @@ const IdeaBankPage: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center justify-end sm:justify-end gap-2">
+              {/* Page size selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value));
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {addButton}
             </div>
           </div>
@@ -604,7 +449,9 @@ const IdeaBankPage: React.FC = () => {
               <span>{getSortedData().length} ideas</span>
             </div>
 
-            {getSortedData().length === 0 ? (
+            {isIdeasLoading ? (
+              <MobileSkeleton />
+            ) : getSortedData().length === 0 ? (
               <div className="text-center py-8 bg-white rounded-lg border">
                 <div className="text-muted-foreground">
                   No ideas found. Create your first idea to get started.
@@ -625,7 +472,7 @@ const IdeaBankPage: React.FC = () => {
                           Content:
                         </span>
                         <div className="mt-1">
-                          {renderIdeaBankContent(ideaBank)}
+                          <IdeaBankContent ideaBank={ideaBank} />
                         </div>
                       </div>
 
@@ -640,10 +487,19 @@ const IdeaBankPage: React.FC = () => {
                           Last Post Used:
                         </span>
                         <div className="mt-1">
-                          {renderLastPostUsed(latestPost)}
+                          <IdeaBankLastPost
+                            latestPost={latestPost}
+                            onView={viewPostDetails}
+                          />
                         </div>
                       </div>
                     </div>
+                    <IdeaBankActions
+                      ideaBankWithPost={ideaBankWithPost}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+                    />
                   </div>
                 );
               })
@@ -664,7 +520,9 @@ const IdeaBankPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {getSortedData().length === 0 ? (
+                {isIdeasLoading ? (
+                  <TableSkeleton cols={4} />
+                ) : getSortedData().length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -679,14 +537,24 @@ const IdeaBankPage: React.FC = () => {
                     return (
                       <TableRow key={ideaBank.id}>
                         <TableCell className="min-w-0">
-                          {renderIdeaBankContent(ideaBank)}
+                          <IdeaBankContent ideaBank={ideaBank} />
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDate(ideaBank.updated_at)}
                         </TableCell>
-                        <TableCell>{renderLastPostUsed(latestPost)}</TableCell>
                         <TableCell>
-                          <Actions ideaBankWithPost={ideaBankWithPost} />
+                          <IdeaBankLastPost
+                            latestPost={latestPost}
+                            onView={viewPostDetails}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IdeaBankActions
+                            ideaBankWithPost={ideaBankWithPost}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -701,9 +569,7 @@ const IdeaBankPage: React.FC = () => {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[250px]">
-                    <SortButton column="value">Content</SortButton>
-                  </TableHead>
+                  <TableHead className="min-w-[250px]">Content</TableHead>
                   <TableHead className="w-[120px]">
                     <SortButton column="updated_at">Updated</SortButton>
                   </TableHead>
@@ -712,7 +578,9 @@ const IdeaBankPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {getSortedData().length === 0 ? (
+                {isIdeasLoading ? (
+                  <TableSkeleton cols={4} />
+                ) : getSortedData().length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -727,7 +595,7 @@ const IdeaBankPage: React.FC = () => {
                     return (
                       <TableRow key={ideaBank.id}>
                         <TableCell className="min-w-0">
-                          {renderIdeaBankContent(ideaBank)}
+                          <IdeaBankContent ideaBank={ideaBank} />
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {new Date(ideaBank.updated_at).toLocaleDateString(
@@ -741,36 +609,19 @@ const IdeaBankPage: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {latestPost ? (
-                            <div className="space-y-1">
-                              <button
-                                onClick={() =>
-                                  navigateToSuggestedPost(latestPost)
-                                }
-                                className="text-blue-600 hover:text-blue-800 hover:underline text-xs flex items-center gap-1"
-                              >
-                                View
-                                <ExternalLink className="w-3 h-3" />
-                              </button>
-                              <Badge
-                                className={`${getStatusColor(
-                                  latestPost.status
-                                )} text-xs`}
-                                variant="secondary"
-                              >
-                                {latestPost.status.charAt(0).toUpperCase() +
-                                  latestPost.status.slice(1)}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">
-                              No post created yet
-                            </span>
-                          )}
+                          <IdeaBankLastPost
+                            latestPost={latestPost}
+                            onView={viewPostDetails}
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col items-center gap-1">
-                            <Actions ideaBankWithPost={ideaBankWithPost} />
+                            <IdeaBankActions
+                              ideaBankWithPost={ideaBankWithPost}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                              onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+                            />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -781,6 +632,45 @@ const IdeaBankPage: React.FC = () => {
             </Table>
           </div>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <Pagination className="mt-6">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }).map((_, idx) => (
+                <PaginationItem key={idx}>
+                  <PaginationLink
+                    href="#"
+                    isActive={page === idx + 1}
+                    onClick={() => setPage(idx + 1)}
+                  >
+                    {idx + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  className={
+                    page === totalPages ? "pointer-events-none opacity-50" : ""
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
       </main>
 
       {/* Edit Dialog */}
@@ -803,92 +693,19 @@ const IdeaBankPage: React.FC = () => {
             <>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-type">Type</Label>
-                  <Select
-                    value={editFormData.type}
-                    onValueChange={(newType: "url" | "text") => {
-                      setEditFormData((prev) => {
-                        if (!prev) return null;
-                        return {
-                          ...prev,
-                          type: newType,
-                          value: "",
-                          title: newType !== "url" ? "" : prev.title,
-                        };
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="url">URL</SelectItem>
-                      <SelectItem value="text">Text</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {editFormData.type === "url" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-title">Title (Optional)</Label>
-                    <Input
-                      id="edit-title"
-                      placeholder="Enter an optional title for this link..."
-                      value={editFormData.title || ""}
-                      onChange={(e) =>
-                        setEditFormData((prev) => ({
-                          ...prev!,
-                          title: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="edit-value">
-                    {editFormData.type === "url" ? "URL" : "Content"}
-                  </Label>
-                  {editFormData.type === "url" ? (
-                    <Input
-                      key="value-input"
-                      id="edit-value"
-                      type="url"
-                      placeholder={"https://example.com/url"}
-                      value={editFormData.value}
-                      onChange={(e) =>
-                        setEditFormData((prev) => ({
-                          ...prev!,
-                          value: e.target.value,
-                        }))
-                      }
-                    />
-                  ) : (
-                    <Textarea
-                      key="value-textarea"
-                      id="edit-value"
-                      placeholder="Enter your idea or text content..."
-                      value={editFormData.value}
-                      onChange={(e) =>
-                        setEditFormData((prev) => ({
-                          ...prev!,
-                          value: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className="min-h-[100px] resize-none"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="edit-time-sensitive"
-                    checked={editFormData.time_sensitive}
-                    onCheckedChange={(checked) =>
+                  <Textarea
+                    key="value-textarea"
+                    id="edit-value"
+                    placeholder="Enter your idea or text content..."
+                    value={editFormData.value}
+                    onChange={(e) =>
                       setEditFormData((prev) => ({
                         ...prev!,
-                        time_sensitive: checked,
+                        value: e.target.value,
                       }))
                     }
+                    rows={4}
+                    className="min-h-[100px] resize-none"
                   />
                 </div>
               </div>
@@ -910,6 +727,7 @@ const IdeaBankPage: React.FC = () => {
 
       {/* Generate Post Confirmation Dialog */}
       <PostGenerationChatDialog
+        conversationType="post_generation"
         idea={ideaToGenerate}
         open={!!ideaToGenerate}
         onOpenChange={(isOpen) => !isOpen && setIdeaToGenerate(null)}
@@ -936,7 +754,6 @@ const IdeaBankPage: React.FC = () => {
           isOpen={showRescheduleModal}
           onClose={() => setShowRescheduleModal(false)}
           onReschedule={handleSchedulePost}
-          scheduledPosts={scheduledPosts}
         />
       )}
 
@@ -947,11 +764,21 @@ const IdeaBankPage: React.FC = () => {
           isOpen={showScheduleModal}
           onClose={() => setShowScheduleModal(false)}
           onSchedule={handleSchedulePost}
-          scheduledPosts={scheduledPosts}
         />
       )}
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Post Details</DialogTitle>
+          </DialogHeader>
+          {selectedPost && (
+            <PostCard post={selectedPost} onPostUpdate={loadIdeaBanks} />
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
 
-export default IdeaBankPage;
+export default IdeaBank;

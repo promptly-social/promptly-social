@@ -7,6 +7,7 @@ This script allows you to test the function locally without deploying to GCP.
 import json
 import os
 import sys
+import asyncio
 from typing import Dict, Any
 from dotenv import load_dotenv
 
@@ -38,7 +39,12 @@ def setup_environment():
         print("⚠️  No .env file found. Please ensure environment variables are set.")
 
     # Check required environment variables
-    required_vars = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY", "OPENROUTER_API_KEY"]
+    required_vars = [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_KEY",
+        "OPENROUTER_API_KEY",
+        "ZYTE_API_KEY",
+    ]
 
     missing_vars = []
     for var in required_vars:
@@ -52,14 +58,14 @@ def setup_environment():
 
     # Set default for optional variables
     if not os.getenv("NUMBER_OF_POSTS_TO_GENERATE"):
-        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "5"
+        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "1"
         print("ℹ️  Set NUMBER_OF_POSTS_TO_GENERATE to default value: 5")
 
     print("✅ All required environment variables are set")
     return True
 
 
-def test_generate_suggestions(user_id: str):
+async def test_generate_suggestions(user_id: str):
     """Test the generate_suggestions function with a specific user ID."""
 
     print(f"\n🧪 Testing generate_suggestions for user: {user_id}")
@@ -71,7 +77,7 @@ def test_generate_suggestions(user_id: str):
 
     try:
         # Call the function
-        response_data, status_code, headers = generate_suggestions(mock_request)
+        response_data, status_code, headers = await generate_suggestions(mock_request)
 
         # Parse response
         if isinstance(response_data, str):
@@ -109,7 +115,7 @@ def test_generate_suggestions(user_id: str):
         return None, 500
 
 
-def main():
+async def main():
     """Main function to run the tests."""
     print("🚀 Starting local test for generate_suggestions Cloud Function")
     print("=" * 60)
@@ -119,9 +125,9 @@ def main():
         print("\n❌ Environment setup failed. Exiting.")
         sys.exit(1)
 
-    test_user_id = "827b476e-93b2-4a70-8a52-78e8500d26fe"
+    test_user_id = "1dffd8e7-d135-465d-8a6c-8beed6b1064d"
     # Run the main test
-    response, status = test_generate_suggestions(test_user_id)
+    response, status = await test_generate_suggestions(test_user_id)
 
     # Test error cases
     print("\n🧪 Testing error cases...")
@@ -130,17 +136,17 @@ def main():
     # Test with missing user_id
     print("\n🔍 Testing with missing user_id:")
     mock_request = MockRequest({})
-    response_data, status_code, headers = generate_suggestions(mock_request)
+    response_data, status_code, headers = await generate_suggestions(mock_request)
     print(f"   Status: {status_code} (expected: 400)")
 
     # Test with invalid JSON
     print("\n🔍 Testing with invalid request:")
     mock_request = MockRequest(None)
-    response_data, status_code, headers = generate_suggestions(mock_request)
+    response_data, status_code, headers = await generate_suggestions(mock_request)
     print(f"   Status: {status_code} (expected: 400)")
 
     print("\n🎉 Local testing completed!")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

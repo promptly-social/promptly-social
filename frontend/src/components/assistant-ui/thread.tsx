@@ -26,8 +26,14 @@ import {
 } from "@/components/ui/card";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { usePostScheduling } from "../chat/PostGenerationChatDialog";
+import { Badge } from "@/components/ui/badge";
+
+interface GeneratedPost {
+  linkedin_post: string;
+  topics: string[];
+}
 
 export const Thread: FC<{ placeholder?: string; initialText?: string }> = ({
   placeholder = "Write a message...",
@@ -36,6 +42,7 @@ export const Thread: FC<{ placeholder?: string; initialText?: string }> = ({
   return (
     <ThreadPrimitive.Root
       className="bg-background box-border flex h-full flex-col overflow-hidden"
+      scroll-lock
       style={{
         ["--thread-max-width" as string]: "42rem",
       }}
@@ -186,9 +193,20 @@ const EditComposer: FC = () => {
   );
 };
 
+/**
+ * The AssistantMessage component is a custom implementation of the
+ * {@link MessagePrimitive.Root} component that is used to render messages
+ * sent by the assistant. It adds some additional features such as a preview
+ * card for tool output and a button to use the preview as a draft for a
+ * social media post.
+ *
+ * @example
+ * <AssistantMessage />
+ */
 const AssistantMessage: FC = () => {
   const message = useMessage();
   const { onSchedule } = usePostScheduling();
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const isToolOutput = useMemo(
     () => message.content[0]?.type === "tool-call",
@@ -200,31 +218,87 @@ const AssistantMessage: FC = () => {
       ? (message.content[0] as ToolCallContentPart & { result?: string })
       : null;
 
+  let generatedPost: GeneratedPost | null = null;
+  if (toolCallContent?.result) {
+    try {
+      generatedPost = JSON.parse(toolCallContent.result);
+    } catch (e) {
+      // Not a json, will be rendered as string
+    }
+  }
+
+  useEffect(() => {
+    if (toolCallContent && cardRef.current) {
+      // The thread will scroll to the bottom automatically on new messages.
+      // To counteract this for tool calls, we wait a moment and then scroll
+      // to the card, overriding the default scroll behavior.
+      const timer = setTimeout(() => {
+        cardRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 100); // A small delay is needed to ensure this runs after the default scroll.
+
+      return () => clearTimeout(timer);
+    }
+  }, [toolCallContent]);
+
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5">
         {toolCallContent ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Preview</CardTitle>
-            </CardHeader>
-            <CardContent className="prose dark:prose-invert text-sm py-4 px-6">
-              <p style={{ whiteSpace: "pre-wrap" }}>
-                {toolCallContent.result as string}
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button
-                onClick={() => {
-                  if (toolCallContent.result) {
-                    onSchedule(toolCallContent.result);
-                  }
-                }}
-              >
-                Schedule this post
-              </Button>
-            </CardFooter>
-          </Card>
+          generatedPost ? (
+            <Card ref={cardRef}>
+              <CardHeader>
+                <CardTitle className="text-xl">Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="prose dark:prose-invert text-sm py-4 px-6">
+                <p style={{ whiteSpace: "pre-wrap" }}>
+                  {generatedPost.linkedin_post}
+                </p>
+                <div className="not-prose mt-4 flex flex-wrap gap-2">
+                  {generatedPost.topics.map((topic) => (
+                    <Badge key={topic} variant="secondary">
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  onClick={() => {
+                    if (generatedPost?.linkedin_post) {
+                      onSchedule(generatedPost.linkedin_post);
+                    }
+                  }}
+                >
+                  Use this draft
+                </Button>
+              </CardFooter>
+            </Card>
+          ) : (
+            <Card ref={cardRef}>
+              <CardHeader>
+                <CardTitle className="text-xl">Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="prose dark:prose-invert text-sm py-4 px-6">
+                <p style={{ whiteSpace: "pre-wrap" }}>
+                  {toolCallContent.result as string}
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  onClick={() => {
+                    if (toolCallContent.result) {
+                      onSchedule(toolCallContent.result);
+                    }
+                  }}
+                >
+                  Use this draft
+                </Button>
+              </CardFooter>
+            </Card>
+          )
         ) : (
           <>
             <MessagePrimitive.Content components={{ Text: MarkdownText }} />

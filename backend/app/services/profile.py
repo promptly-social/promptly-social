@@ -104,7 +104,7 @@ Provide Genuine Value: The core of the text should offer insights, tips, or a pe
 
 Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
 
-Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the end of your post. These should act as keywords for your topic (e.g., #ProjectManagementTips instead of just #Management) to connect with interested communities."""
+Avoid using hashtags."""
 
         return await self.upsert_content_strategy(
             user_id, "linkedin", default_linkedin_strategy
@@ -294,7 +294,7 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
         if not settings.linkedin_client_id:
             raise ValueError("LINKEDIN_CLIENT_ID is not configured")
 
-        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
+        redirect_uri = f"{settings.frontend_url}/auth/callback"
 
         params = {
             "response_type": "code",
@@ -322,7 +322,7 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
         if not settings.linkedin_client_id or not settings.linkedin_client_secret:
             raise ValueError("LinkedIn client ID or secret is not configured")
 
-        redirect_uri = f"{settings.frontend_url}/auth/linkedin/callback"
+        redirect_uri = f"{settings.frontend_url}/auth/callback"
         token_url = "https://www.linkedin.com/oauth/v2/accessToken"
 
         payload = {
@@ -599,19 +599,10 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
                 return None
 
             # Validate connection has required data
-            if platform == "substack" and not connection.platform_username:
+            if not connection.platform_username:
                 raise ValueError(
                     f"{platform} connection has no platform_username configured"
                 )
-            elif platform == "linkedin":
-                # For LinkedIn, we need the account_id from connection_data
-                if (
-                    not connection.connection_data
-                    or not connection.connection_data.get("account_id")
-                ):
-                    raise ValueError(
-                        f"{platform} connection has no account_id configured"
-                    )
 
             # Set analysis_started_at timestamp
             connection.analysis_started_at = datetime.now(timezone.utc)
@@ -630,7 +621,12 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
             return connection
 
         except Exception as e:
-            await self.db.rollback()
+            # Roll back any pending transaction to keep session clean
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+
             logger.error(f"Error starting {platform} analysis for {user_id}: {e}")
             logger.error(traceback.format_exc())
             raise
@@ -653,6 +649,15 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
                 # Fallback to Supabase Edge Function (if you have one)
                 raise NotImplementedError("Edge function trigger not implemented")
         except Exception as e:
+            try:
+                # Update status to error in the database
+                connection.analysis_status = "error"
+                await self.db.commit()
+            except Exception as update_error:
+                logger.error(
+                    f"Failed to update analysis status to error for {user_id}: {update_error}"
+                )
+
             logger.error(f"Error triggering edge function for user {user_id}: {e}")
             logger.error(traceback.format_exc())
             raise
@@ -667,21 +672,26 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
         """Trigger GCP Cloud Run function for analysis."""
         if not settings.gcp_analysis_function_url:
             logger.error("Missing GCP Cloud Run function URL")
+            try:
+                connection.analysis_status = "error"
+                await self.db.commit()
+            except Exception as update_error:
+                logger.error(
+                    f"Failed to update analysis status to error for {user_id}: {update_error}"
+                )
             return
 
-        # Get the platform identifier based on platform type
-        if platform == "substack":
-            platform_identifier = connection.platform_username
-        elif platform == "linkedin":
-            platform_identifier = (
-                connection.connection_data.get("account_id")
-                if connection.connection_data
-                else None
-            )
-        else:
-            raise ValueError(f"Unsupported platform: {platform}")
+        # Get the platform identifier which is either the public username, handle, or account_id
+        platform_identifier = connection.platform_username
 
         if not platform_identifier:
+            try:
+                connection.analysis_status = "error"
+                await self.db.commit()
+            except Exception as update_error:
+                logger.error(
+                    f"Failed to update analysis status to error for {user_id}: {update_error}"
+                )
             raise ValueError(f"Missing platform identifier for {platform}")
 
         payload = {
@@ -706,6 +716,7 @@ Use Niche Hashtags: Integrate up to three specific and relevant hashtags at the 
         """Trigger GCP Cloud Run function for import sample analysis."""
         if not settings.gcp_analysis_function_url:
             logger.error("Missing GCP Cloud Run function URL")
+            # For import analysis, we don't have a connection to update
             return
 
         payload = {

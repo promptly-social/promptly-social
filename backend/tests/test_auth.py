@@ -5,7 +5,7 @@ Includes unit tests for auth service and integration tests for auth endpoints.
 
 import os
 import uuid
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytest_asyncio
@@ -112,82 +112,6 @@ class TestAuthService:
     """Test cases for AuthService."""
 
     @pytest.mark.asyncio
-    async def test_sign_up_success(self, test_auth_service, mock_user_data):
-        """Test successful user registration."""
-        from app.schemas.auth import UserCreate
-
-        # Mock all database and external dependencies
-        with (
-            patch("app.services.auth.supabase_client") as mock_supabase,
-            patch.object(test_auth_service, "_get_user_by_email", return_value=None),
-            patch.object(test_auth_service.db, "commit") as mock_commit,
-            patch.object(test_auth_service.db, "refresh") as mock_refresh,
-        ):
-            # Since sign_up is now async, we need to return a coroutine
-            async def mock_sign_up(*args, **kwargs):
-                return {
-                    "user": Mock(
-                        id="12345", email="test@example.com", email_confirmed_at=None
-                    ),
-                    "session": None,
-                    "error": None,
-                }
-
-            mock_supabase.sign_up = mock_sign_up
-
-            # Mock async database operations
-            mock_commit.return_value = AsyncMock()
-
-            # Create a mock user with all required fields
-            from datetime import datetime
-
-            mock_user = Mock()
-            mock_user.id = str(uuid.uuid4())
-            mock_user.supabase_user_id = "12345"
-            mock_user.email = mock_user_data["email"]
-            mock_user.full_name = mock_user_data["full_name"]
-            mock_user.preferred_language = "en"
-            mock_user.timezone = "UTC"
-            mock_user.is_active = True
-            mock_user.is_verified = False
-            mock_user.created_at = datetime.now()
-
-            mock_refresh.return_value = AsyncMock()
-
-            # Simulate the refresh operation setting values on the user
-            async def mock_refresh_func(user):
-                for attr, value in vars(mock_user).items():
-                    setattr(user, attr, value)
-
-            mock_refresh.side_effect = mock_refresh_func
-
-            user_create = UserCreate(**mock_user_data)
-            result = await test_auth_service.sign_up(user_create)
-
-            assert result["error"] is None
-            assert result["user"] is not None
-            assert result["user"].email == mock_user_data["email"]
-
-    @pytest.mark.asyncio
-    async def test_sign_up_existing_user(self, test_auth_service, mock_user_data):
-        """Test registration with existing email."""
-        from app.models.user import User
-        from app.schemas.auth import UserCreate
-
-        # Create existing user in test database
-        existing_user = User(
-            supabase_user_id=str(uuid.uuid4()), email=mock_user_data["email"]
-        )
-        test_auth_service.db.add(existing_user)
-        await test_auth_service.db.commit()
-
-        user_create = UserCreate(**mock_user_data)
-        result = await test_auth_service.sign_up(user_create)
-
-        assert result["error"] == "User with this email already exists"
-        assert result["user"] is None
-
-    @pytest.mark.asyncio
     async def test_get_current_user_valid_token(self, test_auth_service):
         """Test getting current user with valid token."""
         from app.core.security import create_access_token
@@ -195,9 +119,7 @@ class TestAuthService:
 
         # Create test user in test database
         user_id = str(uuid.uuid4())
-        test_user = User(
-            id=user_id, supabase_user_id=str(uuid.uuid4()), email="test@example.com"
-        )
+        test_user = User(id=user_id, email="test@example.com")
         test_auth_service.db.add(test_user)
         await test_auth_service.db.commit()
         await test_auth_service.db.refresh(test_user)
@@ -244,60 +166,6 @@ class TestAuthEndpoints:
         app.dependency_overrides[get_current_user] = mock_get_current_user
         yield user
         app.dependency_overrides.clear()
-
-    def test_signup_endpoint_success(self, client, mock_user_data):
-        """Test successful signup endpoint."""
-        with patch("app.services.auth.AuthService.sign_up") as mock_signup:
-            # Create proper mock objects for Pydantic validation
-            from datetime import datetime
-
-            from app.schemas.auth import TokenResponse, UserResponse
-
-            mock_user = UserResponse(
-                id=str(uuid.uuid4()),
-                email=mock_user_data["email"],
-                full_name=mock_user_data["full_name"],
-                preferred_language="en",
-                timezone="UTC",
-                is_active=True,
-                is_verified=False,
-                created_at=datetime.now(),
-            )
-
-            mock_tokens = TokenResponse(
-                access_token="access_token",
-                refresh_token="refresh_token",
-                expires_in=1800,
-            )
-
-            mock_signup.return_value = {
-                "error": None,
-                "user": mock_user,
-                "tokens": mock_tokens,
-                "message": "User registered successfully",
-            }
-
-            response = client.post("/api/v1/auth/signup", json=mock_user_data)
-
-            assert response.status_code == 201
-            data = response.json()
-            assert "user" in data
-            assert "tokens" in data
-
-    def test_signup_endpoint_validation_error(self, client):
-        """Test signup endpoint with validation errors."""
-        invalid_data = {
-            "email": "invalid-email",
-            "password": "weak",
-            "confirm_password": "different",
-        }
-
-        response = client.post("/api/v1/auth/signup", json=invalid_data)
-
-        assert response.status_code == 422
-        data = response.json()
-        # Our custom error handler returns 'details' instead of 'detail'
-        assert "details" in data
 
     def test_health_endpoint(self, client):
         """Test health check endpoint."""
@@ -385,23 +253,6 @@ class TestAuthEndpoints:
             )
 
             assert response.status_code == 200
-
-    def test_update_user_endpoint_password_mismatch(self, client, mock_current_user):
-        """Test user update endpoint with password mismatch."""
-        update_data = {
-            "password": "NewPassword123",
-            "confirm_password": "DifferentPassword123",
-        }
-
-        response = client.put(
-            "/api/v1/auth/me",
-            json=update_data,
-            headers={"Authorization": "Bearer test_token"},
-        )
-
-        assert response.status_code == 422
-        data = response.json()
-        assert "details" in data
 
 
 class TestSecurityUtilities:

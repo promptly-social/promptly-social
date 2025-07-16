@@ -19,20 +19,13 @@ import type { User, UserUpdate } from "@/types/auth";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  pendingEmailVerification: string | null; // Email waiting for verification
-  signUp: (
-    email: string,
-    password: string,
-    fullName?: string
-  ) => Promise<{ error: Error | null; needsVerification?: boolean }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithLinkedIn: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshAuthToken: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
   forceAuthRefresh: () => Promise<void>;
   updateUser: (userData: UserUpdate) => Promise<{ error: Error | null }>;
-  clearPendingVerification: () => void;
+  deleteAccount: () => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,9 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pendingEmailVerification, setPendingEmailVerification] = useState<
-    string | null
-  >(null);
 
   const refreshAuthToken = useCallback(async (): Promise<boolean> => {
     const refreshToken = getStoredRefreshToken();
@@ -117,92 +107,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, [refreshAuthToken]);
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signInWithLinkedIn = useCallback(async () => {
     try {
-      const response = await apiClient.signUp({
-        email,
-        password,
-        confirm_password: password,
-        full_name: fullName,
-      });
-
-      // Check if tokens were returned (user is verified)
-      if (response.tokens && response.tokens.access_token) {
-        // Store tokens and set user (OAuth users)
-        setTokens(
-          response.tokens.access_token,
-          response.tokens.refresh_token,
-          response.tokens.expires_in
-        );
-        setUser(response.user);
-        return { error: null, needsVerification: false };
-      } else {
-        // No tokens returned - user needs email verification
-        setPendingEmailVerification(email);
-        return { error: null, needsVerification: true };
-      }
-    } catch (error) {
-      console.error("Sign up failed:", error);
-      return {
-        error:
-          error instanceof ApiError
-            ? new Error(error.message)
-            : new Error("Sign up failed"),
-        needsVerification: false,
-      };
-    }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      const response = await apiClient.signIn({ email, password });
-
-      console.log("Sign in response:", response);
-
-      // Store tokens
-      setTokens(
-        response.tokens.access_token,
-        response.tokens.refresh_token,
-        response.tokens.expires_in
-      );
-
-      // Set user
-      setUser(response.user);
-      console.log("User set in context:", response.user);
-
-      return { error: null };
-    } catch (error) {
-      console.error("Sign in failed:", error);
-      return {
-        error:
-          error instanceof ApiError
-            ? new Error(error.message)
-            : new Error("Sign in failed"),
-      };
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    try {
-      const redirectUrl = `${getFrontendBaseUrl()}/new-content`;
-      const response = await apiClient.signInWithGoogle(redirectUrl);
+      const redirectUrl = `${getFrontendBaseUrl()}/auth/callback`;
+      const response = await apiClient.signInWithLinkedIn(redirectUrl);
 
       // Redirect to Google OAuth URL
       window.location.href = response.url;
 
       return { error: null };
     } catch (error) {
-      console.error("Google sign in failed:", error);
+      console.error("LinkedIn sign in failed:", error);
       return {
         error:
           error instanceof ApiError
             ? new Error(error.message)
-            : new Error("Google sign in failed"),
+            : new Error("LinkedIn sign in failed"),
       };
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await apiClient.signOut();
     } catch (error) {
@@ -213,9 +138,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // Clear local state and tokens
     clearTokens();
     setUser(null);
-  };
+  }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const currentUser = await apiClient.getCurrentUser();
       setUser(currentUser);
@@ -232,16 +157,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(null);
       }
     }
-  };
+  }, []);
 
-  const forceAuthRefresh = async () => {
+  const forceAuthRefresh = useCallback(async () => {
     try {
       const token = getStoredToken();
       if (token) {
-        console.log("Force refreshing user data with stored token...");
         const currentUser = await apiClient.getCurrentUser();
         setUser(currentUser);
-        console.log("User data force refreshed:", currentUser.id);
       }
     } catch (error) {
       console.error("Failed to force auth refresh:", error);
@@ -253,43 +176,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(null);
       }
     }
-  };
+  }, []);
 
-  const updateUser = async (userData: UserUpdate) => {
+  const deleteAccount = useCallback(async () => {
     try {
-      const updatedUser = await apiClient.updateUser(userData);
-      setUser(updatedUser);
+      await apiClient.deleteAccount();
+      // After successful deletion, sign the user out
+      await signOut();
       return { error: null };
     } catch (error) {
-      console.error("Failed to update user:", error);
+      console.error("Delete account failed:", error);
       return {
         error:
           error instanceof ApiError
             ? new Error(error.message)
-            : new Error("Failed to update user"),
+            : new Error("Failed to delete account"),
       };
     }
-  };
+  }, [signOut]);
 
-  const clearPendingVerification = () => {
-    setPendingEmailVerification(null);
-  };
+  const updateUser = useCallback(
+    async (userData: UserUpdate) => {
+      if (!user) {
+        return { error: new Error("User not authenticated") };
+      }
+      try {
+        const updatedUser = await apiClient.updateUser(userData);
+        setUser(updatedUser);
+        return { error: null };
+      } catch (error) {
+        console.error("Failed to update user:", error);
+        return {
+          error:
+            error instanceof ApiError
+              ? new Error(error.message)
+              : new Error("Failed to update user"),
+        };
+      }
+    },
+    [user]
+  );
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
-        pendingEmailVerification,
-        signUp,
-        signIn,
-        signInWithGoogle,
+        signInWithLinkedIn,
         signOut,
         refreshAuthToken,
         refreshUser,
         forceAuthRefresh,
         updateUser,
-        clearPendingVerification,
+        deleteAccount,
       }}
     >
       {children}

@@ -116,20 +116,16 @@ export const ContentStrategies: React.FC = () => {
     setEditingStrategy("");
   };
 
-  const getPlatformLabel = (platform: string): string => {
-    return platform === LINKEDIN_PLATFORM ? "LinkedIn" : platform;
-  };
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl">
           <Target className="w-5 h-5" />
-          Content Strategy
+          Content Style
         </CardTitle>
         <p className="text-xs sm:text-sm text-gray-600">
-          Define your content strategy for LinkedIn to create more targeted and
-          effective posts.
+          Define your content style for LinkedIn to instruct the AI to create
+          more targeted and effective posts that sound like you.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

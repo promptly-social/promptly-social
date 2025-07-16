@@ -1,24 +1,24 @@
 User-agent: *
 Allow: /
 Disallow: /auth/
-Disallow: /my-content
-Disallow: /new-content
+Disallow: /my-posts
+Disallow: /home
 Disallow: /profile
 Disallow: /settings
 
 User-agent: Googlebot
 Allow: /
 Disallow: /auth/
-Disallow: /my-content
-Disallow: /new-content
+Disallow: /my-posts
+Disallow: /home
 Disallow: /profile
 Disallow: /settings
 
 User-agent: Bingbot
 Allow: /
 Disallow: /auth/
-Disallow: /my-content
-Disallow: /new-content
+Disallow: /my-posts
+Disallow: /home
 Disallow: /profile
 Disallow: /settings
 

@@ -1,50 +1,19 @@
 """Schemas module."""
 
-from .auth import TokenResponse, UserCreate, UserResponse, UserUpdate
+from . import (
+    posts,
+    profile,
+    content_strategies,
+    daily_suggestion_schedule,
+    idea_bank,
+    chat,
+    auth,
+)
+from .auth import TokenResponse, UserResponse, UserUpdate
 
-from .idea_bank import (
-    IdeaBankBase,
-    IdeaBankCreate,
-    IdeaBankData,
-    IdeaBankListResponse,
-    IdeaBankResponse,
-    IdeaBankUpdate,
-)
-from .profile import (
-    EngagementInsights,
-    PlatformAnalysisResponse,
-    PostingPatterns,
-    SocialConnectionBase,
-    SocialConnectionCreate,
-    SocialConnectionResponse,
-    SocialConnectionUpdate,
-    SubstackAnalysisResponse,
-    UserPreferencesBase,
-    UserPreferencesCreate,
-    UserPreferencesResponse,
-    UserPreferencesUpdate,
-    WritingStyleAnalysisBase,
-    WritingStyleAnalysisCreate,
-    WritingStyleAnalysisResponse,
-    WritingStyleAnalysisUpdate,
-    WritingStyleData,
-)
-from .posts import (
-    PostCreate,
-    PostFeedback,
-    PostListResponse,
-    PostResponse,
-    PostUpdate,
-)
-from .daily_suggestion_schedule import (
-    DailySuggestionScheduleCreate,
-    DailySuggestionScheduleUpdate,
-    DailySuggestionScheduleResponse,
-)
 
 __all__ = [
     # Auth schemas
-    "UserCreate",
     "UserResponse",
     "TokenResponse",
     "UserUpdate",
@@ -86,4 +55,5 @@ __all__ = [
     "DailySuggestionScheduleCreate",
     "DailySuggestionScheduleUpdate",
     "DailySuggestionScheduleResponse",
+    #
 ]

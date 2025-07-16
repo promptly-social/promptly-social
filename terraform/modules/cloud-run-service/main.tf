@@ -247,6 +247,16 @@ resource "google_cloud_run_service" "backend" {
             }
           }
         }
+
+        env {
+          name = "POST_MEDIA_BUCKET_NAME"
+          value_from {
+            secret_key_ref {
+              name = var.post_media_bucket_name_name
+              key  = "latest"
+            }
+          }
+        }
       }
     }
   }

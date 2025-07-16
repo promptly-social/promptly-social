@@ -2,32 +2,16 @@
  * Posts API client
  */
 
+import { Post, PostMedia, PostUpdate } from "@/types/posts";
 import { apiClient } from "./auth-api";
-
-export interface Post {
-  id: string;
-  user_id: string;
-  idea_bank_id?: string;
-  title?: string;
-  content: string;
-  platform: string;
-  topics: string[];
-  recommendation_score: number;
-  status: string;
-  user_feedback?: string;
-  feedback_comment?: string;
-  feedback_at?: string;
-  scheduled_at?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { makeAuthenticatedRequest } from "./api-interceptor";
 
 export interface PostsListResponse {
   items: Post[];
   total: number;
   page: number;
   size: number;
-  has_next: boolean;
+  total_pages: number;
 }
 
 export interface CreatePostRequest {
@@ -36,22 +20,12 @@ export interface CreatePostRequest {
   content: string;
   platform?: string;
   topics?: string[];
-  recommendation_score?: number;
   status?: string;
-}
-
-export interface UpdatePostRequest {
-  title?: string;
-  content?: string;
-  platform?: string;
-  topics?: string[];
-  recommendation_score?: number;
-  status?: string;
-  scheduled_at?: string;
+  article_url?: string;
 }
 
 export interface PostBatchUpdateRequest {
-  posts: UpdatePostRequest[];
+  posts: PostUpdate[];
 }
 
 export interface PostFeedbackRequest {
@@ -68,6 +42,12 @@ export interface GetPostsParams {
   size?: number;
   order_by?: string;
   order_direction?: "asc" | "desc";
+}
+
+export interface PostCounts {
+  drafts: number;
+  scheduled: number;
+  posted: number;
 }
 
 class PostsAPI {
@@ -119,7 +99,7 @@ class PostsAPI {
   /**
    * Update a post
    */
-  async updatePost(postId: string, data: UpdatePostRequest): Promise<Post> {
+  async updatePost(postId: string, data: PostUpdate): Promise<Post> {
     const response = await apiClient.request<Post>(`/posts/${postId}`, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -210,10 +190,52 @@ class PostsAPI {
    * Remove a post from schedule
    */
   async unschedulePost(postId: string): Promise<Post> {
-    const response = await apiClient.request<Post>(
-      `/posts/${postId}/schedule`,
+    return makeAuthenticatedRequest<Post>(`/posts/${postId}/schedule`, {
+      method: "DELETE",
+    });
+  }
+
+  async publishPost(
+    postId: string,
+    platform: "linkedin"
+  ): Promise<{ message: string; details: unknown }> {
+    return makeAuthenticatedRequest<{ message: string; details: unknown }>(
+      `/posts/${postId}/publish?platform=${platform}`,
       {
-        method: "DELETE",
+        method: "POST",
+      }
+    );
+  }
+
+  async uploadPostMedia(postId: string, files: File[]): Promise<PostMedia[]> {
+    const formData = new FormData();
+    if (files && files.length > 0) {
+      files.forEach((file) => {
+        formData.append("files", file, file.name);
+      });
+    }
+
+    const response = await apiClient.request<PostMedia[]>(
+      `/posts/${postId}/media`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+    return response;
+  }
+
+  async deletePostMedia(postId: string, mediaId: string): Promise<void> {
+    await makeAuthenticatedRequest<void>(`/posts/${postId}/media/${mediaId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getPostMedia(postId: string): Promise<PostMedia[]> {
+    const response = await apiClient.request<PostMedia[]>(
+      `/posts/${postId}/media`,
+      {
+        method: "GET",
       }
     );
     return response;
@@ -229,6 +251,14 @@ class PostsAPI {
         method: "POST",
       }
     );
+    return response;
+  }
+
+  /**
+   * Get counts of posts by status categories
+   */
+  async getPostCounts(): Promise<PostCounts> {
+    const response = await apiClient.request<PostCounts>("/posts/counts");
     return response;
   }
 }

@@ -25,8 +25,8 @@ os.environ.update(
         "DATABASE_URL_ASYNC": "sqlite+aiosqlite:///./test.db",
         "SUPABASE_URL": "https://test.supabase.co",
         # Valid JWT format for Supabase keys to avoid validation errors
-        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-        "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        "SUPABASE_KEY": "test-supabase-key",
+        "SUPABASE_SERVICE_KEY": "test-supabase-service-key",
         "JWT_SECRET_KEY": "test-jwt-secret-key",
         "CORS_ORIGINS": "http://localhost:3000",
         "ACCESS_TOKEN_EXPIRE_MINUTES": "1440",
@@ -41,6 +41,7 @@ os.environ.update(
         "OPENROUTER_LARGE_MODEL_TEMPERATURE": "0.0",
         "OPENROUTER_LARGE_MODEL_PRIMARY": "google/gemini-2.5-pro",
         "OPENROUTER_LARGE_MODELS_FALLBACK": "anthropic/claude-sonnet-4",
+        "POST_MEDIA_BUCKET_NAME": "test-post-media",
     }
 )
 

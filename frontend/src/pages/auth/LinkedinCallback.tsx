@@ -1,86 +1,99 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { setTokens } from "@/lib/api-interceptor";
 import { useToast } from "@/hooks/use-toast";
-import { profileApi } from "@/lib/profile-api";
+import { ApiError } from "@/lib/auth-api";
+
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface AxiosError extends Error {
-  response?: {
-    data?: {
-      detail?: string;
-    };
-    status?: number;
-  };
-}
 
 const LinkedinCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isPolling, setIsPolling] = useState(false);
+  const { forceAuthRefresh } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
-    const handleLinkedinCallback = async () => {
-      const code = searchParams.get("code");
-      const state = searchParams.get("state");
-
-      // First, check what auth method is being used
+    const handleCodeExchange = async (code: string, state: string | null) => {
       try {
-        // Native LinkedIn OAuth flow - expect code and state
-        if (!code || !state) {
-          toast({
-            title: "LinkedIn Connection Error",
-            description: "Invalid callback parameters from LinkedIn.",
-            variant: "destructive",
-          });
-          navigate("/profile");
-          return;
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        const url = new URL(`${apiUrl}/api/v1/auth/linkedin/callback`);
+        url.searchParams.append("code", code);
+        if (state) {
+          url.searchParams.append("state", state);
         }
-        await handleNativeCallback(code, state);
-      } catch (error) {
-        console.error("Error determining auth method:", error);
-        // Fallback to native flow if we can't determine the method
-        if (!code || !state) {
-          toast({
-            title: "LinkedIn Connection Error",
-            description: "Invalid callback parameters from LinkedIn.",
-            variant: "destructive",
-          });
-          navigate("/profile");
-          return;
-        }
-        await handleNativeCallback(code, state);
-      }
-    };
 
-    const handleNativeCallback = async (code: string, state: string) => {
-      try {
-        await profileApi.linkedinCallback(code, state);
-        toast({
-          title: "LinkedIn Connected",
-          description: "Your LinkedIn account has been successfully connected.",
+        const response = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
+
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ detail: "Authentication failed" }));
+          throw new ApiError(
+            errorData.detail || `Request failed: ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+
+        if (data.access_token && data.refresh_token) {
+          setTokens(
+            data.access_token,
+            data.refresh_token,
+            data.expires_in || 3600
+          );
+
+          await forceAuthRefresh();
+
+          toast({
+            title: "Sign In Successful",
+            description: "Welcome! You have been signed in successfully.",
+          });
+
+          navigate("/my-posts", { replace: true });
+        } else {
+          throw new Error("Invalid response from server: missing tokens.");
+        }
       } catch (error) {
         console.error("LinkedIn callback error:", error);
-        const axiosError = error as AxiosError;
-        const errorMessage =
-          axiosError.response?.data?.detail ||
-          axiosError.message ||
+        let message =
           "An error occurred while connecting your LinkedIn account.";
-
+        if (error instanceof Error) {
+          message = error.message;
+        }
         toast({
-          title: "LinkedIn Connection Failed",
-          description: errorMessage,
+          title: "Authentication Error",
+          description: message,
           variant: "destructive",
         });
+        navigate("/login", { replace: true });
       } finally {
-        navigate("/profile");
+        setIsProcessing(false);
       }
     };
 
-    handleLinkedinCallback();
-  }, [searchParams, navigate, toast]);
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+
+    if (!code) {
+      toast({
+        title: "LinkedIn Authentication Failed",
+        description: "No authorization code was provided by LinkedIn.",
+        variant: "destructive",
+      });
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    handleCodeExchange(code, state);
+  }, [searchParams, navigate, toast, forceAuthRefresh]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -88,14 +101,14 @@ const LinkedinCallback: React.FC = () => {
         <CardHeader className="text-center">
           <CardTitle className="flex items-center justify-center gap-2">
             <Loader2 className="w-5 h-5 animate-spin" />
-            Connecting to LinkedIn
+            Completing Sign In
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center text-gray-600">
-          {isPolling ? (
-            <p>Waiting for connection confirmation...</p>
+          {isProcessing ? (
+            <p>Securely connecting with LinkedIn...</p>
           ) : (
-            <p>Please wait while we connect your LinkedIn account...</p>
+            <p>Redirecting you now...</p>
           )}
         </CardContent>
       </Card>

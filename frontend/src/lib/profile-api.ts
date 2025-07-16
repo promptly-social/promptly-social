@@ -51,7 +51,7 @@ export interface SocialConnection {
     scope?: string;
     linkedin_user_id?: string;
     email?: string;
-    picture?: string;
+    avatar_url?: string;
   };
   is_active: boolean;
   analysis_started_at?: string | null;
@@ -203,26 +203,6 @@ export const profileApi = {
         body: JSON.stringify({ content_to_analyze: contentToAnalyze }),
       }
     );
-  },
-
-  // LinkedIn Integration
-  async linkedinAuthorize(): Promise<LinkedInAuthResponse> {
-    return apiClient.request<LinkedInAuthResponse>(
-      "/profile/linkedin/authorize"
-    );
-  },
-
-  async linkedinCallback(
-    code: string,
-    state: string
-  ): Promise<SocialConnection> {
-    return apiClient.request<SocialConnection>(
-      `/profile/linkedin/callback?code=${code}&state=${state}`
-    );
-  },
-
-  async linkedinAuthInfo(): Promise<LinkedInAuthInfo> {
-    return apiClient.request<LinkedInAuthInfo>("/profile/linkedin/auth-info");
   },
 
   async checkLinkedInConnectionStatus(

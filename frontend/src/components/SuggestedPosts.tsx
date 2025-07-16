@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, TrendingUp, Loader2 } from "lucide-react";
-import { PostCard } from "@/components/PostCard";
-import { PostScheduleModal } from "@/components/PostScheduleModal";
-import { postsApi, Post } from "@/lib/posts-api";
+import { PostCard } from "@/components/shared/post-card/PostCard";
+import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
+import { postsApi } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -25,16 +26,12 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [editedContent, setEditedContent] = useState<string>("");
   const [feedbackModal, setFeedbackModal] = useState<{
     isOpen: boolean;
     postId: string | null;
   }>({ isOpen: false, postId: null });
   const [feedbackComment, setFeedbackComment] = useState<string>("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [dismissingPostId, setDismissingPostId] = useState<string | null>(null);
-  const [savingPostId, setSavingPostId] = useState<string | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{
     isOpen: boolean;
     post: Post | null;
@@ -54,7 +51,7 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         // Fetch suggested posts
         const postsResponse = await postsApi.getPosts({
           status: ["suggested"],
-          order_by: "recommendation_score",
+          order_by: "created_at",
           order_direction: "desc",
         });
 
@@ -83,113 +80,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
 
     fetchData();
   }, [user, toast]);
-
-  const dismissPost = async (post: Post) => {
-    setDismissingPostId(post.id);
-    try {
-      await postsApi.dismissPost(post.id);
-      setPosts(posts.filter((p) => p.id !== post.id));
-      toast({
-        title: "Post dismissed",
-        description: "Post has been dismissed",
-      });
-    } catch (error) {
-      console.error("Error dismissing post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to dismiss post. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setDismissingPostId(null);
-    }
-  };
-
-  const saveForLater = async (post: Post) => {
-    setSavingPostId(post.id);
-    try {
-      const updatedPost = await postsApi.updatePost(post.id, {
-        status: "saved",
-      });
-
-      setPosts(posts.map((p) => (p.id === post.id ? updatedPost : p)));
-
-      toast({
-        title: "Post Saved",
-        description: "Post has been saved for later.",
-      });
-    } catch (error) {
-      console.error("Error saving post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save post. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSavingPostId(null);
-    }
-  };
-
-  const startEditing = (post: Post) => {
-    setEditingPostId(post.id);
-    setEditedContent(post.content);
-  };
-
-  const saveEdit = async (postId: string) => {
-    try {
-      const updatedPost = await postsApi.updatePost(postId, {
-        content: editedContent,
-      });
-
-      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
-      setEditingPostId(null);
-      setEditedContent("");
-
-      toast({
-        title: "Post Updated",
-        description: "Your changes have been saved.",
-      });
-    } catch (error) {
-      console.error("Error updating post:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update the post. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingPostId(null);
-    setEditedContent("");
-  };
-
-  const submitPositiveFeedback = async (postId: string) => {
-    try {
-      const updatedPost = await postsApi.submitFeedback(postId, {
-        feedback_type: "positive",
-      });
-
-      setPosts(posts.map((p) => (p.id === postId ? updatedPost : p)));
-
-      toast({
-        title: "Feedback Submitted",
-        description: "Thank you for your positive feedback!",
-      });
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit feedback. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openNegativeFeedbackModal = (postId: string) => {
-    setFeedbackModal({ isOpen: true, postId });
-    setFeedbackComment("");
-  };
 
   const submitNegativeFeedback = async () => {
     if (!feedbackModal.postId) return;
@@ -225,13 +115,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
     }
   };
 
-  const schedulePost = (postId: string) => {
-    const post = posts.find((p) => p.id === postId);
-    if (post) {
-      setScheduleModal({ isOpen: true, post });
-    }
-  };
-
   const handleSchedulePost = async (postId: string, scheduledAt: string) => {
     setIsScheduling(true);
     try {
@@ -261,28 +144,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
       });
     } finally {
       setIsScheduling(false);
-    }
-  };
-
-  const fetchSuggestedPosts = async () => {
-    setLoading(true);
-    try {
-      if (!user) return;
-      const postsResponse = await postsApi.getPosts({
-        status: ["suggested"],
-        order_by: "recommendation_score",
-        order_direction: "desc",
-      });
-      setPosts(postsResponse.items);
-    } catch (error) {
-      console.error("Error fetching suggested posts:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch suggested posts.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -316,47 +177,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
     );
   }
 
-  if (posts.length === 0) {
-    return (
-      <Card className="text-center py-8 sm:py-12">
-        <CardContent>
-          <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No posts available
-          </h3>
-          <p className="text-gray-600 mb-4 text-sm sm:text-base">
-            No suggested posts found. Generate new content suggestions to get
-            started.
-          </p>
-          <div className="flex gap-x-2 justify-center">
-            <Button onClick={generateNewPosts} disabled={isGenerating}>
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Generate New Posts
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={fetchSuggestedPosts}
-              variant="outline"
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className={`space-y-6 ${className}`}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -387,38 +207,11 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
               </>
             )}
           </Button>
-          <Button
-            onClick={fetchSuggestedPosts}
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
         </div>
       </div>
 
       {posts.map((post, index) => (
-        <PostCard
-          key={post.id}
-          post={post}
-          index={index}
-          editingPostId={editingPostId}
-          editedContent={editedContent}
-          savingPostId={savingPostId}
-          dismissingPostId={dismissingPostId}
-          onStartEditing={startEditing}
-          onSaveEdit={saveEdit}
-          onCancelEdit={cancelEdit}
-          onEditContentChange={setEditedContent}
-          onSubmitPositiveFeedback={submitPositiveFeedback}
-          onOpenNegativeFeedbackModal={openNegativeFeedbackModal}
-          onSchedulePost={schedulePost}
-          onSaveForLater={saveForLater}
-          onDismissPost={dismissPost}
-        />
+        <PostCard key={post.id} post={post} onPostUpdate={() => {}} />
       ))}
 
       {posts.length === 0 && (
@@ -432,30 +225,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
               No suggested posts found. Generate new content suggestions to get
               started.
             </p>
-            <div className="flex gap-x-2 justify-center">
-              <Button onClick={generateNewPosts} disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Generate New Posts
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={fetchSuggestedPosts}
-                variant="outline"
-                disabled={loading}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
@@ -503,7 +272,6 @@ export function SuggestedPosts({ className }: SuggestedPostsProps) {
         isOpen={scheduleModal.isOpen}
         onClose={() => setScheduleModal({ isOpen: false, post: null })}
         post={scheduleModal.post}
-        scheduledPosts={scheduledPosts}
         onSchedule={handleSchedulePost}
         isScheduling={isScheduling}
       />

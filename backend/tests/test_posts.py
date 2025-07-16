@@ -24,7 +24,6 @@ class TestPosts:
             "content": "This is a test post\nwith multiple lines\nof content.",
             "platform": "linkedin",
             "topics": ["technology", "AI"],
-            "recommendation_score": 85,
             "status": "suggested",
         }
 
@@ -74,7 +73,6 @@ class TestPosts:
         valid_data = PostCreate(content="Test content\nwith newlines")
         assert valid_data.content == "Test content\nwith newlines"
         assert valid_data.platform == "linkedin"  # default value
-        assert valid_data.recommendation_score == 0  # default value
 
         # Test with all fields
         full_data = PostCreate(
@@ -82,12 +80,10 @@ class TestPosts:
             content="Test content",
             platform="twitter",
             topics=["tech", "AI"],
-            recommendation_score=95,
             status="draft",
         )
         assert full_data.title == "Test Title"
         assert full_data.platform == "twitter"
-        assert full_data.recommendation_score == 95
 
     @pytest.mark.asyncio
     async def test_service_layer_feedback_submission(self):
@@ -105,7 +101,6 @@ class TestPosts:
             user_id=uuid4(),
             content="Test content",
             platform="linkedin",
-            recommendation_score=80,
             status="suggested",
         )
 

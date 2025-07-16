@@ -148,7 +148,7 @@ resource "google_cloudfunctions2_function" "function" {
       MAX_POSTS_TO_ANALYZE_LINKEDIN = var.max_posts_to_analyze_linkedin
       OPENROUTER_MODEL_PRIMARY = var.openrouter_model_primary
       OPENROUTER_MODELS_FALLBACK = join(",", var.openrouter_models_fallback)
-      OPENROUTER_TEMPERATURE = var.openrouter_temperature
+      OPENROUTER_MODEL_TEMPERATURE = var.openrouter_model_temperature
     }
 
     secret_environment_variables {

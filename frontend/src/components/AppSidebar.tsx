@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   PenTool,
-  FileText,
+  Home,
   User,
   Settings,
   List,
@@ -25,11 +25,6 @@ import {
 } from "lucide-react";
 
 const contentMenuItems = [
-  {
-    title: "New Content",
-    url: "/new-content",
-    icon: FileText,
-  },
   {
     title: "My Posts",
     url: "/my-posts",

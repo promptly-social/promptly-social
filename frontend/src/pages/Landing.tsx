@@ -14,7 +14,6 @@ import {
   CheckCircle,
   TrendingUp,
   BookOpen,
-  Globe,
   Clock,
   Users,
   Target,
@@ -34,12 +33,6 @@ const Landing = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { clearPendingVerification } = useAuth();
-
-  // Clear pending verification when landing on home page
-  useEffect(() => {
-    clearPendingVerification();
-  }, [clearPendingVerification]);
 
   // Handle OAuth callback with code parameter or verification tokens
   useEffect(() => {
@@ -323,17 +316,10 @@ const Landing = () => {
                 gradient: "from-orange-600 to-orange-700",
               },
               {
-                icon: BarChart3,
-                title: "AI Recommendation Scoring",
+                icon: Calendar,
+                title: "Schedule Posts",
                 description:
-                  "Each post gets a 0-100 engagement score based on LinkedIn best practices, so you always post winners.",
-                gradient: "from-indigo-600 to-indigo-700",
-              },
-              {
-                icon: Globe,
-                title: "One-Click Publishing",
-                description:
-                  "Direct LinkedIn integration lets you review, edit, and publish posts instantly. No copy-pasting required.",
+                  "Schedule posts with an intuitive calendar interface.",
                 gradient: "from-teal-600 to-teal-700",
               },
             ].map((feature, index) => (
