@@ -1,16 +1,12 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import { useAuth } from "./AuthContext";
 import {
-  profileApi,
-  UserPreferences,
-  SocialConnection,
-} from "@/lib/profile-api";
+  useUserPreferences,
+  useSocialConnections,
+  profileKeys,
+} from "@/lib/profile-queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { UserPreferences, SocialConnection } from "@/lib/profile-api";
 
 interface ProfileContextType {
   userPreferences: UserPreferences | null;
@@ -34,51 +30,36 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { user } = useAuth();
-  const [userPreferences, setUserPreferences] =
-    useState<UserPreferences | null>(null);
-  const [socialConnections, setSocialConnections] = useState<
-    SocialConnection[]
-  >([]);
-  const [linkedinConnection, setLinkedinConnection] =
-    useState<SocialConnection | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchProfileData = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+  // Queries will automatically be disabled when `user` is null
+  const { data: userPreferences, isLoading: isPrefsLoading } =
+    useUserPreferences();
 
-    setLoading(true);
-    try {
-      const [prefs, connections] = await Promise.all([
-        profileApi.getUserPreferences(),
-        profileApi.getSocialConnections(),
-      ]);
-      setUserPreferences(prefs);
-      setSocialConnections(connections);
-      const linkedinConn =
-        connections.find((c) => c.platform === "linkedin") || null;
-      setLinkedinConnection(linkedinConn);
-    } catch (error) {
-      console.error("Failed to fetch profile data:", error);
-      // Handle error appropriately, maybe with a toast notification
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const { data: socialConnections = [], isLoading: isConnsLoading } =
+    useSocialConnections();
 
-  useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
+  const linkedinConnection = useMemo(
+    () => socialConnections.find((c) => c.platform === "linkedin") || null,
+    [socialConnections]
+  );
+
+  const loading = isPrefsLoading || isConnsLoading;
+
+  const refreshProfile = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: profileKeys.preferences }),
+      queryClient.invalidateQueries({ queryKey: profileKeys.connections }),
+    ]);
+  };
 
   const value = {
-    userPreferences,
+    userPreferences: userPreferences ?? null,
     socialConnections,
     linkedinConnection,
     loading,
-    refreshProfile: fetchProfileData,
-  };
+    refreshProfile,
+  } as const;
 
   return (
     <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

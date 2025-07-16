@@ -212,17 +212,4 @@ export const ideaBankApi = {
       method: "DELETE",
     });
   },
-
-  /**
-   * Generate a new post from an idea bank entry
-   */
-  async generatePost(id: string): Promise<Post> {
-    const response = await apiClient.request<Post>(
-      `/idea-banks/${id}/generate-post`,
-      {
-        method: "POST",
-      }
-    );
-    return response;
-  },
 };

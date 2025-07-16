@@ -17,6 +17,7 @@ from app.schemas.chat import (
     ConversationCreate,
     ConversationResponse,
     StreamChatRequest,
+    ConversationUpdate,
 )
 from app.services.chat_service import ChatService
 
@@ -32,9 +33,12 @@ async def create_new_conversation(
     """Create a new conversation."""
     chat_service = ChatService(db)
     # Check if conversation already exists for this idea bank
-    existing_conversation = await chat_service.get_conversation_by_idea_bank(
-        user.id, conversation_data.idea_bank_id
-    )
+    existing_conversation = None
+    if conversation_data.idea_bank_id:
+        existing_conversation = await chat_service.get_conversation_by_params(
+            user.id, conversation_data.idea_bank_id, conversation_data.conversation_type
+        )
+
     if existing_conversation:
         # This is not an error, we just return the existing one.
         # The frontend should ideally call the GET endpoint first.
@@ -52,16 +56,40 @@ async def create_new_conversation(
 
 @router.get("/conversations", response_model=Optional[ConversationResponse])
 async def get_conversation_by_idea(
-    idea_bank_id: UUID = Query(..., description="The ID of the idea bank"),
+    idea_bank_id: Optional[UUID] = Query(None, description="The ID of the idea bank"),
+    conversation_type: Optional[str] = Query(
+        None, description="The type of conversation"
+    ),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     """Get a conversation by idea_bank_id."""
     chat_service = ChatService(db)
-    conversation = await chat_service.get_conversation_by_idea_bank(
-        user.id, idea_bank_id
+    conversation = await chat_service.get_conversation_by_params(
+        user.id, idea_bank_id, conversation_type
     )
     return conversation
+
+
+@router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
+async def update_conversation_status(
+    conversation_id: UUID,
+    update_data: ConversationUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Update a conversation's status (e.g., archive)."""
+    chat_service = ChatService(db)
+    try:
+        conversation = await chat_service.update_conversation_status(
+            user.id, conversation_id, update_data.status or "active"
+        )
+        return conversation
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating conversation status: {e}")
+        raise HTTPException(status_code=500, detail="Could not update conversation.")
 
 
 @router.post("/stream")

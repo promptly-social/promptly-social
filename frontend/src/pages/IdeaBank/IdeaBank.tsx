@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogClose,
@@ -22,14 +21,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ArrowUpDown,
-  Plus,
-  Trash2,
-  ExternalLink,
-  Edit,
-  Sparkles,
-} from "lucide-react";
+import { ArrowUpDown, Plus } from "lucide-react";
+import IdeaBankContent from "@/components/idea-bank/IdeaBankContent";
+import IdeaBankLastPost from "@/components/idea-bank/IdeaBankLastPost";
+import IdeaBankActions from "@/components/idea-bank/IdeaBankActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -47,6 +42,21 @@ import { RescheduleModal } from "@/components/schedule-modal/RescheduleModal";
 import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
 import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
 import { PostCard } from "@/components/shared/post-card/PostCard";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
 
 interface SortConfig {
   key: "updated_at";
@@ -63,6 +73,10 @@ const IdeaBank: React.FC = () => {
     key: "updated_at",
     direction: "desc",
   });
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -104,24 +118,28 @@ const IdeaBank: React.FC = () => {
   // React Query fetch + cache
   const queryClient = useQueryClient();
 
-  const { data: queryIdeaBanks = [], isLoading: isIdeasLoading } = useQuery({
-    queryKey: ["ideaBanks", sortConfig.direction],
+  const { data: queryIdeaBanksData, isLoading: isIdeasLoading } = useQuery({
+    queryKey: ["ideaBanks", sortConfig.direction, page, pageSize],
     queryFn: async () => {
       const filterParams: IdeaBankFilters = {
         order_by: "updated_at",
         order_direction: sortConfig.direction,
-        size: 100,
+        size: pageSize,
+        page,
         ai_suggested: false,
       };
-      const response = await ideaBankApi.listWithPosts(filterParams);
-      return response.items;
+      return ideaBankApi.listWithPosts(filterParams);
     },
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
 
   useEffect(() => {
-    setIdeaBanksWithPosts(queryIdeaBanks);
-  }, [queryIdeaBanks]);
+    setIdeaBanksWithPosts(queryIdeaBanksData?.items ?? []);
+  }, [queryIdeaBanksData]);
+
+  // Total pages calculation
+  const totalItems = queryIdeaBanksData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   // Wrapper to refresh cached data (keeps existing call sites)
   const loadIdeaBanks = async () => {
@@ -133,6 +151,7 @@ const IdeaBank: React.FC = () => {
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
+    setPage(1); // Reset to first page when sorting changes
   };
 
   const handleCreate = async () => {
@@ -267,15 +286,6 @@ const IdeaBank: React.FC = () => {
     return sorted;
   };
 
-  const isUrl = (value: string) => {
-    try {
-      new URL(value);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -286,107 +296,12 @@ const IdeaBank: React.FC = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    const statusColors: Record<string, string> = {
-      suggested: "bg-gray-100 text-gray-800",
-      draft: "bg-purple-100 text-purple-800",
-      posted: "bg-green-100 text-green-800",
-      scheduled: "bg-yellow-100 text-yellow-800",
-      canceled: "bg-orange-100 text-orange-800",
-      dismissed: "bg-red-100 text-red-800",
-    };
-    return statusColors[status] || "bg-gray-100 text-gray-800";
-  };
-
   const viewPostDetails = (post: SuggestedPost) => {
     setSelectedPost(post as Post);
     setIsModalOpen(true);
   };
 
-  const renderIdeaBankContent = (ideaBank: IdeaBankWithPost["idea_bank"]) => {
-    return (
-      <div className="space-y-1">
-        {ideaBank.data.title && (
-          <div className="font-medium text-sm text-gray-900">
-            {ideaBank.data.title}
-          </div>
-        )}
-        {isUrl(ideaBank.data.value) ? (
-          <a
-            href={ideaBank.data.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-start gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
-          >
-            <span className="break-all">{ideaBank.data.value}</span>
-            <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
-          </a>
-        ) : (
-          <div className="whitespace-pre-wrap break-words text-sm">
-            {ideaBank.data.value}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderLastPostUsed = (latestPost: SuggestedPost | undefined) => {
-    if (!latestPost) {
-      return <span className="text-muted-foreground">No post created yet</span>;
-    }
-
-    return (
-      <div className="space-y-1">
-        <button
-          onClick={() => viewPostDetails(latestPost)}
-          className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-        >
-          View Post
-          <ExternalLink className="w-3 h-3" />
-        </button>
-        <div>
-          <Badge
-            className={getStatusColor(latestPost.status)}
-            variant="secondary"
-          >
-            {latestPost.status.charAt(0).toUpperCase() +
-              latestPost.status.slice(1)}
-          </Badge>
-        </div>
-      </div>
-    );
-  };
-
-  const Actions: React.FC<{ ideaBankWithPost: IdeaBankWithPost }> = ({
-    ideaBankWithPost,
-  }) => (
-    <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIdeaToGenerate(ideaBankWithPost)}
-        className="text-indigo-600 hover:text-indigo-800 p-1 h-8 w-8"
-      >
-        <Sparkles className="w-4 h-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleEdit(ideaBankWithPost)}
-        className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
-      >
-        <Edit className="w-4 h-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleDelete(ideaBankWithPost.idea_bank.id)}
-        className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
-    </div>
-  );
+  // Removed in-file render components; replaced with extracted ones
 
   const SortButton: React.FC<{
     column: SortConfig["key"];
@@ -498,6 +413,27 @@ const IdeaBank: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center justify-end sm:justify-end gap-2">
+              {/* Page size selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value));
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {addButton}
             </div>
           </div>
@@ -536,7 +472,7 @@ const IdeaBank: React.FC = () => {
                           Content:
                         </span>
                         <div className="mt-1">
-                          {renderIdeaBankContent(ideaBank)}
+                          <IdeaBankContent ideaBank={ideaBank} />
                         </div>
                       </div>
 
@@ -551,10 +487,19 @@ const IdeaBank: React.FC = () => {
                           Last Post Used:
                         </span>
                         <div className="mt-1">
-                          {renderLastPostUsed(latestPost)}
+                          <IdeaBankLastPost
+                            latestPost={latestPost}
+                            onView={viewPostDetails}
+                          />
                         </div>
                       </div>
                     </div>
+                    <IdeaBankActions
+                      ideaBankWithPost={ideaBankWithPost}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+                    />
                   </div>
                 );
               })
@@ -592,14 +537,24 @@ const IdeaBank: React.FC = () => {
                     return (
                       <TableRow key={ideaBank.id}>
                         <TableCell className="min-w-0">
-                          {renderIdeaBankContent(ideaBank)}
+                          <IdeaBankContent ideaBank={ideaBank} />
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDate(ideaBank.updated_at)}
                         </TableCell>
-                        <TableCell>{renderLastPostUsed(latestPost)}</TableCell>
                         <TableCell>
-                          <Actions ideaBankWithPost={ideaBankWithPost} />
+                          <IdeaBankLastPost
+                            latestPost={latestPost}
+                            onView={viewPostDetails}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IdeaBankActions
+                            ideaBankWithPost={ideaBankWithPost}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -640,7 +595,7 @@ const IdeaBank: React.FC = () => {
                     return (
                       <TableRow key={ideaBank.id}>
                         <TableCell className="min-w-0">
-                          {renderIdeaBankContent(ideaBank)}
+                          <IdeaBankContent ideaBank={ideaBank} />
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {new Date(ideaBank.updated_at).toLocaleDateString(
@@ -654,34 +609,19 @@ const IdeaBank: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {latestPost ? (
-                            <div className="space-y-1">
-                              <button
-                                onClick={() => viewPostDetails(latestPost)}
-                                className="text-blue-600 hover:text-blue-800 hover:underline text-xs flex items-center gap-1"
-                              >
-                                View
-                                <ExternalLink className="w-3 h-3" />
-                              </button>
-                              <Badge
-                                className={`${getStatusColor(
-                                  latestPost.status
-                                )} text-xs`}
-                                variant="secondary"
-                              >
-                                {latestPost.status.charAt(0).toUpperCase() +
-                                  latestPost.status.slice(1)}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">
-                              No post created yet
-                            </span>
-                          )}
+                          <IdeaBankLastPost
+                            latestPost={latestPost}
+                            onView={viewPostDetails}
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col items-center gap-1">
-                            <Actions ideaBankWithPost={ideaBankWithPost} />
+                            <IdeaBankActions
+                              ideaBankWithPost={ideaBankWithPost}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                              onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+                            />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -692,6 +632,45 @@ const IdeaBank: React.FC = () => {
             </Table>
           </div>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <Pagination className="mt-6">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }).map((_, idx) => (
+                <PaginationItem key={idx}>
+                  <PaginationLink
+                    href="#"
+                    isActive={page === idx + 1}
+                    onClick={() => setPage(idx + 1)}
+                  >
+                    {idx + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  className={
+                    page === totalPages ? "pointer-events-none opacity-50" : ""
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
       </main>
 
       {/* Edit Dialog */}
@@ -748,6 +727,7 @@ const IdeaBank: React.FC = () => {
 
       {/* Generate Post Confirmation Dialog */}
       <PostGenerationChatDialog
+        conversationType="post_generation"
         idea={ideaToGenerate}
         open={!!ideaToGenerate}
         onOpenChange={(isOpen) => !isOpen && setIdeaToGenerate(null)}

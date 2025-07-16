@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { postsApi } from "@/lib/posts-api";
+import React, { useState } from "react";
+import { usePosts, usePostCounts, postsKeys } from "@/lib/posts-queries";
 import { Post } from "@/types/posts";
 import { PostCard } from "@/components/shared/post-card/PostCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppLayout from "@/components/AppLayout";
 import { CreatePostModal } from "@/components/post-modal/CreatePostModal";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, Sparkles } from "lucide-react";
+import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 const PostListLayout = ({ children }: { children: React.ReactNode }) => (
   <div className="space-y-6 p-4 sm:p-6 max-w-4xl mx-auto w-full">
@@ -17,118 +18,54 @@ const PostListLayout = ({ children }: { children: React.ReactNode }) => (
 );
 
 export const MyPosts: React.FC = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("drafts");
+  const [activeTab, setActiveTab] = useState<"drafts" | "scheduled" | "posted">(
+    "drafts"
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [postCounts, setPostCounts] = useState<{
-    drafts: number;
-    scheduled: number;
-    posted: number;
-  } | null>(null);
-
-  // Simple in-memory cache for posts per tab & page
-  const postsCache = useRef<
-    Record<string, Record<number, { items: Post[]; total: number }>>
-  >({});
+  const [isBrainstormOpen, setIsBrainstormOpen] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const postsPerPage = 10;
 
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchCounts = useCallback(async () => {
-    try {
-      const counts = await postsApi.getPostCounts();
-      setPostCounts(counts);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+  const statusArray =
+    activeTab === "drafts" ? ["suggested", "draft"] : [activeTab];
 
-  const fetchPosts = useCallback(async () => {
-    setIsLoading(true);
-    const statusArray =
-      activeTab === "drafts" ? ["suggested", "draft"] : [activeTab];
+  const {
+    data: postsResponse,
+    isLoading,
+    error: postsError,
+  } = usePosts({
+    status: statusArray,
+    page: currentPage,
+    size: postsPerPage,
+  });
 
-    // Check cache first
-    const cached = postsCache.current[activeTab]?.[currentPage];
-    if (cached) {
-      setPosts(cached.items);
-      setTotalPages(Math.ceil(cached.total / postsPerPage));
-      setIsLoading(false);
-      return;
-    }
+  const posts = postsResponse?.items ?? [];
+  const totalPages = Math.max(
+    1,
+    Math.ceil((postsResponse?.total ?? 0) / postsPerPage)
+  );
 
-    try {
-      const postsResponse = await postsApi.getPosts({
-        status: statusArray,
-        page: currentPage,
-        size: postsPerPage,
-      });
+  const { data: postCounts } = usePostCounts();
 
-      // Update cache
-      postsCache.current[activeTab] = postsCache.current[activeTab] || {};
-      postsCache.current[activeTab][currentPage] = {
-        items: postsResponse.items,
-        total: postsResponse.total,
-      };
-
-      setPosts(postsResponse.items);
-      setTotalPages(Math.ceil(postsResponse.total / postsPerPage));
-      setError(null);
-    } catch (err) {
-      setError("Failed to fetch posts.");
-      toast({
-        title: "Error",
-        description: "Failed to fetch post data.",
-        variant: "destructive",
-      });
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeTab, currentPage, toast]);
-
-  // Fetch counts once on mount
-  useEffect(() => {
-    fetchCounts();
-  }, [fetchCounts]);
-
-  // Fetch posts when tab or page changes
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  // Handle post updates more intelligently to avoid full reloads when unnecessary
-  const handlePostUpdate = async (updatedPost?: Post) => {
-    // If we receive an updated post object, update local state & cache without network calls
-    if (updatedPost) {
-      setPosts((prev) =>
-        prev.map((p) => (p.id === updatedPost.id ? updatedPost : p))
-      );
-
-      const cachePage = postsCache.current[activeTab]?.[currentPage];
-      if (cachePage) {
-        cachePage.items = cachePage.items.map((p) =>
-          p.id === updatedPost.id ? updatedPost : p
-        );
-      }
-      return;
-    }
-
-    // Otherwise invalidate caches & refetch, since the post likely moved tabs or was deleted
-    delete postsCache.current[activeTab];
-    await fetchPosts();
-    await fetchCounts();
+  const invalidatePostsData = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: postsKeys.all }),
+      queryClient.invalidateQueries({ queryKey: postsKeys.counts }),
+    ]);
   };
 
-  if (error) {
+  // Exposed handler for children ----------------------------------------
+  const handlePostUpdate = async () => {
+    await invalidatePostsData();
+  };
+
+  if (postsError) {
     return (
       <div className="flex justify-center items-center h-full">
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-500">Failed to fetch posts.</p>
       </div>
     );
   }
@@ -145,12 +82,20 @@ export const MyPosts: React.FC = () => {
             >
               <PlusIcon className="h-5 w-5 mr-2" /> New Post
             </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="ml-2"
+              onClick={() => setIsBrainstormOpen(true)}
+            >
+              <Sparkles className="h-5 w-5 mr-2" /> Brain Storm
+            </Button>
           </div>
 
           <Tabs
             value={activeTab}
             onValueChange={(value) => {
-              setActiveTab(value);
+              setActiveTab(value as "drafts" | "scheduled" | "posted");
               setCurrentPage(1);
             }}
             className="mt-4"
@@ -214,10 +159,16 @@ export const MyPosts: React.FC = () => {
       <CreatePostModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onCreated={(post) => {
-          // Invalidate cache and refresh lists/counts
-          delete postsCache.current["drafts"];
-          handlePostUpdate();
+        onCreated={async () => {
+          await invalidatePostsData();
+        }}
+      />
+      <PostGenerationChatDialog
+        conversationType="brainstorm"
+        open={isBrainstormOpen}
+        onOpenChange={setIsBrainstormOpen}
+        onScheduleComplete={async () => {
+          await invalidatePostsData();
         }}
       />
     </AppLayout>

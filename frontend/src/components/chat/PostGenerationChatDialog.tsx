@@ -20,6 +20,9 @@ import { Post } from "@/types/posts";
 import { PostScheduleModal } from "../schedule-modal/PostScheduleModal";
 import { useToast } from "../ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { ConfirmationModal } from "../shared/modals/ConfirmationModal";
+import { Button } from "../ui/button";
+import { archiveConversation } from "@/lib/chat-api";
 
 type PostSchedulingContextType = {
   onSchedule: (content: string) => void;
@@ -40,24 +43,30 @@ export const usePostScheduling = () => {
 };
 
 type PostGenerationChatDialogProps = {
-  idea: IdeaBankWithPost | null;
+  conversationType: "post_generation" | "brainstorm";
+  idea?: IdeaBankWithPost | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onScheduleComplete: () => void;
 };
 
 const ChatDialogContent = ({
+  conversationType,
   idea,
   onScheduleComplete,
   onClose,
 }: {
-  idea: IdeaBankWithPost;
+  conversationType: "post_generation" | "brainstorm";
+  idea?: IdeaBankWithPost | null;
   onScheduleComplete: () => void;
   onClose: () => void;
 }) => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [initialMessages, setInitialMessages] = useState<ThreadMessage[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
+
+  const [isConfirmArchiveOpen, setIsConfirmArchiveOpen] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const [postToSchedule, setPostToSchedule] = useState<Post | null>(null);
   const { toast } = useToast();
@@ -68,7 +77,7 @@ const ChatDialogContent = ({
     const tempPost: Post = {
       id: `temp-${Date.now()}`,
       content,
-      idea_bank_id: idea.idea_bank.id,
+      idea_bank_id: idea?.idea_bank.id,
       status: "draft",
       scheduled_at: undefined,
       posted_at: undefined,
@@ -89,7 +98,7 @@ const ChatDialogContent = ({
     try {
       const newPost = await postsApi.createPost({
         content: postToSchedule.content,
-        idea_bank_id: idea.idea_bank.id,
+        idea_bank_id: idea?.idea_bank.id,
         status: "draft",
       });
 
@@ -114,9 +123,38 @@ const ChatDialogContent = ({
     }
   };
 
+  const handleStartNewConversation = () => {
+    setIsConfirmArchiveOpen(true);
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!conversation) return;
+    try {
+      setIsArchiving(true);
+      await archiveConversation(conversation.id);
+      // After archiving, create a new conversation
+      const newConv = await createOrGetConversation(
+        conversationType,
+        idea?.idea_bank.id
+      );
+      setConversation(newConv);
+      setInitialMessages([]);
+    } catch (error) {
+      console.error("Failed to archive conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start a new conversation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsArchiving(false);
+      setIsConfirmArchiveOpen(false);
+    }
+  };
+
   useEffect(() => {
-    if (idea) {
-      createOrGetConversation(idea.idea_bank.id).then((conv) => {
+    createOrGetConversation(conversationType, idea?.idea_bank.id).then(
+      (conv) => {
         setConversation(conv);
         const messages: ThreadMessage[] = conv.messages.map(
           (m: ConversationMessage) => {
@@ -137,9 +175,9 @@ const ChatDialogContent = ({
           }
         );
         setInitialMessages(messages);
-      });
-    }
-  }, [idea]);
+      }
+    );
+  }, [idea, conversationType]);
 
   if (!conversation) {
     return (
@@ -151,7 +189,7 @@ const ChatDialogContent = ({
     );
   }
 
-  const ideaText = idea.idea_bank.data.value;
+  const ideaText = idea?.idea_bank.data.value;
   const prefillText = `Help me draft a LinkedIn post and here is the idea: "${ideaText}"`;
 
   return (
@@ -159,10 +197,14 @@ const ChatDialogContent = ({
       value={{ onSchedule: handleOpenScheduleModal }}
     >
       <ChatThreadRuntime
+        key={conversation.id}
         conversation={conversation}
         initialMessages={initialMessages}
-        initialText={initialMessages.length === 0 ? prefillText : undefined}
+        initialText={
+          initialMessages.length === 0 && ideaText ? prefillText : undefined
+        }
         placeholder="Write a message..."
+        onStartNewConversation={handleStartNewConversation}
       />
       <PostScheduleModal
         isOpen={!!postToSchedule}
@@ -170,6 +212,15 @@ const ChatDialogContent = ({
         post={postToSchedule}
         onSchedule={handleSchedule}
         isScheduling={isScheduling}
+      />
+
+      <ConfirmationModal
+        isOpen={isConfirmArchiveOpen}
+        onClose={() => setIsConfirmArchiveOpen(false)}
+        onConfirm={handleConfirmArchive}
+        title="Start a new conversation?"
+        description="This will archive the current conversation and start a new one. Are you sure?"
+        isLoading={isArchiving}
       />
     </PostSchedulingContext.Provider>
   );
@@ -180,11 +231,13 @@ const ChatThreadRuntime = ({
   initialMessages,
   placeholder,
   initialText,
+  onStartNewConversation,
 }: {
   conversation: Conversation;
   initialMessages: ThreadMessage[];
   placeholder?: string;
   initialText?: string;
+  onStartNewConversation: () => void;
 }) => {
   const modelAdapter: ChatModelAdapter = {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -290,8 +343,11 @@ const ChatThreadRuntime = ({
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <DialogContent className="sm:max-w-[625px] h-[70vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Generate Post</DialogTitle>
+        <DialogHeader className="flex flex-row items-center justify-between p-2">
+          <DialogTitle>Draft Post</DialogTitle>
+          <Button variant="outline" size="sm" onClick={onStartNewConversation}>
+            Start New Conversation
+          </Button>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto">
           <Thread placeholder={placeholder} initialText={initialText} />
@@ -302,6 +358,7 @@ const ChatThreadRuntime = ({
 };
 
 export const PostGenerationChatDialog = ({
+  conversationType,
   idea,
   open,
   onOpenChange,
@@ -309,8 +366,9 @@ export const PostGenerationChatDialog = ({
 }: PostGenerationChatDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {idea && (
+      {open && (
         <ChatDialogContent
+          conversationType={conversationType}
           idea={idea}
           onScheduleComplete={onScheduleComplete}
           onClose={() => onOpenChange(false)}

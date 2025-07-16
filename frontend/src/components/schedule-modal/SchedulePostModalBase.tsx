@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
 import { type UserPreferences, profileApi } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { toDate, format, toZonedTime } from "date-fns-tz";
 import { addDays, endOfMonth, startOfMonth, subDays } from "date-fns";
 
@@ -52,16 +53,33 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   const [isLoadingScheduledPosts, setIsLoadingScheduledPosts] = useState(false);
   const [conflictingPosts, setConflictingPosts] = useState<Post[]>([]);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
+  // Local loading flag to give immediate feedback and prevent duplicate clicks
+  const [localSubmitting, setLocalSubmitting] = useState(false);
   const [selectedScheduledPost, setSelectedScheduledPost] =
     useState<Post | null>(null);
-  const [userPreferences, setUserPreferences] = useState<
-    Partial<UserPreferences>
-  >({});
+  const { userPreferences: contextPrefs } = useProfile();
+
+  const userPreferences = useMemo(() => {
+    return {
+      preferred_posting_time: "09:00",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      ...contextPrefs,
+    } as typeof contextPrefs & {
+      preferred_posting_time?: string;
+      timezone?: string;
+    };
+  }, [contextPrefs]);
+
   const [selectedTimezone, setSelectedTimezone] = useState<string>("");
   const [timezones, setTimezones] = useState<string[]>([]);
   const { user } = useAuth();
 
   const isMobile = useIsMobile();
+
+  const submitting = isSubmitting || localSubmitting; // combined flag
+
+  // Track whether we've already initialized defaults for the currently open modal
+  const initializedRef = React.useRef(false);
   const isScheduleMode = mode === "schedule";
 
   const modalTitle = isScheduleMode ? "Schedule Post" : "Reschedule Post";
@@ -123,17 +141,18 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
     setTimezones(Intl.supportedValuesOf("timeZone"));
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      profileApi
-        .getUserPreferences()
-        .then(setUserPreferences)
-        .catch(console.error);
-    }
-  }, [user]);
+  // Removed extra API call; preferences come from ProfileContext
 
+  // Initialise the modal defaults once – when it opens – but don't overwrite the
+  // user's subsequent interactions (e.g. when userPreferences arrive slightly
+  // later from context).
   useEffect(() => {
-    if (isOpen && post) {
+    if (!isOpen) {
+      initializedRef.current = false; // reset for next open
+      return;
+    }
+
+    if (!initializedRef.current) {
       const targetTimezone =
         userPreferences.timezone ||
         Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -171,8 +190,27 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
       setConflictingPosts([]);
       setShowConflictDialog(false);
       setSelectedScheduledPost(null);
+
+      initializedRef.current = true;
     }
+
+
   }, [isOpen, post, userPreferences, isScheduleMode]);
+
+  // Reset local loading flag
+  // 1. When modal closes, always reset
+  useEffect(() => {
+    if (!isOpen) {
+      setLocalSubmitting(false);
+    }
+  }, [isOpen]);
+
+  // 2. When parent call finishes (isSubmitting becomes false), clear local flag
+  useEffect(() => {
+    if (!isSubmitting) {
+      setLocalSubmitting(false);
+    }
+  }, [isSubmitting]);
 
   const formatDateTime = (date: Date, hour: string, minute: string) => {
     const timezone =
@@ -205,6 +243,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   }, [selectedDate, selectedHour, selectedMinute, scheduledPosts, post]);
 
   const handleSubmit = () => {
+    if (submitting) return; // guard against double click
     if (!post) return;
 
     if (conflictingPosts.length > 0) {
@@ -217,16 +256,19 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
       selectedHour,
       selectedMinute
     );
+    setLocalSubmitting(true);
     onSubmit(post.id, scheduledAt);
   };
 
   const handleConfirmSubmit = () => {
+    if (submitting) return; // guard against double click
     if (!post) return;
     const scheduledAt = formatDateTime(
       selectedDate,
       selectedHour,
       selectedMinute
     );
+    setLocalSubmitting(true);
     onSubmit(post.id, scheduledAt);
     setShowConflictDialog(false);
   };
@@ -666,10 +708,10 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={submitting}
               className="px-4"
             >
-              {isSubmitting ? (
+              {submitting ? (
                 <>
                   <Clock className="w-4 h-4 mr-2 animate-spin" />
                   {submittingText}
@@ -731,8 +773,8 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
               >
                 Cancel
               </Button>
-              <Button onClick={handleConfirmSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
+              <Button onClick={handleConfirmSubmit} disabled={submitting}>
+                {submitting ? (
                   <>
                     <Clock className="w-4 h-4 mr-2 animate-spin" />
                     {submittingText}

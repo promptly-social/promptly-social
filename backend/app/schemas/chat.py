@@ -38,8 +38,8 @@ class MessageResponse(BaseModel):
 class ConversationCreate(BaseModel):
     """Schema for creating a new conversation."""
 
-    idea_bank_id: UUID = Field(
-        ..., description="The idea bank ID to generate a post for"
+    idea_bank_id: Optional[UUID] = Field(
+        None, description="The idea bank ID to generate a post for"
     )
     conversation_type: str = Field(
         default="post_generation", description="Type of conversation"
@@ -109,6 +109,14 @@ class ConversationListResponse(BaseModel):
     page: int
     size: int
     has_next: bool
+
+
+class ConversationUpdate(BaseModel):
+    """Schema for updating a conversation (partial)."""
+
+    status: Optional[str] = Field(
+        None, description="The updated status of the conversation"
+    )
 
 
 class ChatMessage(BaseModel):

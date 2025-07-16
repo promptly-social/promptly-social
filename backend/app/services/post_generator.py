@@ -40,15 +40,6 @@ class PostGeneratorService:
             settings.openrouter_large_model_primary,
             provider=provider,
         )
-        self.agent = Agent(
-            self.model,
-            output_type=GeneratedPost,
-            model_settings=OpenAIModelSettings(
-                temperature=settings.openrouter_large_model_temperature,
-                extra_body={"models": self.fallback_models},
-            ),
-            system_prompt="",
-        )
 
     async def generate_post(
         self,
@@ -56,6 +47,7 @@ class PostGeneratorService:
         bio: Optional[str],
         writing_style: Optional[str],
         linkedin_post_strategy: Optional[str],
+        conversation_context: Optional[str] = None,
     ) -> GeneratedPost:
         """
         Generates a LinkedIn post using the AI agent.
@@ -73,16 +65,25 @@ class PostGeneratorService:
             linkedin_post_strategy = (
                 linkedin_post_strategy[:MAX_SECTION_LEN] + "... [truncated]"
             )
+        if conversation_context and len(conversation_context) > MAX_SECTION_LEN:
+            conversation_context = (
+                conversation_context[:MAX_SECTION_LEN] + "... [truncated]"
+            )
 
-        prompt = f"""You are a world-class LinkedIn Ghostwriter and Content Strategist. Your expertise is in taking a piece of source material (like an article) and transforming it into a compelling, authentic-sounding LinkedIn post that drives engagement and positions the user as a thought leader.
+        # Build the source material section
+        source_material = idea_content or "No specific content idea provided."
+        if conversation_context:
+            source_material += f"\n\nCONVERSATION CONTEXT:\n{conversation_context}"
+
+        prompt = f"""You are a world-class LinkedIn Ghostwriter and Content Strategist. Your expertise is in taking source material and conversation context to create compelling, authentic LinkedIn posts that drive engagement and position the user as a thought leader.
 
 **Context for this Task:**
 
-1.  **Source Material (Content Idea):**
+1.  **Source Material and Conversation Context:**
     ---
-    {idea_content}
+    {source_material}
     ---
-    This is the core content you will base the post on.
+    This includes the main content idea AND the conversation context with the user. Use both to understand what the user wants to convey and their personal perspective.
 
 2.  **Author's Profile:**
     -   **Bio:** {bio}
@@ -94,30 +95,49 @@ class PostGeneratorService:
 
 **Your Task & Thought Process:**
 
-1.  **Deconstruct the Source:** Read the `Source Material` and identify its single most important takeaway or a surprising insight. Don't just summarize.
-2.  **Connect to the Author:** How can this key takeaway be framed from the author's perspective, using their `Bio` and expertise? How can they add a personal story or a strong opinion to it?
-3.  **Draft the Post:** Write the post following the `LinkedIn Post Strategy` and mimicking the author's `Writing Style`.
+1.  **Understand the User's Intent**: Use the conversation context to understand:
+    - The user's specific angle or perspective on the topic
+    - Any personal experiences or anecdotes they've shared
+    - The key message they want to convey
+    - Their unique insights or takeaways
+
+2.  **Connect to the Author**: Frame the content from the author's perspective, using their Bio and the insights from the conversation. Include personal stories or opinions they've shared.
+
+3.  **Draft the Post**: Write the post following the LinkedIn Post Strategy, mimicking the author's Writing Style, and incorporating the conversational insights.
 
 **LinkedIn Post Best Practices to Apply:**
 
--   **Start with a powerful hook:** Grab the reader's attention in the first sentence.
--   **Provide a unique take:** Don't just regurgitate the article. Add the user's opinion, analysis, or a personal anecdote. This is crucial. Avoid being too broad.
--   **Be human and authentic:** Write in a conversational tone. Use "I" statements. Use the user's writing style.
--   **End with a question:** Encourage comments by asking your audience for their opinion or experiences.
--   **Structure for readability:** Use short paragraphs and white space.
+-   **Use conversation insights**: If the user shared personal experiences, anecdotes, or specific perspectives in the conversation, incorporate them into the post
+-   **Start with a powerful hook**: Grab the reader's attention in the first sentence
+-   **Provide their unique take**: Use the conversation context to understand their specific angle or opinion
+-   **Be human and authentic**: Write in a conversational tone. Use "I" statements. Use the user's writing style and any personal details they've shared
+-   **End with a question**: Encourage comments by asking your audience for their opinion or experiences
+-   **Structure for readability**: Use short paragraphs and white space
 
 **VERY IMPORTANT - Formatting and Content Rules:**
 
 -   **Plain Text Only:** The entire post must be plain text. Do NOT use any Markdown formatting (like `*bold*`, `_italics_`, or `- lists`).
--   **No AI- giveaways:** Avoid generic phrases, emojis, or special characters (like em-dashes or arrows) that scream "AI-generated".
+-   **No AI-giveaways:** Avoid generic phrases, emojis, or special characters (like em-dashes or arrows) that scream "AI-generated".
 -   **No Source Link:** Do NOT include the link to the original article in the post.
 -   **Topics, not Hashtags:** Identify up to 2 relevant topics for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
 
 Finally, return the generated post and the topics in the required JSON format.
 """
 
-        # Use streaming to start generating immediately and allow future extension.
-        agent = self.agent
+        # Create a temporary agent for this generation
+        agent = Agent(
+            self.model,
+            output_type=GeneratedPost,
+            model_settings=OpenAIModelSettings(
+                temperature=settings.openrouter_large_model_temperature,
+                extra_body={"models": self.fallback_models},
+            ),
+            system_prompt="",
+        )
+
+        print("=====GENERATION TOOL===========")
+        print(prompt)
+        print("=====GENERATION TOOL===========")
 
         return await agent.run(prompt)
 
@@ -129,8 +149,14 @@ Finally, return the generated post and the topics in the required JSON format.
         linkedin_post_strategy: Optional[str],
         previous_draft: Optional[str] = None,
         user_feedback: Optional[str] = None,
+        conversation_context: Optional[str] = None,
     ) -> GeneratedPost:
         """Revises a LinkedIn post based on user feedback."""
+
+        # Build the source material section
+        source_material = idea_content or "No specific content idea provided."
+        if conversation_context:
+            source_material += f"\n\nCONVERSATION CONTEXT:\n{conversation_context}"
 
         prompt = f"""
             You are an expert copy editor revising a LinkedIn post based on user feedback.
@@ -142,7 +168,7 @@ Finally, return the generated post and the topics in the required JSON format.
 
             The original idea for the post was:
             ---
-            {idea_content}
+            {source_material}
             ---
 
             Here is the previous draft:
@@ -154,7 +180,7 @@ Finally, return the generated post and the topics in the required JSON format.
             ---
             {user_feedback}
             ---
-            
+
             User Profile (for context):
             - Bio: {bio}
             - Writing Style: {writing_style}
@@ -175,8 +201,16 @@ Finally, return the generated post and the topics in the required JSON format.
             Finally, return the generated post and the topics in the required JSON format.
             """
 
-        # Use streaming to start generating immediately and allow future extension.
-        agent = self.agent
+        # Create a temporary agent for this revision
+        agent = Agent(
+            self.model,
+            output_type=GeneratedPost,
+            model_settings=OpenAIModelSettings(
+                temperature=settings.openrouter_large_model_temperature,
+                extra_body={"models": self.fallback_models},
+            ),
+            system_prompt="",
+        )
 
         return await agent.run(prompt)
 
@@ -185,7 +219,6 @@ Finally, return the generated post and the topics in the required JSON format.
 post_generator_service = PostGeneratorService()
 
 
-@post_generator_service.agent.tool
 async def generate_linkedin_post_tool(
     ctx: RunContext[PostGeneratorService],
     idea_content: str = Field(
@@ -196,6 +229,9 @@ async def generate_linkedin_post_tool(
     linkedin_post_strategy: str = Field(
         description="The user's LinkedIn post strategy."
     ),
+    conversation_context: Optional[str] = Field(
+        default=None, description="The conversation history for additional context."
+    ),
 ) -> GeneratedPost:
     """Tool wrapper for generating a LinkedIn post."""
 
@@ -204,12 +240,12 @@ async def generate_linkedin_post_tool(
         bio=bio,
         writing_style=writing_style,
         linkedin_post_strategy=linkedin_post_strategy,
+        conversation_context=conversation_context,
     )
 
     return post
 
 
-@post_generator_service.agent.tool
 async def revise_linkedin_post_tool(
     ctx: RunContext[PostGeneratorService],
     idea_content: str = Field(
@@ -226,6 +262,9 @@ async def revise_linkedin_post_tool(
     user_feedback: Optional[str] = Field(
         default=None, description="The user's feedback on the previous draft."
     ),
+    conversation_context: Optional[str] = Field(
+        default=None, description="The conversation history for additional context."
+    ),
 ) -> GeneratedPost:
     """Tool wrapper for revising a LinkedIn post."""
 
@@ -236,6 +275,7 @@ async def revise_linkedin_post_tool(
         linkedin_post_strategy=linkedin_post_strategy,
         previous_draft=previous_draft,
         user_feedback=user_feedback,
+        conversation_context=conversation_context,
     )
 
     return post
