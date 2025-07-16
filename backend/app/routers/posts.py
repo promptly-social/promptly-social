@@ -33,8 +33,11 @@ from app.schemas.posts import (
     PostMediaResponse,
     ImagePromptRequest,
     ImagePromptResponse,
+    PostScheduleRequest,
+    PostScheduleResponse,
 )
 from app.services.posts import PostsService
+from app.services.post_schedule import PostScheduleService
 from app.core.config import settings
 from app.utils.gcp import trigger_gcp_cloud_run
 from app.services.image_gen_service import ImageGenService
@@ -393,31 +396,32 @@ async def publish_post(
         )
 
 
-@router.post("/{post_id}/schedule", response_model=PostResponse)
+@router.post("/{post_id}/schedule", response_model=PostScheduleResponse)
 async def schedule_post(
     post_id: UUID,
-    schedule_data: dict,
+    schedule_data: PostScheduleRequest,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
     """Schedule a post for publishing."""
     try:
-        scheduled_at = schedule_data.get("scheduled_at")
-        if not scheduled_at:
+        schedule_service = PostScheduleService(db)
+        job_name = await schedule_service.schedule_post(
+            current_user.id, post_id, schedule_data.scheduled_at, schedule_data.timezone
+        )
+
+        if not job_name:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="scheduled_at is required",
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="Post not found or failed to schedule"
             )
 
-        service = PostsService(db)
-        post = await service.schedule_post(current_user.id, post_id, scheduled_at)
-
-        if not post:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
-            )
-
-        return PostResponse.model_validate(post)
+        return PostScheduleResponse(
+            success=True,
+            scheduled_at=schedule_data.scheduled_at,
+            scheduler_job_name=job_name,
+            message="Post scheduled successfully"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -428,7 +432,7 @@ async def schedule_post(
         )
 
 
-@router.delete("/{post_id}/schedule", response_model=PostResponse)
+@router.delete("/{post_id}/schedule", response_model=PostScheduleResponse)
 async def unschedule_post(
     post_id: UUID,
     current_user: UserResponse = Depends(get_current_user),
@@ -436,15 +440,20 @@ async def unschedule_post(
 ):
     """Remove a post from schedule."""
     try:
-        service = PostsService(db)
-        post = await service.unschedule_post(current_user.id, post_id)
+        schedule_service = PostScheduleService(db)
+        success = await schedule_service.unschedule_post(current_user.id, post_id)
 
-        if not post:
+        if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
 
-        return PostResponse.model_validate(post)
+        return PostScheduleResponse(
+            success=True,
+            scheduled_at=None,
+            scheduler_job_name="",
+            message="Post unscheduled successfully"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -452,6 +461,42 @@ async def unschedule_post(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to unschedule post",
+        )
+
+
+@router.put("/{post_id}/schedule", response_model=PostScheduleResponse)
+async def reschedule_post(
+    post_id: UUID,
+    schedule_data: PostScheduleRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Reschedule a post to a new time."""
+    try:
+        schedule_service = PostScheduleService(db)
+        job_name = await schedule_service.reschedule_post(
+            current_user.id, post_id, schedule_data.scheduled_at, schedule_data.timezone
+        )
+
+        if not job_name:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="Post not found or failed to reschedule"
+            )
+
+        return PostScheduleResponse(
+            success=True,
+            scheduled_at=schedule_data.scheduled_at,
+            scheduler_job_name=job_name,
+            message="Post rescheduled successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rescheduling post {post_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reschedule post",
         )
 
 

@@ -469,51 +469,9 @@ class PostsService:
 
         raise NotImplementedError(f"Publishing to {platform} is not supported.")
 
-    async def schedule_post(
-        self, user_id: UUID, post_id: UUID, scheduled_at: str
-    ) -> Optional[Post]:
-        """Schedule a post for publishing."""
-        try:
-            post = await self.get_post(user_id, post_id)
-            if not post:
-                return None
-
-            # Parse the scheduled_at string to datetime
-            if isinstance(scheduled_at, str):
-                scheduled_at = datetime.fromisoformat(
-                    scheduled_at.replace("Z", "+00:00")
-                )
-
-            post.status = "scheduled"
-            post.scheduled_at = scheduled_at
-
-            await self._db.commit()
-            await self._db.refresh(post)
-            return post
-
-        except Exception as e:
-            await self._db.rollback()
-            logger.error(f"Error scheduling post {post_id}: {e}")
-            raise
-
-    async def unschedule_post(self, user_id: UUID, post_id: UUID) -> Optional[Post]:
-        """Remove a post from schedule."""
-        try:
-            post = await self.get_post(user_id, post_id)
-            if not post:
-                return None
-
-            post.status = "draft"
-            post.scheduled_at = None
-
-            await self._db.commit()
-            await self._db.refresh(post)
-            return post
-
-        except Exception as e:
-            await self._db.rollback()
-            logger.error(f"Error unscheduling post {post_id}: {e}")
-            raise
+    # Note: Post scheduling methods have been moved to PostScheduleService
+    # to properly integrate with Google Cloud Scheduler. Use PostScheduleService
+    # for all scheduling operations.
 
     async def get_signed_media_for_post(
         self, user_id: UUID, post_id: UUID

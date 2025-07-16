@@ -1,0 +1,61 @@
+name: Deploy Share Post Cloud Function
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/src/gcp-functions/share-post/**"
+      - "terraform/modules/share_post_function/**"
+      - "terraform/environments/share_post/**"
+      - ".github/workflows/deploy-share-post.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: "Deploy to GCP"
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    env:
+      TARGET_ENV: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Keyless)
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: terraform/environments/share_post/${{ env.TARGET_ENV }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+        working-directory: terraform/environments/share_post/${{ env.TARGET_ENV }}
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -auto-approve
+        working-directory: terraform/environments/share_post/${{ env.TARGET_ENV }}
