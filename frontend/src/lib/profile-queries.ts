@@ -14,18 +14,20 @@ export const profileKeys = {
 };
 
 // -------------------- Queries --------------------
-export const useUserPreferences = () =>
+export const useUserPreferences = (enabled: boolean = true) =>
   useQuery<UserPreferences, Error>({
     queryKey: profileKeys.preferences,
     queryFn: () => profileApi.getUserPreferences(),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled,
   });
 
-export const useSocialConnections = () =>
+export const useSocialConnections = (enabled: boolean = true) =>
   useQuery<SocialConnection[], Error>({
     queryKey: profileKeys.connections,
     queryFn: () => profileApi.getSocialConnections(),
     staleTime: 5 * 60 * 1000,
+    enabled,
   });
 
 // -------------------- Mutations ------------------

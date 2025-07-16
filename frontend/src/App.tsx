@@ -40,10 +40,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user && !user.is_verified) {
-    return <Navigate to="/verify-email" replace />;
-  }
-
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -79,30 +75,9 @@ const App = () => (
         <ProfileProvider>
           <BrowserRouter>
             <Routes>
-              <Route
-                path="/"
-                element={
-                  <AuthRoute>
-                    <Landing />
-                  </AuthRoute>
-                }
-              />
-              <Route
-                path="/login"
-                element={
-                  <AuthRoute>
-                    <Login />
-                  </AuthRoute>
-                }
-              />
-              <Route
-                path="/signup"
-                element={
-                  <AuthRoute>
-                    <EarlyAccess />
-                  </AuthRoute>
-                }
-              />
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<EarlyAccess />} />
               <Route
                 path="/profile"
                 element={
