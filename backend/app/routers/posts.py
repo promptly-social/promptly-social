@@ -412,15 +412,15 @@ async def schedule_post(
 
         if not job_name:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Post not found or failed to schedule"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found or failed to schedule",
             )
 
         return PostScheduleResponse(
             success=True,
             scheduled_at=schedule_data.scheduled_at,
             scheduler_job_name=job_name,
-            message="Post scheduled successfully"
+            message="Post scheduled successfully",
         )
     except HTTPException:
         raise
@@ -452,7 +452,7 @@ async def unschedule_post(
             success=True,
             scheduled_at=None,
             scheduler_job_name="",
-            message="Post unscheduled successfully"
+            message="Post unscheduled successfully",
         )
     except HTTPException:
         raise
@@ -480,15 +480,15 @@ async def reschedule_post(
 
         if not job_name:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Post not found or failed to reschedule"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found or failed to reschedule",
             )
 
         return PostScheduleResponse(
             success=True,
             scheduled_at=schedule_data.scheduled_at,
             scheduler_job_name=job_name,
-            message="Post rescheduled successfully"
+            message="Post rescheduled successfully",
         )
     except HTTPException:
         raise

@@ -43,7 +43,9 @@ class Post(Base):
     posted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    scheduler_job_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    scheduler_job_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
     linkedin_post_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     sharing_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     article_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

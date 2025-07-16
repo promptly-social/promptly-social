@@ -67,7 +67,11 @@ class PostScheduleService:
         return f"projects/{project}/locations/{GCP_LOCATION}"
 
     def _create_scheduler_job(
-        self, post_id: UUID, user_id: UUID, scheduled_at: datetime, timezone: str = "UTC"
+        self,
+        post_id: UUID,
+        user_id: UUID,
+        scheduled_at: datetime,
+        timezone: str = "UTC",
     ) -> str:
         """Create Cloud Scheduler job for the post."""
         client = self._client()
@@ -76,11 +80,10 @@ class PostScheduleService:
 
         job_name = _get_job_name(post_id)
         cron_expression = _datetime_to_cron(scheduled_at, timezone)
-        
-        payload = json.dumps({
-            "user_id": str(user_id),
-            "post_id": str(post_id)
-        }).encode("utf-8")
+
+        payload = json.dumps({"user_id": str(user_id), "post_id": str(post_id)}).encode(
+            "utf-8"
+        )
 
         full_job_name = f"{self._parent_path()}/jobs/{job_name}"
 
@@ -142,7 +145,7 @@ class PostScheduleService:
                     "schedule": cron_expression,
                     "time_zone": timezone,
                 },
-                update_mask=update_mask
+                update_mask=update_mask,
             )
             logger.info(f"Updated Cloud Scheduler job {full_job_name}")
             return True
@@ -169,14 +172,18 @@ class PostScheduleService:
 
     # ----- Public methods -----
     async def schedule_post(
-        self, user_id: UUID, post_id: UUID, scheduled_at: datetime, timezone: str = "UTC"
+        self,
+        user_id: UUID,
+        post_id: UUID,
+        scheduled_at: datetime,
+        timezone: str = "UTC",
     ) -> Optional[str]:
         """Schedule a post for sharing."""
         # Get the post
         query = select(Post).where(Post.id == post_id, Post.user_id == user_id)
         result = await self.db.execute(query)
         post = result.scalar_one_or_none()
-        
+
         if not post:
             logger.error(f"Post {post_id} not found for user {user_id}")
             return None
@@ -185,7 +192,12 @@ class PostScheduleService:
         job_name = ""
         try:
             job_name = await asyncio.get_event_loop().run_in_executor(
-                None, self._create_scheduler_job, post_id, user_id, scheduled_at, timezone
+                None,
+                self._create_scheduler_job,
+                post_id,
+                user_id,
+                scheduled_at,
+                timezone,
             )
         except Exception as e:
             logger.error(f"Failed to create scheduler job: {e}")
@@ -198,10 +210,10 @@ class PostScheduleService:
         post.scheduled_at = scheduled_at
         post.scheduler_job_name = job_name
         post.status = "scheduled"
-        
+
         await self.db.commit()
         await self.db.refresh(post)
-        
+
         logger.info(f"Scheduled post {post_id} for {scheduled_at}")
         return job_name
 
@@ -211,7 +223,7 @@ class PostScheduleService:
         query = select(Post).where(Post.id == post_id, Post.user_id == user_id)
         result = await self.db.execute(query)
         post = result.scalar_one_or_none()
-        
+
         if not post:
             logger.error(f"Post {post_id} not found for user {user_id}")
             return False
@@ -233,22 +245,26 @@ class PostScheduleService:
         post.scheduled_at = None
         post.scheduler_job_name = None
         post.status = "suggested"  # Reset to suggested status
-        
+
         await self.db.commit()
         await self.db.refresh(post)
-        
+
         logger.info(f"Unscheduled post {post_id}")
         return success
 
     async def reschedule_post(
-        self, user_id: UUID, post_id: UUID, new_scheduled_at: datetime, timezone: str = "UTC"
+        self,
+        user_id: UUID,
+        post_id: UUID,
+        new_scheduled_at: datetime,
+        timezone: str = "UTC",
     ) -> Optional[str]:
         """Reschedule a post to a new time."""
         # Get the post
         query = select(Post).where(Post.id == post_id, Post.user_id == user_id)
         result = await self.db.execute(query)
         post = result.scalar_one_or_none()
-        
+
         if not post:
             logger.error(f"Post {post_id} not found for user {user_id}")
             return None
@@ -258,7 +274,11 @@ class PostScheduleService:
             success = False
             try:
                 success = await asyncio.get_event_loop().run_in_executor(
-                    None, self._update_scheduler_job, post.scheduler_job_name, new_scheduled_at, timezone
+                    None,
+                    self._update_scheduler_job,
+                    post.scheduler_job_name,
+                    new_scheduled_at,
+                    timezone,
                 )
             except Exception as e:
                 logger.error(f"Failed to update scheduler job: {e}")
@@ -269,11 +289,13 @@ class PostScheduleService:
                 post.scheduled_at = new_scheduled_at
                 await self.db.commit()
                 await self.db.refresh(post)
-                
+
                 logger.info(f"Rescheduled post {post_id} to {new_scheduled_at}")
                 return post.scheduler_job_name
             else:
                 return None
         else:
             # No existing job, create a new one
-            return await self.schedule_post(user_id, post_id, new_scheduled_at, timezone)
+            return await self.schedule_post(
+                user_id, post_id, new_scheduled_at, timezone
+            )
