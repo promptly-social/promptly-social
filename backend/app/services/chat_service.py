@@ -275,6 +275,13 @@ class ChatService:
                             if isinstance(fb_result, BaseModel)
                             else str(fb_result)
                         )
+                        # Send a placeholder assistant message so the UI has a parent message
+                        assistant_msg = "Here's the draft post I generated:"
+                        await self._add_message_to_db(
+                            conversation_id, "assistant", assistant_msg
+                        )
+                        yield ChatStreamResponse(type="message", content=assistant_msg)
+                        # Now send the tool output
                         await self._add_message_to_db(
                             conversation_id, "tool", tool_json
                         )
@@ -296,6 +303,11 @@ class ChatService:
                         if isinstance(fb_result, BaseModel)
                         else str(fb_result)
                     )
+                    assistant_msg = "Here's the draft post I generated:"
+                    await self._add_message_to_db(
+                        conversation_id, "assistant", assistant_msg
+                    )
+                    yield ChatStreamResponse(type="message", content=assistant_msg)
                     await self._add_message_to_db(conversation_id, "tool", tool_json)
                     yield ChatStreamResponse(type="tool_output", content=tool_json)
                 except Exception as inner_e:
@@ -403,13 +415,7 @@ class ChatService:
         - User: [provides their perspective]
         - You: [call generate_linkedin_post_tool with all the information]
         """
-        print("=====GENERATION===========")
-        print(f"System prompt: {system_prompt}")
-        print(f"User message: {user_message.content}")
-        print(
-            f"Available tools: generate_linkedin_post_tool, revise_linkedin_post_tool"
-        )
-        print("=====GENERATION===========")
+
         deps = PostGeneratorService()
         async for chunk in self._stream_with_agent(
             conversation_id,

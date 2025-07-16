@@ -135,10 +135,6 @@ Finally, return the generated post and the topics in the required JSON format.
             system_prompt="",
         )
 
-        print("=====GENERATION TOOL===========")
-        print(prompt)
-        print("=====GENERATION TOOL===========")
-
         return await agent.run(prompt)
 
     async def revise_post(

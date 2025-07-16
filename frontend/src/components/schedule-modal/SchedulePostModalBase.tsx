@@ -23,7 +23,6 @@ import { Post } from "@/types/posts";
 import { postsApi } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
-import { type UserPreferences, profileApi } from "@/lib/profile-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import { toDate, format, toZonedTime } from "date-fns-tz";
@@ -193,8 +192,6 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
 
       initializedRef.current = true;
     }
-
-
   }, [isOpen, post, userPreferences, isScheduleMode]);
 
   // Reset local loading flag

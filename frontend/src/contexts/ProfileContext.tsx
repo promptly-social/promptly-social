@@ -29,24 +29,29 @@ export const useProfile = () => {
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
-  // Queries will automatically be disabled when `user` is null
+  // Only enable queries when user is authenticated
+  const isAuthenticated = !!user;
+
   const { data: userPreferences, isLoading: isPrefsLoading } =
-    useUserPreferences();
+    useUserPreferences(isAuthenticated);
 
   const { data: socialConnections = [], isLoading: isConnsLoading } =
-    useSocialConnections();
+    useSocialConnections(isAuthenticated);
 
   const linkedinConnection = useMemo(
     () => socialConnections.find((c) => c.platform === "linkedin") || null,
     [socialConnections]
   );
 
-  const loading = isPrefsLoading || isConnsLoading;
+  // Include auth loading state in the overall loading state
+  const loading = authLoading || isPrefsLoading || isConnsLoading;
 
   const refreshProfile = async () => {
+    if (!isAuthenticated) return;
+
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: profileKeys.preferences }),
       queryClient.invalidateQueries({ queryKey: profileKeys.connections }),
