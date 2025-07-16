@@ -34,10 +34,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Queries will automatically be disabled when `user` is null
   const { data: userPreferences, isLoading: isPrefsLoading } =
-    useUserPreferences();
+    useUserPreferences(!!user);
 
   const { data: socialConnections = [], isLoading: isConnsLoading } =
-    useSocialConnections();
+    useSocialConnections(!!user);
 
   const linkedinConnection = useMemo(
     () => socialConnections.find((c) => c.platform === "linkedin") || null,
