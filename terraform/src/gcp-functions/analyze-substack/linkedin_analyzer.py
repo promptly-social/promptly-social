@@ -396,6 +396,7 @@ class LinkedInAnalyzer:
         If the LinkedIn profile and/or the current bio are given, update them based on your analysis.
         The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.
         If the information is available, also include the user's passions and interests in their personal life.
+        If the information is available, analyze the user's perspective and opinions on various topics and themes.
         This will be used as a persona for LLM to generate content in their style, preferences, and point of view.
 
         Return the user bio in plain text format without any markdown. The LinkedIn profile and current bio might be empty or incomplete.

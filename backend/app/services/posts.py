@@ -3,7 +3,7 @@ Posts service for business logic.
 """
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from fastapi import UploadFile
@@ -388,84 +388,121 @@ class PostsService:
             return None
 
         if platform == "linkedin":
-            profile_service = ProfileService(self._db)
-            connection = await profile_service.get_social_connection(
-                user_id, "linkedin"
-            )
-            if not connection:
-                raise Exception("LinkedIn connection not found for user.")
-
-            linkedin_service = LinkedInService(connection)
-
-            media_payloads = []
-            if post.media:
-                for media_item in post.media:
-                    if (
-                        media_item.media_type in ["image", "video"]
-                        and media_item.storage_path
-                    ):
-                        blob = self.bucket.blob(media_item.storage_path)
-                        # TODO: Use async download
-                        media_content = blob.download_as_bytes()
-
-                        asset_urn = await linkedin_service.upload_media(
-                            media_content, media_item.media_type
-                        )
-                        media_item.linkedin_asset_urn = asset_urn
-                        self._db.add(media_item)
-                        media_payloads.append({"media": asset_urn})
-
-                await self._db.commit()
-
-            share_result = await linkedin_service.share_post(
-                text=post.content,
-                article_url=post.article_url,
-                media_items=media_payloads,
-            )
-
-            # Capture LinkedIn shortened URL if possible
             try:
-                share_id = (
-                    share_result.get("id") if isinstance(share_result, dict) else None
+                profile_service = ProfileService(self._db)
+                connection = await profile_service.get_social_connection(
+                    user_id, "linkedin"
                 )
-                if share_id:
-                    linkedin_short_url = (
-                        f"https://www.linkedin.com/feed/update/urn:li:share:{share_id}"
-                    )
+                if not connection:
+                    error_msg = "LinkedIn connection not found for user."
                     await self.update_post(
                         user_id,
                         post_id,
-                        PostUpdate(linkedin_article_url=linkedin_short_url),
+                        PostUpdate(sharing_error=error_msg),
                     )
-            except Exception as e:
-                logger.warning(
-                    f"Unable to parse LinkedIn share response for shortened URL: {e}"
+                    raise Exception(error_msg)
+
+                linkedin_service = LinkedInService(connection)
+
+                media_payloads = []
+                if post.media:
+                    for media_item in post.media:
+                        if (
+                            media_item.media_type in ["image", "video"]
+                            and media_item.storage_path
+                        ):
+                            blob = self.bucket.blob(media_item.storage_path)
+                            # TODO: Use async download
+                            media_content = blob.download_as_bytes()
+
+                            asset_urn = await linkedin_service.upload_media(
+                                media_content, media_item.media_type
+                            )
+                            media_item.linkedin_asset_urn = asset_urn
+                            self._db.add(media_item)
+                            media_payloads.append({"media": asset_urn})
+
+                    await self._db.commit()
+
+                logger.info(
+                    f"Publishing post {post_id}: content_length={len(post.content)}, article_url={post.article_url}, media_count={len(media_payloads)}"
                 )
 
-            await self.update_post(
-                user_id,
-                post_id,
-                PostUpdate(status="posted", posted_at=datetime.utcnow()),
-            )
+                share_result = await linkedin_service.share_post(
+                    text=post.content,
+                    article_url=post.article_url,
+                    media_items=media_payloads,
+                )
 
-            # Delete media from GCS after posting
-            if post.media:
-                for media_item in post.media:
-                    if media_item.storage_path:
-                        try:
-                            blob = self.bucket.blob(media_item.storage_path)
-                            if blob.exists():
-                                blob.delete()
-                            media_item.storage_path = None
-                            media_item.gcs_url = None
-                            self._db.add(media_item)
-                        except Exception as e:
-                            logger.error(
-                                f"Error deleting media {media_item.storage_path} from GCS: {e}"
-                            )
-                await self._db.commit()
+                print("LINKEDIN SHARE RESULT", share_result)
 
-            return share_result
+                # Capture LinkedIn shortened URL if possible
+                try:
+                    share_id = (
+                        share_result.get("id")
+                        if isinstance(share_result, dict)
+                        else None
+                    )
+                    if share_id:
+                        linkedin_short_url = (
+                            f"https://www.linkedin.com/feed/update/{share_id}"
+                        )
+                        await self.update_post(
+                            user_id,
+                            post_id,
+                            PostUpdate(linkedin_article_url=linkedin_short_url),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to parse LinkedIn share response for shortened URL: {e}"
+                    )
+
+                # Clear any previous sharing errors and mark as posted
+                await self.update_post(
+                    user_id,
+                    post_id,
+                    PostUpdate(
+                        status="posted",
+                        posted_at=datetime.now(timezone.utc),
+                        sharing_error=None,  # Clear any previous errors
+                    ),
+                )
+
+                # Delete media from GCS after posting
+                if post.media:
+                    for media_item in post.media:
+                        if media_item.storage_path:
+                            try:
+                                blob = self.bucket.blob(media_item.storage_path)
+                                if blob.exists():
+                                    blob.delete()
+                                media_item.storage_path = None
+                                media_item.gcs_url = None
+                                self._db.add(media_item)
+                            except Exception as e:
+                                logger.error(
+                                    f"Error deleting media {media_item.storage_path} from GCS: {e}"
+                                )
+                    await self._db.commit()
+
+                return share_result
+
+            except Exception as e:
+                # Store the error message and keep the current status
+                error_msg = str(e)
+                logger.error(
+                    f"Error publishing post {post_id} to {platform}: {error_msg}"
+                )
+
+                # Update the post with the error but don't change status
+                await self.update_post(
+                    user_id,
+                    post_id,
+                    PostUpdate(sharing_error=error_msg),
+                )
+
+                # Re-raise the exception so the router can handle it appropriately
+                raise
 
         raise NotImplementedError(f"Publishing to {platform} is not supported.")
 

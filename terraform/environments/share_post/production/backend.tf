@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "promptly-social-tf-state-production"
-    prefix = "share-post"
+    bucket = "promptly-terraform-state"
+    prefix = "terraform/state/gcp-functions/share-post/production"
   }
 }

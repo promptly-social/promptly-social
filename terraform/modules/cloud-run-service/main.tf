@@ -129,6 +129,26 @@ resource "google_cloud_run_service" "backend" {
         }
 
         env {
+          name = "GCP_GENERATE_SUGGESTIONS_FUNCTION_URL"
+          value_from {
+            secret_key_ref {
+              name = var.gcp_generate_suggestions_function_url_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "GCP_SHARE_POST_FUNCTION_URL"
+          value_from {
+            secret_key_ref {
+              name = var.gcp_share_post_function_url_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
           name = "OPENROUTER_API_KEY"
           value_from {
             secret_key_ref {
@@ -138,10 +158,7 @@ resource "google_cloud_run_service" "backend" {
           }
         }
 
-        env {
-          name  = "GCP_ANALYSIS_FUNCTION_URL_VERSION"
-          value = var.gcp_analysis_function_url_version
-        }
+        
         env {
           name  = "FRONTEND_URL"
           value = var.frontend_url

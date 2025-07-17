@@ -121,7 +121,7 @@ async def refresh_token_if_needed(
     """Refresh LinkedIn access token if needed."""
     try:
         connection_data = connection.get("connection_data", {})
-        access_token = connection_data.get("access_token")
+        # access_token = connection_data.get("access_token")
         refresh_token = connection_data.get("refresh_token")
         expires_at = connection_data.get("expires_at")
 
@@ -247,45 +247,44 @@ async def share_to_linkedin(
         text = post_data.get("content", "")
         article_url = post_data.get("article_url")
 
-        # Build share content
+        # Build share content - match the logic from linkedin_service.py
         share_content = {
             "shareCommentary": {"text": text},
             "shareMediaCategory": "NONE",
         }
 
-        combined_media = []
-
-        # Add article link first so it determines media category
-        if article_url:
-            combined_media.append({"originalUrl": article_url})
-
-        # Add media items if provided
+        # Convert media items to the format expected by LinkedIn service logic
+        media_payloads = []
         if media_items:
             for media in media_items:
                 if media.get("linkedin_asset_urn"):
-                    media_type = media.get("media_type", "image")
-                    if media_type == "image":
-                        combined_media.append(
-                            {"media": {"image": media["linkedin_asset_urn"]}}
-                        )
-                    elif media_type == "video":
-                        combined_media.append(
-                            {"media": {"video": media["linkedin_asset_urn"]}}
-                        )
+                    media_payloads.append({"media": media["linkedin_asset_urn"]})
 
-        if combined_media:
-            # Determine media category based on the first item
-            first_item = combined_media[0]
-            if "originalUrl" in first_item:
-                share_content["shareMediaCategory"] = "ARTICLE"
-            elif "media" in first_item and "image" in first_item["media"]:
-                share_content["shareMediaCategory"] = "IMAGE"
-            elif "media" in first_item and "video" in first_item["media"]:
-                share_content["shareMediaCategory"] = "VIDEO"
+        # Handle different media scenarios - match linkedin_service.py logic
+        if article_url and (not media_payloads or len(media_payloads) == 0):
+            # Article only
+            share_content["shareMediaCategory"] = "ARTICLE"
+            share_content["media"] = [{"status": "READY", "originalUrl": article_url}]
+        elif media_payloads and len(media_payloads) > 0:
+            # Media items (images/videos)
+            first_media = media_payloads[0]
+            if "media" in first_media:
+                media_urn = first_media["media"]
+                if "image" in media_urn.lower():
+                    share_content["shareMediaCategory"] = "IMAGE"
+                elif "video" in media_urn.lower():
+                    share_content["shareMediaCategory"] = "VIDEO"
+                else:
+                    # Default to image if we can't determine
+                    share_content["shareMediaCategory"] = "IMAGE"
 
             share_content["media"] = [
-                {"status": "READY", **item} for item in combined_media
+                {"status": "READY", **item} for item in media_payloads
             ]
+
+            # If there's also an article URL with media, we prioritize media
+            # LinkedIn doesn't support both article and media in the same post
+        # If neither article_url nor media_payloads, keep shareMediaCategory as "NONE"
 
         # Build post data
         post_payload = {
@@ -466,7 +465,7 @@ def share_post(request):
             if not share_result:
                 # Try once more for transient LinkedIn API issues
                 logger.info("Retrying LinkedIn share after initial failure")
-                await asyncio.sleep(2)
+                asyncio.sleep(2)
                 share_result = asyncio.run(
                     share_to_linkedin(post_data, refreshed_connection, media_items)
                 )
@@ -480,7 +479,7 @@ def share_post(request):
                     supabase,
                     post_id,
                     {
-                        "status": "failed",
+                        "status": "scheduled",
                         "sharing_error": "Failed to share to LinkedIn after retries",
                     },
                 )

@@ -10,12 +10,11 @@ from typing import Optional
 from uuid import UUID
 
 from google.cloud import scheduler_v1
-from google.api_core.exceptions import NotFound, GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
-from anyio import to_thread
 
 from app.core.config import settings
 from app.models.posts import Post
@@ -244,7 +243,7 @@ class PostScheduleService:
         # Update post regardless of scheduler job deletion success
         post.scheduled_at = None
         post.scheduler_job_name = None
-        post.status = "suggested"  # Reset to suggested status
+        post.status = "draft"  # Reset to draft status
 
         await self.db.commit()
         await self.db.refresh(post)

@@ -26,6 +26,7 @@ export interface Post {
   posted_at?: string;
   article_url?: string;
   linkedin_article_url?: string;
+  sharing_error?: string;
   created_at: string;
   updated_at: string;
   media: PostMedia[];
@@ -43,4 +44,5 @@ export interface PostUpdate {
   posted_at?: string;
   article_url?: string;
   linkedin_article_url?: string;
+  sharing_error?: string;
 }

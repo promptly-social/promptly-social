@@ -19,7 +19,7 @@ variable "environment" {
 variable "app_name" {
   description = "The application name"
   type        = string
-  default     = "promptly-social"
+  default     = "promptly"
 }
 
 variable "function_name" {
@@ -37,7 +37,7 @@ variable "function_source_dir" {
 variable "app_sa_email" {
   description = "The email of the application service account"
   type        = string
-  default     = "promptly-social-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
+  default     = "promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
 }
 
 variable "linkedin_token_refresh_threshold" {

@@ -207,6 +207,19 @@ class PostsAPI {
     );
   }
 
+  /**
+   * Post a post immediately to LinkedIn
+   */
+  async postNow(postId: string): Promise<{ message: string; details: unknown }> {
+    const response = await apiClient.request<{ message: string; details: unknown }>(
+      `/posts/${postId}/publish?platform=linkedin`,
+      {
+        method: "POST",
+      }
+    );
+    return response;
+  }
+
   async uploadPostMedia(postId: string, files: File[]): Promise<PostMedia[]> {
     const formData = new FormData();
     if (files && files.length > 0) {

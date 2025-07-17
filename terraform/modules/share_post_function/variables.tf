@@ -17,7 +17,7 @@ variable "environment" {
 variable "app_name" {
   description = "The application name"
   type        = string
-  default     = "promptly-social"
+  default     = "promptly"
 }
 
 variable "function_name" {
