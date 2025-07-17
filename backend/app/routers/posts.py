@@ -406,11 +406,11 @@ async def schedule_post(
     """Schedule a post for publishing."""
     try:
         schedule_service = PostScheduleService(db)
-        job_name = await schedule_service.schedule_post(
+        success = await schedule_service.schedule_post(
             current_user.id, post_id, schedule_data.scheduled_at, schedule_data.timezone
         )
 
-        if not job_name:
+        if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Post not found or failed to schedule",
@@ -419,7 +419,7 @@ async def schedule_post(
         return PostScheduleResponse(
             success=True,
             scheduled_at=schedule_data.scheduled_at,
-            scheduler_job_name=job_name,
+            scheduler_job_name="unified-scheduler",  # Indicate unified scheduler is used
             message="Post scheduled successfully",
         )
     except HTTPException:
@@ -474,11 +474,11 @@ async def reschedule_post(
     """Reschedule a post to a new time."""
     try:
         schedule_service = PostScheduleService(db)
-        job_name = await schedule_service.reschedule_post(
+        success = await schedule_service.reschedule_post(
             current_user.id, post_id, schedule_data.scheduled_at, schedule_data.timezone
         )
 
-        if not job_name:
+        if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Post not found or failed to reschedule",
@@ -487,7 +487,7 @@ async def reschedule_post(
         return PostScheduleResponse(
             success=True,
             scheduled_at=schedule_data.scheduled_at,
-            scheduler_job_name=job_name,
+            scheduler_job_name="unified-scheduler",  # Indicate unified scheduler is used
             message="Post rescheduled successfully",
         )
     except HTTPException:

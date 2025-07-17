@@ -10,7 +10,7 @@ import os
 from typing import Dict, List, Any
 
 from apify_client import ApifyClient
-from openai import OpenAI
+from llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,23 +24,8 @@ class LinkedInAnalyzer:
         openrouter_api_key: str = None,
     ):
         self.max_posts = max_posts
-        self.openrouter_client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=openrouter_api_key,
-        )
+        self.llm_client = LLMClient()
         self.apify_api_key = os.getenv("APIFY_API_KEY")
-
-        # Get model configuration from environment variables
-        self.model_primary = os.getenv(
-            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
-        )
-        models_fallback_str = os.getenv(
-            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
-        )
-        self.models_fallback = [
-            model.strip() for model in models_fallback_str.split(",")
-        ]
-        self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_linkedin(
         self, account_id: str, current_bio: str, content_to_analyze: List[str]
@@ -362,11 +347,7 @@ class LinkedInAnalyzer:
                 temperature=self.temperature,
             )
 
-            if not response.choices:
-                logger.error("API call for writing style analysis returned no choices.")
-                return ""
-
-            return response.choices[0].message.content
+            return response
 
         except Exception as e:
             logger.error(f"Error analyzing writing style: {e}")
@@ -421,11 +402,7 @@ class LinkedInAnalyzer:
                 temperature=self.temperature,
             )
 
-            if not response.choices:
-                logger.error("API call for user bio creation returned no choices.")
-                return current_bio or linkedin_profile.get("summary", "")
-
-            return response.choices[0].message.content
+            return response or current_bio or linkedin_profile.get("summary", "")
 
         except Exception as e:
             logger.error(f"Error creating user bio: {e}")

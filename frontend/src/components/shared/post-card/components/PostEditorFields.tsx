@@ -18,11 +18,15 @@ import { postsApi } from "@/lib/posts-api";
 interface PostEditorFieldsProps {
   editor: UsePostEditorReturn;
   onExistingMediaRemove?: (media: PostMedia) => void;
+  isReadOnly?: boolean;
+  postStatus?: string;
 }
 
 export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
   editor,
   onExistingMediaRemove,
+  isReadOnly = false,
+  postStatus,
 }) => {
   const {
     content,
@@ -63,6 +67,9 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
     }
   }, [mediaFiles]);
 
+  // Determine if post is posted and should have read-only restrictions
+  const isPosted = postStatus === "posted" || isReadOnly;
+
   // Function to generate and copy AI prompt
   const generateAndCopyPrompt = async () => {
     const trimmedContent = content.trim();
@@ -79,6 +86,12 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
 
     try {
       const response = await postsApi.generateImagePrompt(trimmedContent);
+      console.log("API Response:", response);
+
+      // Check if the response has the expected structure
+      if (!response.imagePrompt) {
+        throw new Error("Invalid response format: missing imagePrompt");
+      }
 
       // Copy the generated prompt to clipboard
       await navigator.clipboard.writeText(response.imagePrompt);
@@ -90,9 +103,21 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
       });
     } catch (err) {
       console.error("Failed to generate image prompt:", err);
+      
+      // More specific error handling
+      let errorMessage = "Unable to generate image prompt. Please try again.";
+      
+      if (err instanceof Error) {
+        if (err.message.includes("clipboard")) {
+          errorMessage = "Failed to copy to clipboard. Please try again.";
+        } else if (err.message.includes("Invalid response")) {
+          errorMessage = "Received invalid response from server.";
+        }
+      }
+      
       toast({
         title: "Failed to generate prompt",
-        description: "Unable to generate image prompt. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -104,10 +129,17 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
     <div className="space-y-4">
       <Textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="min-h-[200px] max-h-[400px] resize-y w-full"
-        autoFocus
-        placeholder="Edit your post content..."
+        onChange={isPosted ? undefined : (e) => setContent(e.target.value)}
+        readOnly={isPosted}
+        className={`min-h-[200px] max-h-[400px] resize-y w-full ${
+          isPosted ? "bg-gray-50 cursor-not-allowed text-gray-600" : ""
+        }`}
+        autoFocus={!isPosted}
+        placeholder={
+          isPosted
+            ? "Content cannot be edited for posted posts"
+            : "Edit your post content..."
+        }
       />
       <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
         {/* Render existing media */}
@@ -128,17 +160,19 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
                   className="w-full h-24 rounded bg-black max-w-[600]"
                 />
               )}
-              <Button
-                variant="destructive"
-                size="icon"
-                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                onClick={() => {
-                  removeExistingMedia(media);
-                  onExistingMediaRemove?.(media);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {!isPosted && (
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                  onClick={() => {
+                    removeExistingMedia(media);
+                    onExistingMediaRemove?.(media);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           ))}
         {/* Render new media previews */}
@@ -171,20 +205,26 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
         <Label htmlFor="article-url">Article URL</Label>
         <Input
           id="article-url"
-          placeholder="https://example.com/article"
+          placeholder={
+            isPosted
+              ? "Article URL cannot be edited for posted posts"
+              : "https://example.com/article"
+          }
           value={articleUrl}
-          onChange={(e) => setArticleUrl(e.target.value)}
+          onChange={isPosted ? undefined : (e) => setArticleUrl(e.target.value)}
+          readOnly={isPosted}
+          className={isPosted ? "bg-gray-50 cursor-not-allowed text-gray-600" : ""}
         />
       </div>
 
       <div className="space-y-2 flex flex-col gap-2">
-        <Label htmlFor="media-file">Image/Video</Label>
+        <Label htmlFor="media-file">Image</Label>
         <Input
           id="media-file"
           type="file"
           ref={fileInputRef}
           onChange={handleMediaFileChange}
-          accept="image/*,video/*"
+          accept="image/*"
           className="hidden"
         />
 
@@ -210,15 +250,15 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
                   <Button
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={mediaLimitReached}
-                    className={mediaLimitReached ? "cursor-not-allowed" : ""}
+                    disabled={mediaLimitReached || isPosted}
+                    className={mediaLimitReached || isPosted ? "cursor-not-allowed" : ""}
                   >
-                    Choose File
+                    {isPosted ? "Media Upload Disabled" : "Choose Image"}
                   </Button>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top">
-                Only one image or video can be attached per post. Remove the
+                Only one image can be attached per post. Remove the
                 existing file to replace it.
               </TooltipContent>
             </Tooltip>
@@ -235,7 +275,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
               variant="outline"
               size="sm"
               onClick={generateAndCopyPrompt}
-              disabled={isGeneratingPrompt}
+              disabled={isGeneratingPrompt || isPosted}
               className="flex items-center gap-2"
             >
               {isGeneratingPrompt ? (
@@ -243,7 +283,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
               ) : (
                 <Copy className="w-4 h-4" />
               )}
-              {isGeneratingPrompt ? "Generating..." : "Generate Prompt"}
+              {isPosted ? "Disabled for Posted Posts" : isGeneratingPrompt ? "Generating..." : "Generate Prompt"}
             </Button>
           </div>
         </div>

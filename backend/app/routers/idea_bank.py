@@ -101,6 +101,25 @@ async def get_idea_banks_with_latest_posts(
         )
 
 
+@router.get("/batch", response_model=List[IdeaBankResponse])
+async def get_idea_banks_batch(
+    ids: List[UUID] = Query(..., description="List of idea bank IDs to fetch"),
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Get multiple idea banks by their IDs."""
+    try:
+        idea_bank_service = IdeaBankService(db)
+        idea_banks = await idea_bank_service.get_idea_banks_by_ids(current_user.id, ids)
+        return [IdeaBankResponse.model_validate(idea_bank) for idea_bank in idea_banks]
+    except Exception as e:
+        logger.error(f"Error getting idea banks batch: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch idea banks",
+        )
+
+
 @router.get("/{idea_bank_id}", response_model=IdeaBankResponse)
 async def get_idea_bank(
     idea_bank_id: UUID,

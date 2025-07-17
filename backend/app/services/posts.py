@@ -506,10 +506,6 @@ class PostsService:
 
         raise NotImplementedError(f"Publishing to {platform} is not supported.")
 
-    # Note: Post scheduling methods have been moved to PostScheduleService
-    # to properly integrate with Google Cloud Scheduler. Use PostScheduleService
-    # for all scheduling operations.
-
     async def get_signed_media_for_post(
         self, user_id: UUID, post_id: UUID
     ) -> List[PostMedia]:
@@ -529,11 +525,17 @@ class PostsService:
                     )
                     # Do not persist to DB; modify in-memory only
                     media.gcs_url = signed_url  # type: ignore
+                    # Only append media with valid signed URL
+                    media_items.append(media)
                 except Exception as e:
                     logger.error(
                         f"Error generating signed URL for {media.storage_path}: {e}"
                     )
-            media_items.append(media)
+                    # Skip this media item if URL generation fails
+            elif media.gcs_url:
+                # If media already has a valid GCS URL, include it
+                media_items.append(media)
+            # Skip media items without storage_path or gcs_url
 
         return media_items
 

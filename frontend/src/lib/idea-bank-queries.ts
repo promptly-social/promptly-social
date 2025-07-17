@@ -7,6 +7,7 @@ import {
   type IdeaBankCreate,
   type IdeaBankUpdate,
   type IdeaBank,
+  type IdeaBankData,
   type SuggestedPost,
 } from "./idea-bank-api";
 
@@ -90,3 +91,24 @@ export const useDeleteIdeaBank = () => {
     },
   });
 };
+
+// --------------------------- New Hooks for Inspiration Display -----------------------------
+
+export const useIdeaBankData = (id?: string, enabled = true) =>
+  useQuery<IdeaBankData, Error>({
+    queryKey: ["ideaBankData", id],
+    queryFn: () => {
+      if (!id) throw new Error("Missing id");
+      return ideaBankApi.getIdeaBank(id);
+    },
+    enabled: !!id && enabled,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+export const useBatchIdeaBanks = (ids: string[], enabled = true) =>
+  useQuery<Record<string, IdeaBankData>, Error>({
+    queryKey: ["batchIdeaBanks", ids.sort()], // Sort for consistent cache key
+    queryFn: () => ideaBankApi.getIdeaBanksByIds(ids),
+    enabled: ids.length > 0 && enabled,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });

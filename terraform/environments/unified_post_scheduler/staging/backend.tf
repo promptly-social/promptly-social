@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
     bucket = "promptly-terraform-states"
-    prefix = "terraform/state/gcp-functions/share-post/staging"
+    prefix = "terraform/state/gcp-functions/unified-post-scheduler/staging"
   }
 }

@@ -287,6 +287,27 @@ class IdeaBankService:
             logger.error(f"Error getting idea bank {idea_bank_id}: {e}")
             raise
 
+    async def get_idea_banks_by_ids(
+        self, user_id: UUID, idea_bank_ids: list[UUID]
+    ) -> list[IdeaBank]:
+        """Get multiple idea banks by their IDs."""
+        try:
+            if not idea_bank_ids:
+                return []
+
+            query = select(IdeaBank).where(
+                and_(
+                    IdeaBank.id.in_(idea_bank_ids),
+                    IdeaBank.user_id == user_id,
+                )
+            )
+            result = await self.db.execute(query)
+            return result.scalars().all()
+
+        except Exception as e:
+            logger.error(f"Error getting idea banks by IDs: {e}")
+            raise
+
     async def get_idea_bank_with_latest_post(
         self, user_id: UUID, idea_bank_id: UUID
     ) -> Optional[Dict[str, Any]]:

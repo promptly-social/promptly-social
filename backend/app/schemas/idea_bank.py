@@ -6,14 +6,14 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 
 
 class IdeaBankData(BaseModel):
     """Schema for idea bank data structure."""
 
-    type: str  # "url", "text", or "product"
-    value: str  # URL for article/product, text content for text type
+    type: Optional[str] = None  # "url", "text", or "product"
+    value: Optional[str] = None  # URL for article/product, text content for text type
     title: Optional[str] = None
     # Product-specific fields
     product_name: Optional[str] = None
@@ -22,13 +22,6 @@ class IdeaBankData(BaseModel):
     time_sensitive: Optional[bool] = False
     last_used_post_id: Optional[str] = None
     ai_suggested: Optional[bool] = False
-
-    @field_validator("type")
-    @classmethod
-    def validate_type(cls, v):
-        if v not in ["url", "text", "product"]:
-            raise ValueError("type must be one of: url, text, product")
-        return v
 
 
 class IdeaBankBase(BaseModel):

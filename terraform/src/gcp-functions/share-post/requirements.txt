@@ -1,5 +1,0 @@
-functions-framework==3.*
-supabase==2.*
-httpx==0.27.*
-google-cloud-secret-manager==2.*
-loguru==0.7.*

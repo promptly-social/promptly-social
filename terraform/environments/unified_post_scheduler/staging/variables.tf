@@ -23,31 +23,19 @@ variable "app_name" {
 }
 
 variable "function_name" {
-  description = "The name of the Cloud Function"
+  description = "The name of the unified post scheduler Cloud Function"
   type        = string
-  default     = "share-post-staging"
+  default     = "unified-post-scheduler-staging"
 }
 
-variable "function_source_dir" {
-  description = "The directory containing the function source code"
+variable "scheduler_job_name" {
+  description = "The name of the Cloud Scheduler job"
   type        = string
-  default     = "../../../src/gcp-functions/share-post"
+  default     = "unified-post-scheduler-trigger-staging"
 }
 
-variable "app_sa_email" {
-  description = "The email of the application service account"
+variable "service_account_email" {
+  description = "The email of the service account for function execution"
   type        = string
   default     = "promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
-}
-
-variable "linkedin_token_refresh_threshold" {
-  description = "Minutes before token expiry to refresh LinkedIn tokens"
-  type        = number
-  default     = 60
-}
-
-variable "max_retry_attempts" {
-  description = "Maximum number of retry attempts for failed operations"
-  type        = number
-  default     = 3
 }

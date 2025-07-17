@@ -76,7 +76,6 @@ class Settings(BaseSettings):
     gcp_analysis_function_url: Optional[str] = Field(default=None)
     gcp_service_account_key_path: Optional[str] = Field(default=None)
     gcp_generate_suggestions_function_url: Optional[str] = Field(default=None)
-    gcp_share_post_function_url: Optional[str] = Field(default=None)
     post_media_bucket_name: Optional[str] = Field(default=None)
 
     @field_validator("environment")

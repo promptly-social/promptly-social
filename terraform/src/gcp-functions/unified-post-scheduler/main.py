@@ -1,9 +1,9 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 import traceback
 
 import functions_framework
@@ -51,37 +51,228 @@ def get_supabase_client() -> Client:
     return create_client(supabase_url, supabase_service_key)
 
 
-async def get_post_data(
-    supabase: Client, user_id: str, post_id: str
-) -> Optional[Dict[str, Any]]:
-    """Retrieve post data from database."""
+@functions_framework.http
+def process_scheduled_posts(request):
+    """
+    Process all posts scheduled for publishing in the last 5 minutes.
+
+    This function is triggered by Cloud Scheduler every 5 minutes.
+    No request payload required.
+    """
+    # Handle CORS
+    if request.method == "OPTIONS":
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "3600",
+        }
+        return ("", 204, headers)
+
+    headers = {"Access-Control-Allow-Origin": "*"}
+
     try:
+        logger.info("Starting unified post scheduler execution")
+        start_time = datetime.now(timezone.utc)
+
+        # Initialize Supabase client
+        supabase = get_supabase_client()
+
+        # Get posts scheduled for publishing
+        posts_to_publish = asyncio.run(
+            retry_with_exponential_backoff(get_posts_to_publish, supabase)
+        )
+
+        if not posts_to_publish:
+            logger.info("No posts found for publishing")
+            return (
+                json.dumps(
+                    {
+                        "success": True,
+                        "message": "No posts to publish",
+                        "posts_processed": 0,
+                        "execution_time_seconds": (
+                            datetime.now(timezone.utc) - start_time
+                        ).total_seconds(),
+                    }
+                ),
+                200,
+                headers,
+            )
+
+        logger.info(f"Found {len(posts_to_publish)} posts to publish")
+
+        # Process each post
+        results = asyncio.run(process_posts_batch(supabase, posts_to_publish))
+
+        # Calculate summary statistics
+        successful_posts = sum(1 for r in results if r["success"])
+        failed_posts = len(results) - successful_posts
+        execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+        logger.info(
+            f"Completed processing: {successful_posts} successful, {failed_posts} failed, "
+            f"{execution_time:.2f}s execution time"
+        )
+
+        return (
+            json.dumps(
+                {
+                    "success": True,
+                    "message": "Post processing completed",
+                    "posts_processed": len(posts_to_publish),
+                    "successful_posts": successful_posts,
+                    "failed_posts": failed_posts,
+                    "execution_time_seconds": execution_time,
+                    "results": results,
+                }
+            ),
+            200,
+            headers,
+        )
+
+    except Exception as e:
+        logger.error(f"Error in unified post scheduler: {e}")
+        logger.error(traceback.format_exc())
+        return (
+            json.dumps({"success": False, "error": str(e), "posts_processed": 0}),
+            500,
+            headers,
+        )
+
+
+async def get_posts_to_publish(supabase: Client) -> List[Dict[str, Any]]:
+    """
+    Query database for posts scheduled in the last 10 minutes that haven't been published.
+    """
+    try:
+        # Calculate time window: 10 minutes ago to now
+        now = datetime.now(timezone.utc)
+        ten_minutes_ago = now - timedelta(minutes=10)
+
+        logger.info(f"Querying for posts scheduled between {ten_minutes_ago} and {now}")
+
+        # Query for scheduled posts in the time window
         response = (
             supabase.table("posts")
             .select("*")
-            .eq("id", post_id)
-            .eq("user_id", user_id)
+            .eq("status", "scheduled")
+            .is_("posted_at", "null")
+            .gte("scheduled_at", ten_minutes_ago.isoformat())
+            .lte("scheduled_at", now.isoformat())
+            .order("scheduled_at", desc=False)
             .execute()
         )
 
-        if not response.data:
-            logger.error(f"Post {post_id} not found for user {user_id}")
-            return None
+        posts = response.data or []
+        logger.info(f"Found {len(posts)} posts ready for publishing")
 
-        post = response.data[0]
-
-        # Validate post is scheduled
-        if post.get("status") != "scheduled":
-            logger.error(
-                f"Post {post_id} is not in scheduled status: {post.get('status')}"
-            )
-            return None
-
-        return post
+        return posts
 
     except Exception as e:
-        logger.error(f"Error retrieving post data: {e}")
-        return None
+        logger.error(f"Error querying posts to publish: {e}")
+        raise
+
+
+async def process_posts_batch(
+    supabase: Client, posts: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Process a batch of posts for publishing with error handling.
+    """
+    results = []
+
+    for post in posts:
+        try:
+            logger.info(f"Processing post {post['id']} for user {post['user_id']}")
+            result = await process_single_post(supabase, post)
+            results.append(result)
+        except Exception as e:
+            logger.error(f"Failed to process post {post['id']}: {e}")
+            results.append(
+                {
+                    "post_id": post["id"],
+                    "user_id": post["user_id"],
+                    "success": False,
+                    "error": str(e),
+                }
+            )
+
+            # Update post with error status
+            try:
+                await update_post_status(
+                    supabase,
+                    post["id"],
+                    {
+                        "sharing_error": f"Unified scheduler error: {str(e)}",
+                        "status": "scheduled",  # Keep as scheduled for retry
+                    },
+                )
+            except Exception as update_error:
+                logger.error(
+                    f"Failed to update error status for post {post['id']}: {update_error}"
+                )
+
+    return results
+
+
+async def process_single_post(supabase: Client, post: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Process a single post for publishing.
+    """
+    post_id = post["id"]
+    user_id = post["user_id"]
+
+    try:
+        # Get LinkedIn connection for the user
+        linkedin_connection = await get_linkedin_connection(supabase, user_id)
+        if not linkedin_connection:
+            raise Exception("LinkedIn connection not found")
+
+        # Refresh token if needed
+        refreshed_connection = await refresh_token_if_needed(
+            supabase, linkedin_connection
+        )
+        if not refreshed_connection:
+            raise Exception("Failed to refresh LinkedIn token")
+
+        # Get post media
+        media_items = await get_post_media(supabase, post_id)
+
+        # Share to LinkedIn
+        share_result = await share_to_linkedin(post, refreshed_connection, media_items)
+        if not share_result:
+            raise Exception("Failed to share to LinkedIn")
+
+        # Update post status to posted
+        await update_post_status(
+            supabase,
+            post_id,
+            {
+                "status": "posted",
+                "posted_at": share_result["shared_at"],
+                "linkedin_post_id": share_result["linkedin_post_id"],
+                "sharing_error": None,
+            },
+        )
+
+        logger.info(f"Successfully published post {post_id}")
+
+        return {
+            "post_id": post_id,
+            "user_id": user_id,
+            "success": True,
+            "linkedin_post_id": share_result["linkedin_post_id"],
+            "shared_at": share_result["shared_at"],
+        }
+
+    except Exception as e:
+        logger.error(f"Error processing post {post_id}: {e}")
+        raise
+
+
+# Import helper functions from existing share-post function
+# These functions are copied and adapted from the existing share-post/main.py
 
 
 async def get_linkedin_connection(
@@ -121,7 +312,6 @@ async def refresh_token_if_needed(
     """Refresh LinkedIn access token if needed."""
     try:
         connection_data = connection.get("connection_data", {})
-        # access_token = connection_data.get("access_token")
         refresh_token = connection_data.get("refresh_token")
         expires_at = connection_data.get("expires_at")
 
@@ -345,187 +535,3 @@ async def update_post_status(
     except Exception as e:
         logger.error(f"Error updating post status: {e}")
         return False
-
-
-@functions_framework.http
-def share_post(request):
-    """
-    GCP Cloud Function for sharing posts to LinkedIn.
-
-    Expected request body:
-    {
-        "user_id": "uuid",
-        "post_id": "uuid"
-    }
-    """
-    # Handle CORS
-    if request.method == "OPTIONS":
-        headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600",
-        }
-        return ("", 204, headers)
-
-    headers = {"Access-Control-Allow-Origin": "*"}
-
-    try:
-        # Parse request
-        request_json = request.get_json(silent=True)
-
-        if not request_json:
-            return (
-                json.dumps({"success": False, "error": "Invalid JSON"}),
-                400,
-                headers,
-            )
-
-        user_id = request_json.get("user_id")
-        post_id = request_json.get("post_id")
-
-        if not user_id or not post_id:
-            return (
-                json.dumps(
-                    {
-                        "success": False,
-                        "error": "user_id and post_id are required",
-                    }
-                ),
-                400,
-                headers,
-            )
-
-        logger.info(f"Starting post sharing for user {user_id}, post {post_id}")
-
-        # Initialize Supabase client
-        supabase = get_supabase_client()
-
-        # Get post data with retry
-        post_data = asyncio.run(
-            retry_with_exponential_backoff(get_post_data, supabase, user_id, post_id)
-        )
-        if not post_data:
-            return (
-                json.dumps(
-                    {"success": False, "error": "Post not found or not scheduled"}
-                ),
-                404,
-                headers,
-            )
-
-        # Get LinkedIn connection with retry
-        linkedin_connection = asyncio.run(
-            retry_with_exponential_backoff(get_linkedin_connection, supabase, user_id)
-        )
-        if not linkedin_connection:
-            return (
-                json.dumps(
-                    {"success": False, "error": "LinkedIn connection not found"}
-                ),
-                404,
-                headers,
-            )
-
-        # Refresh token if needed (no retry for token refresh to avoid infinite loops)
-        refreshed_connection = asyncio.run(
-            refresh_token_if_needed(supabase, linkedin_connection)
-        )
-        if not refreshed_connection:
-            # Update post with authentication error
-            asyncio.run(
-                update_post_status(
-                    supabase,
-                    post_id,
-                    {
-                        "status": "failed",
-                        "sharing_error": "LinkedIn authentication failed - token refresh failed",
-                    },
-                )
-            )
-            return (
-                json.dumps(
-                    {"success": False, "error": "Failed to refresh LinkedIn token"}
-                ),
-                401,
-                headers,
-            )
-
-        # Get post media with retry
-        media_items = asyncio.run(
-            retry_with_exponential_backoff(get_post_media, supabase, post_id)
-        )
-
-        # Share to LinkedIn with single retry for transient errors
-        share_result = None
-        try:
-            share_result = asyncio.run(
-                share_to_linkedin(post_data, refreshed_connection, media_items)
-            )
-            if not share_result:
-                # Try once more for transient LinkedIn API issues
-                logger.info("Retrying LinkedIn share after initial failure")
-                asyncio.sleep(2)
-                share_result = asyncio.run(
-                    share_to_linkedin(post_data, refreshed_connection, media_items)
-                )
-        except Exception as e:
-            logger.error(f"LinkedIn sharing failed: {e}")
-
-        if not share_result:
-            # Update post with error
-            asyncio.run(
-                update_post_status(
-                    supabase,
-                    post_id,
-                    {
-                        "status": "scheduled",
-                        "sharing_error": "Failed to share to LinkedIn after retries",
-                    },
-                )
-            )
-            return (
-                json.dumps({"success": False, "error": "Failed to share to LinkedIn"}),
-                500,
-                headers,
-            )
-
-        # Update post status to posted with retry
-        update_success = asyncio.run(
-            retry_with_exponential_backoff(
-                update_post_status,
-                supabase,
-                post_id,
-                {
-                    "status": "posted",
-                    "posted_at": share_result["shared_at"],
-                    "linkedin_post_id": share_result["linkedin_post_id"],
-                    "sharing_error": None,
-                },
-            )
-        )
-
-        if not update_success:
-            logger.warning(
-                f"Failed to update post status for {post_id}, but sharing was successful"
-            )
-
-        logger.info(f"Successfully shared post {post_id} to LinkedIn")
-
-        return (
-            json.dumps(
-                {
-                    "success": True,
-                    "message": "Post shared successfully",
-                    "linkedin_post_id": share_result["linkedin_post_id"],
-                    "shared_at": share_result["shared_at"],
-                }
-            ),
-            200,
-            headers,
-        )
-
-    except Exception as e:
-        logger.error(f"Error in share_post function: {e}")
-        logger.error(traceback.format_exc())
-        return (json.dumps({"success": False, "error": str(e)}), 500, headers)

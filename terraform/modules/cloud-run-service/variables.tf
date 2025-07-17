@@ -112,11 +112,6 @@ variable "gcp_generate_suggestions_function_url_name" {
   type        = string
 }
 
-variable "gcp_share_post_function_url_name" {
-  description = "The name of the Secret Manager secret for the GCP share post function URL"
-  type        = string
-}
-
 variable "openrouter_api_key_name" {
   description = "The name of the Secret Manager secret for the OpenRouter API key"
   type        = string
