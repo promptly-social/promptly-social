@@ -1,22 +1,23 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { postsApi } from "../posts-api";
 import { apiClient } from "../auth-api";
 
 // Mock the API client
-jest.mock("../auth-api", () => ({
+vi.mock("../auth-api", () => ({
   apiClient: {
-    request: jest.fn(),
+    request: vi.fn(),
   },
 }));
 
 describe("PostsAPI", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("generateImagePrompt", () => {
     it("calls the correct endpoint with post content", async () => {
       const mockResponse = { imagePrompt: "Generated prompt for the image" };
-      (apiClient.request as jest.Mock).mockResolvedValue(mockResponse);
+      (apiClient.request as any).mockResolvedValue(mockResponse);
 
       const result = await postsApi.generateImagePrompt("Test post content");
 
@@ -29,7 +30,7 @@ describe("PostsAPI", () => {
 
     it("handles API errors", async () => {
       const error = new Error("API Error");
-      (apiClient.request as jest.Mock).mockRejectedValue(error);
+      (apiClient.request as any).mockRejectedValue(error);
 
       await expect(postsApi.generateImagePrompt("Test content")).rejects.toThrow("API Error");
     });
@@ -49,7 +50,7 @@ describe("PostsAPI", () => {
           updated_at: "2024-01-01T00:00:00Z",
         },
       ];
-      (apiClient.request as jest.Mock).mockResolvedValue(mockMedia);
+      (apiClient.request as any).mockResolvedValue(mockMedia);
 
       const result = await postsApi.getPostMedia("post-1");
 
@@ -60,7 +61,7 @@ describe("PostsAPI", () => {
     });
 
     it("handles empty media response", async () => {
-      (apiClient.request as jest.Mock).mockResolvedValue([]);
+      (apiClient.request as any).mockResolvedValue([]);
 
       const result = await postsApi.getPostMedia("post-1");
 
@@ -85,7 +86,7 @@ describe("PostsAPI", () => {
           updated_at: "2024-01-01T00:00:00Z",
         },
       ];
-      (apiClient.request as jest.Mock).mockResolvedValue(mockResponse);
+      (apiClient.request as any).mockResolvedValue(mockResponse);
 
       const result = await postsApi.uploadPostMedia("post-1", mockFiles);
 
@@ -97,7 +98,7 @@ describe("PostsAPI", () => {
     });
 
     it("handles empty file array", async () => {
-      (apiClient.request as jest.Mock).mockResolvedValue([]);
+      (apiClient.request as any).mockResolvedValue([]);
 
       const result = await postsApi.uploadPostMedia("post-1", []);
 
@@ -116,7 +117,7 @@ describe("PostsAPI", () => {
         message: "Post published successfully",
         details: { linkedin_id: "12345" },
       };
-      (apiClient.request as jest.Mock).mockResolvedValue(mockResponse);
+      (apiClient.request as any).mockResolvedValue(mockResponse);
 
       const result = await postsApi.postNow("post-1");
 
@@ -131,7 +132,7 @@ describe("PostsAPI", () => {
 
     it("handles publishing errors", async () => {
       const error = new Error("Publishing failed");
-      (apiClient.request as jest.Mock).mockRejectedValue(error);
+      (apiClient.request as any).mockRejectedValue(error);
 
       await expect(postsApi.postNow("post-1")).rejects.toThrow("Publishing failed");
     });
@@ -144,7 +145,7 @@ describe("PostsAPI", () => {
         scheduled: 3,
         posted: 10,
       };
-      (apiClient.request as jest.Mock).mockResolvedValue(mockCounts);
+      (apiClient.request as any).mockResolvedValue(mockCounts);
 
       const result = await postsApi.getPostCounts();
 
@@ -162,7 +163,7 @@ describe("PostsAPI", () => {
         size: 20,
         total_pages: 0,
       };
-      (apiClient.request as jest.Mock).mockResolvedValue(mockResponse);
+      (apiClient.request as any).mockResolvedValue(mockResponse);
 
       const result = await postsApi.getPosts();
 
@@ -178,7 +179,7 @@ describe("PostsAPI", () => {
         size: 10,
         total_pages: 0,
       };
-      (apiClient.request as jest.Mock).mockResolvedValue(mockResponse);
+      (apiClient.request as unknown).mockResolvedValue(mockResponse);
 
       const params = {
         status: ["draft", "scheduled"],

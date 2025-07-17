@@ -1,11 +1,12 @@
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
 import { PostEditorFields } from "../PostEditorFields";
 import { UsePostEditorReturn } from "@/hooks/usePostEditor";
 import { PostMedia } from "@/types/posts";
 
 // Mock the UI components
-jest.mock("@/components/ui/textarea", () => ({
+vi.mock("@/components/ui/textarea", () => ({
   Textarea: ({ value, onChange, readOnly, className, placeholder, ...props }: any) => (
     <textarea
       value={value}
@@ -19,7 +20,7 @@ jest.mock("@/components/ui/textarea", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/input", () => ({
+vi.mock("@/components/ui/input", () => ({
   Input: ({ value, onChange, readOnly, className, placeholder, ...props }: any) => (
     <input
       value={value}
@@ -33,7 +34,7 @@ jest.mock("@/components/ui/input", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/button", () => ({
+vi.mock("@/components/ui/button", () => ({
   Button: ({ children, onClick, disabled, className, ...props }: any) => (
     <button
       onClick={onClick}
@@ -46,35 +47,35 @@ jest.mock("@/components/ui/button", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/tooltip", () => ({
+vi.mock("@/components/ui/tooltip", () => ({
   Tooltip: ({ children }: any) => <div>{children}</div>,
   TooltipTrigger: ({ children }: any) => <div>{children}</div>,
   TooltipContent: ({ children }: any) => <div>{children}</div>,
 }));
 
-jest.mock("@/lib/posts-api", () => ({
+vi.mock("@/lib/posts-api", () => ({
   postsApi: {
-    generateImagePrompt: jest.fn(),
+    generateImagePrompt: vi.fn(),
   },
 }));
 
 const mockEditor: UsePostEditorReturn = {
   content: "Test content",
-  setContent: jest.fn(),
+  setContent: vi.fn(),
   topics: ["test"],
   topicInput: "",
-  setTopicInput: jest.fn(),
-  addTopic: jest.fn(),
-  removeTopic: jest.fn(),
+  setTopicInput: vi.fn(),
+  addTopic: vi.fn(),
+  removeTopic: vi.fn(),
   articleUrl: "https://example.com",
-  setArticleUrl: jest.fn(),
+  setArticleUrl: vi.fn(),
   existingMedia: [],
   mediaFiles: [],
   mediaPreviews: [],
-  handleMediaFileChange: jest.fn(),
-  removeExistingMedia: jest.fn(),
-  removeNewMedia: jest.fn(),
-  reset: jest.fn(),
+  handleMediaFileChange: vi.fn(),
+  removeExistingMedia: vi.fn(),
+  removeNewMedia: vi.fn(),
+  reset: vi.fn(),
 };
 
 describe("PostEditorFields - Read-only behavior", () => {
@@ -192,6 +193,7 @@ describe("PostEditorFields - Read-only behavior", () => {
         media_type: "image",
         file_name: "test.jpg",
         gcs_url: "https://example.com/test.jpg",
+        linkedin_asset_urn: null,
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       },
@@ -222,6 +224,7 @@ describe("PostEditorFields - Read-only behavior", () => {
         media_type: "image",
         file_name: "test.jpg",
         gcs_url: "https://example.com/test.jpg",
+        linkedin_asset_urn: null,
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       },
@@ -240,7 +243,7 @@ describe("PostEditorFields - Read-only behavior", () => {
     );
 
     // Media removal buttons should be present for non-posted posts
-    expect(screen.getByRole("button")).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(4); // Should have multiple buttons including the media removal button
   });
 
   it("respects explicit isReadOnly prop regardless of post status", () => {

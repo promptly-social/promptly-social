@@ -1,10 +1,11 @@
-import React from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PostCardActions } from '../PostCardActions';
 import { Post } from '@/types/posts';
 
 // Mock the UI components
-jest.mock('@/components/ui/button', () => ({
+vi.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, disabled, className, ...props }: any) => (
     <button 
       onClick={onClick} 
@@ -31,16 +32,16 @@ const mockPost: Post = {
 
 describe('PostCardActions', () => {
   const mockHandlers = {
-    onSchedulePost: jest.fn(),
-    onRemoveFromSchedule: jest.fn(),
-    onReschedulePost: jest.fn(),
-    onSaveForLater: jest.fn(),
-    onDismissPost: jest.fn(),
-    onPostNow: jest.fn(),
+    onSchedulePost: vi.fn(),
+    onRemoveFromSchedule: vi.fn(),
+    onReschedulePost: vi.fn(),
+    onSaveForLater: vi.fn(),
+    onDismissPost: vi.fn(),
+    onPostNow: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders nothing for posted posts', () => {

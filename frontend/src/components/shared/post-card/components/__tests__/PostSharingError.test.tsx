@@ -1,9 +1,9 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { PostSharingError } from '../PostSharingError';
 
 // Mock the tooltip components
-jest.mock('@/components/ui/tooltip', () => ({
+vi.mock('@/components/ui/tooltip', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -19,9 +19,9 @@ describe('PostSharingError', () => {
   it('renders error indicator when hasError is true', () => {
     render(<PostSharingError hasError={true} />);
     
-    // Check for the AlertTriangle icon (we can't easily test the icon itself, but we can test its container)
-    const errorIndicator = screen.getByRole('generic');
-    expect(errorIndicator).toBeInTheDocument();
+    // Check for the AlertTriangle icon by looking for the tooltip content which indicates the error is rendered
+    const tooltipContent = screen.getByTestId('tooltip-content');
+    expect(tooltipContent).toBeInTheDocument();
   });
 
   it('displays correct error message in tooltip', () => {

@@ -1,24 +1,50 @@
-import React from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PostCard } from "../PostCard";
 import { Post } from "@/types/posts";
 import { ideaBankApi, IdeaBankData } from "@/lib/idea-bank-api";
 import { postsApi } from "@/lib/posts-api";
 
 // Mock the APIs
-jest.mock("@/lib/idea-bank-api");
-jest.mock("@/lib/posts-api");
-jest.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: jest.fn() }),
+vi.mock("@/lib/idea-bank-api");
+vi.mock("@/lib/posts-api");
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}));
+
+// Mock the ProfileContext to avoid provider errors
+vi.mock("@/contexts/ProfileContext", () => ({
+  useProfile: () => ({
+    profile: {
+      id: "test-user",
+      bio: "Test bio",
+      substacks: [],
+    },
+    updateProfile: vi.fn(),
+    isLoading: false,
+  }),
+}));
+
+// Mock the AuthContext to avoid provider errors
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: {
+      id: "test-user",
+      email: "test@example.com",
+    },
+    isLoading: false,
+    signOut: vi.fn(),
+  }),
 }));
 
 // Mock the UI components
-jest.mock("@/components/ui/card", () => ({
+vi.mock("@/components/ui/card", () => ({
   Card: ({ children, className }: any) => <div className={className}>{children}</div>,
   CardContent: ({ children, className }: any) => <div className={className}>{children}</div>,
 }));
 
-jest.mock("@/components/ui/button", () => ({
+vi.mock("@/components/ui/button", () => ({
   Button: ({ children, onClick, disabled, className, ...props }: any) => (
     <button
       onClick={onClick}
@@ -31,7 +57,7 @@ jest.mock("@/components/ui/button", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/dropdown-menu", () => ({
+vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: any) => <div>{children}</div>,
   DropdownMenuContent: ({ children }: any) => <div>{children}</div>,
   DropdownMenuItem: ({ children, onClick }: any) => (
@@ -41,11 +67,11 @@ jest.mock("@/components/ui/dropdown-menu", () => ({
 }));
 
 // Mock other components
-jest.mock("../components/PostCardHeader", () => ({
+vi.mock("../components/PostCardHeader", () => ({
   PostCardHeader: () => <div>Post Header</div>,
 }));
 
-jest.mock("../components/PostContent", () => ({
+vi.mock("../components/PostContent", () => ({
   PostContent: ({ post }: any) => (
     <div>
       <div>Post Content: {post.content}</div>
@@ -53,25 +79,25 @@ jest.mock("../components/PostContent", () => ({
   ),
 }));
 
-jest.mock("../components/PostCardMeta", () => ({
+vi.mock("../components/PostCardMeta", () => ({
   PostCardMeta: () => <div>Post Meta</div>,
 }));
 
-jest.mock("../components/PostCardTopics", () => ({
+vi.mock("../components/PostCardTopics", () => ({
   PostCardTopics: () => <div>Post Topics</div>,
 }));
 
-jest.mock("../components/PostInspiration", () => ({
+vi.mock("../components/PostInspiration", () => ({
   PostInspiration: ({ inspiration }: any) => (
     <div>Inspiration: {inspiration.value}</div>
   ),
 }));
 
-jest.mock("../components/PostCardActions", () => ({
+vi.mock("../components/PostCardActions", () => ({
   PostCardActions: () => <div>Post Actions</div>,
 }));
 
-jest.mock("../components/PostSharingError", () => ({
+vi.mock("../components/PostSharingError", () => ({
   PostSharingError: () => <div>Sharing Error</div>,
 }));
 
@@ -98,12 +124,12 @@ const mockIdeaBankData: IdeaBankData = {
 
 describe("PostCard Integration - Inspiration Fetching", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (postsApi.getPostMedia as jest.Mock).mockResolvedValue([]);
+    vi.clearAllMocks();
+    (postsApi.getPostMedia as any).mockResolvedValue([]);
   });
 
   it("fetches and displays inspiration data when post has idea_bank_id", async () => {
-    (ideaBankApi.getIdeaBank as jest.Mock).mockResolvedValue(mockIdeaBankData);
+    (ideaBankApi.getIdeaBank as any).mockResolvedValue(mockIdeaBankData);
 
     render(<PostCard post={mockPost} />);
 
@@ -129,8 +155,8 @@ describe("PostCard Integration - Inspiration Fetching", () => {
   });
 
   it("handles inspiration fetching errors gracefully", async () => {
-    (ideaBankApi.getIdeaBank as jest.Mock).mockRejectedValue(new Error("API Error"));
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+    (ideaBankApi.getIdeaBank as any).mockRejectedValue(new Error("API Error"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     render(<PostCard post={mockPost} />);
 
@@ -151,9 +177,9 @@ describe("PostCard Integration - Inspiration Fetching", () => {
   });
 
   it("handles media fetch errors gracefully", async () => {
-    (ideaBankApi.getIdeaBank as jest.Mock).mockResolvedValue(mockIdeaBankData);
-    (postsApi.getPostMedia as jest.Mock).mockRejectedValue(new Error("Media fetch failed"));
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+    (ideaBankApi.getIdeaBank as any).mockResolvedValue(mockIdeaBankData);
+    (postsApi.getPostMedia as any).mockRejectedValue(new Error("Media fetch failed"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     render(<PostCard post={mockPost} />);
 
@@ -165,7 +191,7 @@ describe("PostCard Integration - Inspiration Fetching", () => {
   });
 
   it("refetches inspiration when idea_bank_id changes", async () => {
-    (ideaBankApi.getIdeaBank as jest.Mock).mockResolvedValue(mockIdeaBankData);
+    (ideaBankApi.getIdeaBank as any).mockResolvedValue(mockIdeaBankData);
 
     const { rerender } = render(<PostCard post={mockPost} />);
 
