@@ -137,7 +137,7 @@ class TestPostScheduleService:
             result = await service.unschedule_post(sample_post.user_id, sample_post.id)
 
             assert result is True
-            assert sample_post.status == "suggested"
+            assert sample_post.status == "draft"
             assert sample_post.scheduled_at is None
             assert sample_post.scheduler_job_name is None
 

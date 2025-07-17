@@ -192,8 +192,10 @@ class LinkedInService:
             "shareCommentary": {"text": text},
             "shareMediaCategory": "NONE",
         }
-        
-        logger.info(f"LinkedIn share_post called with: text_length={len(text)}, article_url={article_url}, media_items_count={len(media_items) if media_items else 0}")
+
+        logger.info(
+            f"LinkedIn share_post called with: text_length={len(text)}, article_url={article_url}, media_items_count={len(media_items) if media_items else 0}"
+        )
 
         # Handle different media scenarios
         if article_url and (not media_items or len(media_items) == 0):

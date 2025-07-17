@@ -3,12 +3,13 @@ Tests for posts functionality.
 """
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch, MagicMock
 from uuid import uuid4
 
 from fastapi import status
 from fastapi.testclient import TestClient
-
+from app.services.posts import PostsService
+from app.models.posts import Post
 
 from app.schemas.posts import PostFeedback, PostCreate
 
@@ -88,8 +89,6 @@ class TestPosts:
     @pytest.mark.asyncio
     async def test_service_layer_feedback_submission(self):
         """Test the service layer feedback submission logic."""
-        from app.services.posts import PostsService
-        from app.models.posts import Post
 
         # Mock database session
         mock_db = AsyncMock()
@@ -210,9 +209,6 @@ class TestPosts:
     @pytest.mark.asyncio
     async def test_publish_post_success_clears_sharing_error(self):
         """Test that successful post publishing clears any previous sharing errors."""
-        from app.services.posts import PostsService
-        from app.models.posts import Post
-        from unittest.mock import AsyncMock, MagicMock
 
         # Mock database session
         mock_db = AsyncMock()
@@ -225,48 +221,57 @@ class TestPosts:
             content="Test content",
             platform="linkedin",
             status="scheduled",
-            sharing_error="Previous error message"
+            sharing_error="Previous error message",
         )
 
         # Mock dependencies
         service.get_post = AsyncMock(return_value=mock_post)
         service.update_post = AsyncMock(return_value=mock_post)
-        
+
         # Mock ProfileService and LinkedInService
         mock_profile_service = AsyncMock()
         mock_connection = MagicMock()
         mock_profile_service.get_social_connection.return_value = mock_connection
-        
+
         mock_linkedin_service = AsyncMock()
         mock_linkedin_service.share_post.return_value = {"id": "test-share-id"}
-        
+
         # Mock the service dependencies
-        with pytest.mock.patch('app.services.posts.ProfileService', return_value=mock_profile_service), \
-             pytest.mock.patch('app.services.posts.LinkedInService', return_value=mock_linkedin_service):
-            
-            result = await service.publish_post(mock_post.user_id, mock_post.id, "linkedin")
-            
+        with (
+            patch(
+                "app.services.posts.ProfileService", return_value=mock_profile_service
+            ),
+            patch(
+                "app.services.posts.LinkedInService", return_value=mock_linkedin_service
+            ),
+        ):
+            result = await service.publish_post(
+                mock_post.user_id, mock_post.id, "linkedin"
+            )
+
             # Verify sharing_error was cleared in the update call
             service.update_post.assert_called()
             update_calls = service.update_post.call_args_list
-            
+
             # Find the call that clears sharing_error
             sharing_error_cleared = False
             for call in update_calls:
                 if len(call[0]) >= 3:  # user_id, post_id, update_data
                     update_data = call[0][2]
-                    if hasattr(update_data, 'sharing_error') and update_data.sharing_error is None:
+                    if (
+                        hasattr(update_data, "sharing_error")
+                        and update_data.sharing_error is None
+                    ):
                         sharing_error_cleared = True
                         break
-            
-            assert sharing_error_cleared, "sharing_error should be cleared on successful publish"
+
+            assert (
+                sharing_error_cleared
+            ), "sharing_error should be cleared on successful publish"
 
     @pytest.mark.asyncio
     async def test_publish_post_failure_stores_error(self):
         """Test that failed post publishing stores error message in sharing_error field."""
-        from app.services.posts import PostsService
-        from app.models.posts import Post
-        from unittest.mock import AsyncMock, MagicMock
 
         # Mock database session
         mock_db = AsyncMock()
@@ -278,37 +283,43 @@ class TestPosts:
             user_id=uuid4(),
             content="Test content",
             platform="linkedin",
-            status="scheduled"
+            status="scheduled",
         )
 
         # Mock dependencies
         service.get_post = AsyncMock(return_value=mock_post)
         service.update_post = AsyncMock(return_value=mock_post)
-        
+
         # Mock ProfileService to return no connection (trigger error)
         mock_profile_service = AsyncMock()
         mock_profile_service.get_social_connection.return_value = None
-        
+
         # Mock the service dependencies
-        with pytest.mock.patch('app.services.posts.ProfileService', return_value=mock_profile_service):
-            
+        with patch(
+            "app.services.posts.ProfileService", return_value=mock_profile_service
+        ):
             with pytest.raises(Exception) as exc_info:
                 await service.publish_post(mock_post.user_id, mock_post.id, "linkedin")
-            
+
             # Verify error was stored
             service.update_post.assert_called()
             update_calls = service.update_post.call_args_list
-            
+
             # Find the call that stores the error
             error_stored = False
             for call in update_calls:
                 if len(call[0]) >= 3:  # user_id, post_id, update_data
                     update_data = call[0][2]
-                    if hasattr(update_data, 'sharing_error') and update_data.sharing_error:
+                    if (
+                        hasattr(update_data, "sharing_error")
+                        and update_data.sharing_error
+                    ):
                         error_stored = True
-                        assert "LinkedIn connection not found" in update_data.sharing_error
+                        assert (
+                            "LinkedIn connection not found" in update_data.sharing_error
+                        )
                         break
-            
+
             assert error_stored, "sharing_error should be populated on publish failure"
             assert "LinkedIn connection not found" in str(exc_info.value)
 
@@ -316,6 +327,6 @@ class TestPosts:
         """Test that the publish endpoint exists."""
         fake_id = str(uuid4())
         response = test_client.post(f"/api/v1/posts/{fake_id}/publish")
-        
+
         # Should return 401 (unauthorized) not 404 (not found), proving endpoint exists
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
