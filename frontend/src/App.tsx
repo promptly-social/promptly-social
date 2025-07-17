@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
+import { OnboardingProvider } from "@/components/onboarding";
 import { getStoredToken } from "@/lib/api-interceptor";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -74,6 +75,10 @@ const App = () => (
       <AuthProvider>
         <ProfileProvider>
           <BrowserRouter>
+            <OnboardingProvider 
+              autoShowModal={true}
+              showProgressIndicator={true}
+            >
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
@@ -129,9 +134,10 @@ const App = () => (
               <Route path="/auth/callback" element={<LinkedinCallback />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <Toaster />
+            <Sonner />
+            </OnboardingProvider>
           </BrowserRouter>
-          <Toaster />
-          <Sonner />
         </ProfileProvider>
       </AuthProvider>
     </TooltipProvider>

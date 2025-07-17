@@ -2,31 +2,17 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { ArrowUpDown, Plus } from "lucide-react";
-import IdeaBankContent from "@/components/idea-bank/IdeaBankContent";
-import IdeaBankLastPost from "@/components/idea-bank/IdeaBankLastPost";
-import IdeaBankActions from "@/components/idea-bank/IdeaBankActions";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
+import IdeaBankMobileView from "@/components/idea-bank/IdeaBankMobileView";
+import IdeaBankDesktopView from "@/components/idea-bank/IdeaBankDesktopView";
+import IdeaBankMediumView from "@/components/idea-bank/IdeaBankMediumView";
+import CreateIdeaDialog from "@/components/idea-bank/CreateIdeaDialog";
+import EditIdeaDialog from "@/components/idea-bank/EditIdeaDialog";
 import {
   ideaBankApi,
   type IdeaBankWithPost,
@@ -249,7 +235,7 @@ const IdeaBank: React.FC = () => {
 
   const handleSchedulePost = async (postId: string, scheduledAt: string) => {
     try {
-      const scheduledPost = await postsApi.schedulePost(postId, scheduledAt);
+      await postsApi.schedulePost(postId, scheduledAt);
       toast.success("Post scheduled successfully!");
       setGeneratedPost(null);
       setShowRescheduleModal(false);
@@ -303,108 +289,15 @@ const IdeaBank: React.FC = () => {
 
   // Removed in-file render components; replaced with extracted ones
 
-  const SortButton: React.FC<{
-    column: SortConfig["key"];
-    children: React.ReactNode;
-  }> = ({ column, children }) => (
-    <Button
-      variant="ghost"
-      onClick={() => handleSort(column)}
-      className="flex items-center gap-1 font-semibold"
-    >
-      {children}
-      <ArrowUpDown className="w-4 h-4" />
-    </Button>
-  );
 
-  const addButton = (
-    <Dialog
-      open={showCreateDialog}
-      onOpenChange={(isOpen) => {
-        if (isOpen) {
-          resetFormData();
-        }
-        setShowCreateDialog(isOpen);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Idea
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add New Idea</DialogTitle>
-          <DialogDescription>
-            Create a new idea bank entry to organize your content inspirations.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Textarea
-              id="value"
-              placeholder="Enter your idea or drop in a URL to an article..."
-              value={formData.data.value}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  data: { ...prev.data, value: e.target.value },
-                }))
-              }
-              rows={4}
-              className="min-h-[100px] resize-none"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button onClick={handleCreate} disabled={!formData.data.value.trim()}>
-            Create
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
-  // Skeleton components --------------------------------------------------
-  const MobileSkeleton = () => (
-    <div className="space-y-4">
-      {Array.from({ length: 4 }).map((_, idx) => (
-        <Card key={idx} className="border">
-          <CardContent className="p-4 space-y-3">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-            <div className="flex gap-2">
-              <Skeleton className="h-4 w-16 rounded-full" />
-              <Skeleton className="h-4 w-16 rounded-full" />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const TableSkeleton = ({ cols }: { cols: number }) => (
-    <>
-      {Array.from({ length: 5 }).map((_, rowIdx) => (
-        <TableRow key={rowIdx}>
-          {Array.from({ length: cols }).map((__, colIdx) => (
-            <TableCell key={colIdx}>
-              <Skeleton className="h-4 w-full" />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </>
-  );
 
   return (
     <AppLayout title="Ideas" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
+          {/* Onboarding Banner for Step 5 */}
+          <OnboardingBanner stepId={5} />
+          
           {/* Page Header with Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="text-center sm:text-left">
@@ -434,203 +327,51 @@ const IdeaBank: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              {addButton}
+              <CreateIdeaDialog
+                isOpen={showCreateDialog}
+                onOpenChange={setShowCreateDialog}
+                formData={formData}
+                onFormDataChange={setFormData}
+                onSubmit={handleCreate}
+                onReset={resetFormData}
+              />
             </div>
           </div>
 
-          {/* Mobile Card Layout */}
-          <div className="block md:hidden space-y-4">
-            {/* Mobile Sort Info */}
-            <div className="flex items-center justify-between text-sm text-gray-500 px-1">
-              <span>
-                Sorted by: {"Last Updated"} (
-                {sortConfig.direction === "asc" ? "↑" : "↓"})
-              </span>
-              <span>{getSortedData().length} ideas</span>
-            </div>
+          {/* Mobile View */}
+          <IdeaBankMobileView
+            data={getSortedData()}
+            isLoading={isIdeasLoading}
+            sortConfig={sortConfig}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+            onViewPost={viewPostDetails}
+            formatDate={formatDate}
+          />
 
-            {isIdeasLoading ? (
-              <MobileSkeleton />
-            ) : getSortedData().length === 0 ? (
-              <div className="text-center py-8 bg-white rounded-lg border">
-                <div className="text-muted-foreground">
-                  No ideas found. Create your first idea to get started.
-                </div>
-              </div>
-            ) : (
-              getSortedData().map((ideaBankWithPost) => {
-                const ideaBank = ideaBankWithPost.idea_bank;
-                const latestPost = ideaBankWithPost.latest_post;
-                return (
-                  <div
-                    key={ideaBank.id}
-                    className="bg-white rounded-lg border p-4 space-y-3"
-                  >
-                    <div className="space-y-2">
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">
-                          Content:
-                        </span>
-                        <div className="mt-1">
-                          <IdeaBankContent ideaBank={ideaBank} />
-                        </div>
-                      </div>
+          {/* Desktop View */}
+          <IdeaBankDesktopView
+            data={getSortedData()}
+            isLoading={isIdeasLoading}
+            onSort={handleSort}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+            onViewPost={viewPostDetails}
+            formatDate={formatDate}
+          />
 
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="text-gray-500">
-                          {formatDate(ideaBank.updated_at)}
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">
-                          Last Post Used:
-                        </span>
-                        <div className="mt-1">
-                          <IdeaBankLastPost
-                            latestPost={latestPost}
-                            onView={viewPostDetails}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <IdeaBankActions
-                      ideaBankWithPost={ideaBankWithPost}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
-                    />
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Desktop Table Layout */}
-          <div className="hidden xl:block border rounded-lg overflow-x-auto">
-            <Table className="min-w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[200px]">Content</TableHead>
-                  <TableHead className="w-[150px]">
-                    <SortButton column="updated_at">Last Updated</SortButton>
-                  </TableHead>
-                  <TableHead className="w-[180px]">Last Post Used</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isIdeasLoading ? (
-                  <TableSkeleton cols={4} />
-                ) : getSortedData().length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        No ideas found. Create your first idea to get started.
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  getSortedData().map((ideaBankWithPost) => {
-                    const ideaBank = ideaBankWithPost.idea_bank;
-                    const latestPost = ideaBankWithPost.latest_post;
-                    return (
-                      <TableRow key={ideaBank.id}>
-                        <TableCell className="min-w-0">
-                          <IdeaBankContent ideaBank={ideaBank} />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(ideaBank.updated_at)}
-                        </TableCell>
-                        <TableCell>
-                          <IdeaBankLastPost
-                            latestPost={latestPost}
-                            onView={viewPostDetails}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <IdeaBankActions
-                            ideaBankWithPost={ideaBankWithPost}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                            onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Medium Screen Table Layout */}
-          <div className="hidden md:block xl:hidden border rounded-lg overflow-x-auto">
-            <Table className="min-w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[250px]">Content</TableHead>
-                  <TableHead className="w-[120px]">
-                    <SortButton column="updated_at">Updated</SortButton>
-                  </TableHead>
-                  <TableHead className="w-[140px]">Last Used</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isIdeasLoading ? (
-                  <TableSkeleton cols={4} />
-                ) : getSortedData().length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        No ideas found. Create your first idea to get started.
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  getSortedData().map((ideaBankWithPost) => {
-                    const ideaBank = ideaBankWithPost.idea_bank;
-                    const latestPost = ideaBankWithPost.latest_post;
-                    return (
-                      <TableRow key={ideaBank.id}>
-                        <TableCell className="min-w-0">
-                          <IdeaBankContent ideaBank={ideaBank} />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {new Date(ideaBank.updated_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          <IdeaBankLastPost
-                            latestPost={latestPost}
-                            onView={viewPostDetails}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-center gap-1">
-                            <IdeaBankActions
-                              ideaBankWithPost={ideaBankWithPost}
-                              onEdit={handleEdit}
-                              onDelete={handleDelete}
-                              onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {/* Medium Screen View */}
+          <IdeaBankMediumView
+            data={getSortedData()}
+            isLoading={isIdeasLoading}
+            onSort={handleSort}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onGenerate={(ibwp) => setIdeaToGenerate(ibwp)}
+            onViewPost={viewPostDetails}
+          />
         </div>
 
         {/* Pagination Controls */}
@@ -674,56 +415,17 @@ const IdeaBank: React.FC = () => {
       </main>
 
       {/* Edit Dialog */}
-      <Dialog
-        open={showEditDialog}
-        onOpenChange={(isOpen) => {
-          setShowEditDialog(isOpen);
-          if (!isOpen) {
-            setEditingIdeaBank(null);
-            setEditFormData(null);
-          }
+      <EditIdeaDialog
+        isOpen={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        editFormData={editFormData}
+        onEditFormDataChange={setEditFormData}
+        onSubmit={handleUpdate}
+        onClose={() => {
+          setEditingIdeaBank(null);
+          setEditFormData(null);
         }}
-      >
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Idea</DialogTitle>
-            <DialogDescription>Update your idea bank entry.</DialogDescription>
-          </DialogHeader>
-          {editFormData && (
-            <>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Textarea
-                    key="value-textarea"
-                    id="edit-value"
-                    placeholder="Enter your idea or text content..."
-                    value={editFormData.value}
-                    onChange={(e) =>
-                      setEditFormData((prev) => ({
-                        ...prev!,
-                        value: e.target.value,
-                      }))
-                    }
-                    rows={4}
-                    className="min-h-[100px] resize-none"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DialogClose>
-                <Button
-                  onClick={handleUpdate}
-                  disabled={!editFormData.value.trim()}
-                >
-                  Update
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      />
 
       {/* Generate Post Confirmation Dialog */}
       <PostGenerationChatDialog

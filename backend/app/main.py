@@ -15,7 +15,7 @@ from loguru import logger
 
 from app.core.config import settings
 from app.core.database import close_db, init_db
-from app.routers import auth, chat, idea_bank, profile, posts, schedules
+from app.routers import auth, chat, idea_bank, onboarding, profile, posts, schedules
 
 
 # Configure logging
@@ -238,6 +238,7 @@ async def add_security_headers(request: Request, call_next):
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(profile.router, prefix="/api/v1")
 app.include_router(idea_bank.router, prefix="/api/v1")
+app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(posts.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(schedules.router, prefix="/api/v1")

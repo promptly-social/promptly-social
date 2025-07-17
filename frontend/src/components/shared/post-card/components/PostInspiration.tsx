@@ -65,7 +65,7 @@ export const PostInspiration: React.FC<PostInspirationProps> = ({
   };
 
   return (
-    <div className="text-sm text-muted-foreground">
+    <div className="text-sm text-gray-700">
       <span className="font-medium">Inspiration: </span>
       {renderInspirationContent()}
     </div>

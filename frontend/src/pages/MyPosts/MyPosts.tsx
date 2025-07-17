@@ -5,6 +5,7 @@ import { PostCard } from "@/components/shared/post-card/PostCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
 import AppLayout from "@/components/AppLayout";
 import { CreatePostModal } from "@/components/post-modal/CreatePostModal";
 import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
@@ -106,6 +107,8 @@ export const MyPosts: React.FC = () => {
     <AppLayout title="My Posts" emailBreakpoint="md">
       <div className="p-4 sm:p-6 border-b">
         <div className="max-w-4xl mx-auto w-full">
+          {/* Onboarding Banner for Step 4 */}
+          <OnboardingBanner stepId={4} />
           <div className="flex justify-end mb-4">
             <Button
               variant="default"
