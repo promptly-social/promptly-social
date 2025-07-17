@@ -107,7 +107,7 @@ export const ONBOARDING_STEPS: Omit<
     id: 5,
     title: "Content Ideas",
     description: "Manage your content ideas and inspiration",
-    route: "/idea-bank",
+    route: "/content-ideas",
     icon: "💡",
     highlights: [
       "Add notes about topics you want to write about later",

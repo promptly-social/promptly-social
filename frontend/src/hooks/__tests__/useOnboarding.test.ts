@@ -9,7 +9,7 @@ import { onboardingApi } from "../../lib/api/onboarding-api";
 import type { OnboardingProgress } from "../../types/onboarding";
 
 // Mock the API
-vi.mock("../../lib/api/onboarding", () => ({
+vi.mock("../../lib/api/onboarding-api", () => ({
   onboardingApi: {
     getProgress: vi.fn(),
     updateStep: vi.fn(),
@@ -47,7 +47,7 @@ describe("useOnboarding", () => {
   });
 
   it("should fetch onboarding progress on mount", async () => {
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(mockProgress);
+    (onboardingApi.getProgress as any).mockResolvedValue(mockProgress);
 
     const { result } = renderHook(() => useOnboarding());
 
@@ -63,7 +63,7 @@ describe("useOnboarding", () => {
 
   it("should handle API errors gracefully", async () => {
     const errorMessage = "Failed to fetch progress";
-    vi.mocked(onboardingApi.getProgress).mockRejectedValue(
+    (onboardingApi.getProgress as any).mockRejectedValue(
       new Error(errorMessage)
     );
 
@@ -83,14 +83,17 @@ describe("useOnboarding", () => {
       step_profile_completed: true,
       current_step: 2,
     };
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(mockProgress);
-    vi.mocked(onboardingApi.updateStep).mockResolvedValue(updatedProgress);
+    (onboardingApi.getProgress as any).mockResolvedValue(mockProgress);
+    (onboardingApi.updateStep as any).mockResolvedValue(updatedProgress);
 
     const { result } = renderHook(() => useOnboarding());
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
+
+    // Mock the updated progress for subsequent getProgress calls
+    (onboardingApi.getProgress as any).mockResolvedValue(updatedProgress);
 
     await result.current.updateStep(1, true);
 
@@ -98,13 +101,17 @@ describe("useOnboarding", () => {
       step: 1,
       completed: true,
     });
-    expect(result.current.progress).toEqual(updatedProgress);
+    
+    // Wait for the state to update after the mutation
+    await waitFor(() => {
+      expect(result.current.progress).toEqual(updatedProgress);
+    });
   });
 
   it("should skip onboarding successfully", async () => {
     const skippedProgress = { ...mockProgress, is_skipped: true };
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(mockProgress);
-    vi.mocked(onboardingApi.skipOnboarding).mockResolvedValue(skippedProgress);
+    (onboardingApi.getProgress as any).mockResolvedValue(mockProgress);
+    (onboardingApi.skipOnboarding as any).mockResolvedValue(skippedProgress);
 
     const { result } = renderHook(() => useOnboarding());
 
@@ -112,18 +119,25 @@ describe("useOnboarding", () => {
       expect(result.current.loading).toBe(false);
     });
 
+    // Mock the updated progress for subsequent getProgress calls
+    (onboardingApi.getProgress as any).mockResolvedValue(skippedProgress);
+
     await result.current.skipOnboarding("User chose to skip");
 
     expect(onboardingApi.skipOnboarding).toHaveBeenCalledWith({
       notes: "User chose to skip",
     });
-    expect(result.current.progress).toEqual(skippedProgress);
+    
+    // Wait for the state to update after the mutation
+    await waitFor(() => {
+      expect(result.current.progress).toEqual(skippedProgress);
+    });
   });
 
   it("should reset onboarding successfully", async () => {
     const resetProgress = { ...mockProgress, current_step: 1 };
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(mockProgress);
-    vi.mocked(onboardingApi.resetOnboarding).mockResolvedValue(resetProgress);
+    (onboardingApi.getProgress as any).mockResolvedValue(mockProgress);
+    (onboardingApi.resetOnboarding as any).mockResolvedValue(resetProgress);
 
     const { result } = renderHook(() => useOnboarding());
 
@@ -138,7 +152,7 @@ describe("useOnboarding", () => {
   });
 
   it("should determine if onboarding should be shown", async () => {
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(mockProgress);
+    (onboardingApi.getProgress as any).mockResolvedValue(mockProgress);
 
     const { result } = renderHook(() => useOnboarding());
 
@@ -150,11 +164,14 @@ describe("useOnboarding", () => {
 
     // Test with completed onboarding
     const completedProgress = { ...mockProgress, is_completed: true };
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(completedProgress);
+    (onboardingApi.getProgress as any).mockResolvedValue(completedProgress);
 
     await result.current.refetch();
 
-    expect(result.current.shouldShowOnboarding()).toBe(false);
+    // Wait for the state to update after refetch
+    await waitFor(() => {
+      expect(result.current.shouldShowOnboarding()).toBe(false);
+    });
   });
 
   it("should get steps with correct status", async () => {
@@ -164,7 +181,7 @@ describe("useOnboarding", () => {
       step_content_preferences_completed: true,
       current_step: 3,
     };
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(progressWithSteps);
+    (onboardingApi.getProgress as any).mockResolvedValue(progressWithSteps);
 
     const { result } = renderHook(() => useOnboarding());
 
@@ -183,7 +200,7 @@ describe("useOnboarding", () => {
 
   it("should get current step info", async () => {
     const progressWithCurrentStep = { ...mockProgress, current_step: 2 };
-    vi.mocked(onboardingApi.getProgress).mockResolvedValue(
+    (onboardingApi.getProgress as any).mockResolvedValue(
       progressWithCurrentStep
     );
 
