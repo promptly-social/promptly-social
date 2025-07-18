@@ -21,6 +21,14 @@ provider "google" {
   region  = var.region
 }
 
+# Generate source hash for versioning
+locals {
+  source_hash = substr(sha256(join("", [
+    for f in fileset("${path.module}/../../../src/gcp-functions/unified-post-scheduler", "**") :
+    filesha256("${path.module}/../../../src/gcp-functions/unified-post-scheduler/${f}")
+  ])), 0, 8)
+}
+
 # Reference the Cloud Function source bucket created by infrastructure module
 data "google_storage_bucket" "cf_source_bucket" {
   name = "promptly-cf-source-staging"
@@ -32,7 +40,7 @@ module "analyze_substack_function" {
   # New required variables for standardized pattern
   service_account_email         = "promptly-app-sa-staging@${var.project_id}.iam.gserviceaccount.com"
   source_bucket                 = data.google_storage_bucket.cf_source_bucket.name
-  source_hash                   = "v1.0.0"
+  source_hash                   = local.source_hash
   
   # Existing variables
   project_id                    = var.project_id
