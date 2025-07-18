@@ -7,15 +7,23 @@ import { useNavigate } from "react-router-dom";
 import { onboardingApi } from "../lib/api/onboarding-api";
 import type { OnboardingProgress, OnboardingStep } from "../types/onboarding";
 import { ONBOARDING_STEPS } from "../types/onboarding";
+import { useAuth } from "../contexts/AuthContext";
 
 export const useOnboarding = () => {
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
 
   // Fetch onboarding progress
   const fetchProgress = useCallback(async () => {
+    // Don't fetch if user is not authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -30,7 +38,7 @@ export const useOnboarding = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Update a specific step
   const updateStep = useCallback(
@@ -159,10 +167,12 @@ export const useOnboarding = () => {
     };
   }, [progress]);
 
-  // Initialize on mount
+  // Initialize on mount, but only after auth is loaded
   useEffect(() => {
-    fetchProgress();
-  }, [fetchProgress]);
+    if (!authLoading) {
+      fetchProgress();
+    }
+  }, [fetchProgress, authLoading]);
 
   return {
     progress,
