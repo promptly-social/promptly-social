@@ -56,9 +56,13 @@ def fetch_content(
 
     elif platform == "linkedin":
         max_posts = int(os.getenv("MAX_POSTS_TO_ANALYZE_LINKEDIN", "20"))
+        unipile_access_token = os.getenv("UNIPILE_ACCESS_TOKEN")
+        unipile_dsn = os.getenv("UNIPILE_DSN")
         analyzer = LinkedInAnalyzer(
             max_posts=max_posts,
             openrouter_api_key=openrouter_api_key,
+            unipile_access_token=unipile_access_token,
+            unipile_dsn=unipile_dsn,
         )
         return analyzer.analyze_linkedin(
             platform_identifier, current_bio, content_to_analyze

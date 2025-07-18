@@ -21,8 +21,20 @@ provider "google" {
   region  = var.region
 }
 
+# Reference the Cloud Function source bucket created by infrastructure module
+data "google_storage_bucket" "cf_source_bucket" {
+  name = "promptly-cf-source-staging"
+}
+
 module "analyze_substack_function" {
   source                        = "../../../modules/analyze_substack_function"
+  
+  # New required variables for standardized pattern
+  service_account_email         = "promptly-app-sa-staging@${var.project_id}.iam.gserviceaccount.com"
+  source_bucket                 = data.google_storage_bucket.cf_source_bucket.name
+  source_hash                   = "v1.0.0"
+  
+  # Existing variables
   project_id                    = var.project_id
   region                        = var.region
   environment                   = "staging"
@@ -31,7 +43,7 @@ module "analyze_substack_function" {
   max_posts_to_analyze_linkedin = 20
   openrouter_model_primary      = "google/gemini-2.5-flash-preview-05-20"
   openrouter_models_fallback    = ["google/gemini-2.5-flash", "meta-llama/llama-4-maverick"]
-  openrouter_model_temperature        = 0.0
+  openrouter_model_temperature  = 0.0
 }
 
 output "function_uri" {
@@ -39,7 +51,7 @@ output "function_uri" {
   value       = module.analyze_substack_function.function_uri
 }
 
-output "function_url_secret_version" {
-  description = "The version of the secret containing the function URL."
-  value       = module.analyze_substack_function.function_url_secret_version
+output "function_name" {
+  description = "The name of the deployed Cloud Function."
+  value       = module.analyze_substack_function.function_name
 } 

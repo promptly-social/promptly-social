@@ -23,17 +23,23 @@ provider "google" {
 
 module "generate_suggestions_function" {
   source                             = "../../../modules/generate_suggestions_function"
+  
+  # New required variables for standardized pattern
+  service_account_email              = "${var.app_name}-app-sa-${var.environment}@${var.project_id}.iam.gserviceaccount.com"
+  source_bucket                      = "${var.app_name}-cf-source-${var.environment}"
+  source_hash                        = "v1.0.0"
+  
+  # Existing variables
   project_id                         = var.project_id
   region                             = var.region
   app_name                           = var.app_name
   environment                        = var.environment
   function_name                      = "generate-suggestions-function-${var.environment}"
   function_source_dir                = "../../../src/gcp-functions/generate-suggestions"
-  app_sa_email                       = "promptly-app-sa-${var.environment}@${var.project_id}.iam.gserviceaccount.com"
   number_of_posts_to_generate        = var.number_of_posts_to_generate
   openrouter_model_primary           = var.openrouter_model_primary
   openrouter_models_fallback         = var.openrouter_models_fallback
-  openrouter_model_temperature             = var.openrouter_model_temperature
+  openrouter_model_temperature       = var.openrouter_model_temperature
   openrouter_large_model_primary     = var.openrouter_large_model_primary
   openrouter_large_models_fallback   = var.openrouter_large_models_fallback
   openrouter_large_model_temperature = var.openrouter_large_model_temperature
@@ -44,7 +50,7 @@ output "function_uri" {
   value       = module.generate_suggestions_function.function_uri
 }
 
-output "function_url_secret_version" {
-  description = "The version of the secret containing the function URL."
-  value       = module.generate_suggestions_function.function_url_secret_version
+output "function_name" {
+  description = "The name of the deployed Cloud Function."
+  value       = module.generate_suggestions_function.function_name
 } 

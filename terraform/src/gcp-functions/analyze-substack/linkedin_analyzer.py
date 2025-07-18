@@ -10,7 +10,7 @@ import os
 from typing import Dict, List, Any
 
 from apify_client import ApifyClient
-from llm_client import LLMClient
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,23 @@ class LinkedInAnalyzer:
         openrouter_api_key: str = None,
     ):
         self.max_posts = max_posts
-        self.llm_client = LLMClient()
+        self.openrouter_client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_api_key,
+        )
         self.apify_api_key = os.getenv("APIFY_API_KEY")
+
+        # Get model configuration from environment variables
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+        )
+        self.models_fallback = [
+            model.strip() for model in models_fallback_str.split(",")
+        ]
+        self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_linkedin(
         self, account_id: str, current_bio: str, content_to_analyze: List[str]
@@ -347,7 +362,11 @@ class LinkedInAnalyzer:
                 temperature=self.temperature,
             )
 
-            return response
+            if not response.choices:
+                logger.error("API call for writing style analysis returned no choices.")
+                return ""
+
+            return response.choices[0].message.content
 
         except Exception as e:
             logger.error(f"Error analyzing writing style: {e}")
@@ -377,7 +396,7 @@ class LinkedInAnalyzer:
         If the LinkedIn profile and/or the current bio are given, update them based on your analysis.
         The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.
         If the information is available, also include the user's passions and interests in their personal life.
-        If the information is available, analyze the user's perspective and opinions on various topics and themes.
+        If the information is available, also include the user's perspective and opinions on various topics they write about.
         This will be used as a persona for LLM to generate content in their style, preferences, and point of view.
 
         Return the user bio in plain text format without any markdown. The LinkedIn profile and current bio might be empty or incomplete.
@@ -402,7 +421,11 @@ class LinkedInAnalyzer:
                 temperature=self.temperature,
             )
 
-            return response or current_bio or linkedin_profile.get("summary", "")
+            if not response.choices:
+                logger.error("API call for user bio creation returned no choices.")
+                return current_bio or linkedin_profile.get("summary", "")
+
+            return response.choices[0].message.content
 
         except Exception as e:
             logger.error(f"Error creating user bio: {e}")

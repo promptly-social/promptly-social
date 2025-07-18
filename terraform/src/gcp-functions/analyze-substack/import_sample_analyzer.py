@@ -6,9 +6,10 @@ It processes user-provided text and performs writing style analysis.
 """
 
 import logging
+import os
 from typing import Dict, List, Any
 
-from llm_client import LLMClient
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,25 @@ logger = logging.getLogger(__name__)
 class ImportSampleAnalyzer:
     """Analyzes imported writing samples for writing style and content patterns."""
 
-    def __init__(self):
-        # Centralized LLM client (shared config)
-        self.llm_client = LLMClient()
+    def __init__(self, openrouter_api_key: str = None):
+        self.openrouter_client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_api_key,
+        )
+        # Get model configuration from environment variables
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+        )
+        self.models_fallback = [
+            model.strip() for model in models_fallback_str.split(",")
+        ]
+        self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_import_sample(
-        self, text_sample: str, content_to_analyze: List[str]
+        self, text_sample: str, current_bio: str, content_to_analyze: List[str]
     ) -> Dict[str, Any]:
         """
         Main analysis method that orchestrates the writing sample analysis process.
@@ -92,9 +106,20 @@ class ImportSampleAnalyzer:
         """
 
         try:
-            raw_response = self.llm_client.run_prompt(prompt)
+            response = self.openrouter_client.chat.completions.create(
+                model=self.model_primary,
+                extra_body={
+                    "models": self.models_fallback,
+                },
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+            )
 
-            return raw_response
+            if not response.choices:
+                logger.error("API call for writing style analysis returned no choices.")
+                return ""
+
+            return response.choices[0].message.content
 
         except Exception as e:
             logger.error(f"Error analyzing writing style from sample: {e}")
