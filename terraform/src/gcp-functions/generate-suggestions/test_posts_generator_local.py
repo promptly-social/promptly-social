@@ -96,9 +96,8 @@ def test_posts_generator():
         print("No candidate posts found. Exiting test.")
         return
 
-    # Initialize PostsGenerator (Supabase client can be None for this test)
+    # Initialize PostsGenerator
     generator = PostsGenerator(
-        supabase_client=None,  # Not needed for this test
         openrouter_api_key=OPENROUTER_API_KEY,
     )
 

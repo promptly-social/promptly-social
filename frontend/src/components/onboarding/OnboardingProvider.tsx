@@ -8,7 +8,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { OnboardingModal } from './OnboardingModal';
-import { OnboardingProgress } from './OnboardingProgress';
 import type { OnboardingProgress as OnboardingProgressType } from '../../types/onboarding';
 
 interface OnboardingContextType {
@@ -127,15 +126,6 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         onSkip={handleSkipOnboarding}
       />
       
-      {/* Progress Indicator */}
-      {showProgress && shouldShowOnboarding() && (
-        <div className="fixed bottom-4 right-4 z-40">
-          <OnboardingProgress
-            compact={true}
-            className="bg-white shadow-lg border"
-          />
-        </div>
-      )}
     </OnboardingContext.Provider>
   );
 };

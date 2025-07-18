@@ -6,8 +6,26 @@ resource "google_storage_bucket_object" "unified_post_scheduler_source" {
 
 data "archive_file" "unified_post_scheduler_source" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/gcp-functions/unified-post-scheduler"
+  source_dir  = "${path.module}/../../src/gcp-functions"
   output_path = "/tmp/unified-post-scheduler-${var.source_hash}.zip"
+  excludes = [
+    "terraform/**",
+    "README.md",
+    "env.example",
+    "test**",
+    "test-output.json",
+    "venv/**",
+    "__pycache__/**",
+    ".pytest_cache/**",
+    "htmlcov/**",
+    "analyze/**",
+    "generate-suggestions/**",
+    "unified-post-scheduler/venv/**",
+    "unified-post-scheduler/__pycache__/**",
+    "unified-post-scheduler/.pytest_cache/**",
+    "unified-post-scheduler/htmlcov/**",
+    "unified-post-scheduler/test**"
+  ]
 }
 
 resource "google_cloudfunctions2_function" "unified_post_scheduler" {

@@ -40,8 +40,6 @@ def setup_environment():
 
     # Check required environment variables
     required_vars = [
-        "SUPABASE_URL",
-        "SUPABASE_SERVICE_KEY",
         "OPENROUTER_API_KEY",
         "ZYTE_API_KEY",
     ]

@@ -30,18 +30,20 @@ provider "google-beta" {
   region  = var.region
 }
 
+
+
 # Storage bucket object for function source code
-resource "google_storage_bucket_object" "analyze_substack_source" {
-  name   = "analyze-substack-${var.source_hash}.zip"
+resource "google_storage_bucket_object" "analyze_source" {
+  name   = "analyze-${var.source_hash}.zip"
   bucket = var.source_bucket
-  source = data.archive_file.analyze_substack_source.output_path
+  source = data.archive_file.analyze_source.output_path
 }
 
 # Archive the function source code
-data "archive_file" "analyze_substack_source" {
+data "archive_file" "analyze_source" {
   type        = "zip"
   source_dir  = var.function_source_dir
-  output_path = "/tmp/analyze-substack-${var.source_hash}.zip"
+  output_path = "/tmp/analyze-${var.source_hash}.zip"
   excludes = [
     "terraform/**",
     "README.md",
@@ -51,7 +53,14 @@ data "archive_file" "analyze_substack_source" {
     "venv/**",
     "__pycache__/**",
     ".pytest_cache/**",
-    "htmlcov/**"
+    "htmlcov/**",
+    "generate-suggestions/**",
+    "unified-post-scheduler/**",
+    "analyze/venv/**",
+    "analyze/__pycache__/**",
+    "analyze/.pytest_cache/**",
+    "analyze/htmlcov/**",
+    "analyze/test**"
   ]
 }
 
@@ -60,15 +69,15 @@ resource "google_cloudfunctions2_function" "function" {
   name        = var.function_name
   location    = var.region
   project     = var.project_id
-  description = "Analyze substack function for content analysis"
+  description = "Analyze function for content analysis"
 
   build_config {
     runtime     = "python313"
-    entry_point = "analyze_substack"
+    entry_point = "analyze"
     source {
       storage_source {
         bucket = var.source_bucket
-        object = google_storage_bucket_object.analyze_substack_source.name
+        object = google_storage_bucket_object.analyze_source.name
       }
     }
   }
@@ -88,16 +97,30 @@ resource "google_cloudfunctions2_function" "function" {
     }
 
     secret_environment_variables {
-      key        = "SUPABASE_URL"
+      key        = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
       project_id = var.project_id
-      secret     = "SUPABASE_URL"
+      secret     = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
       version    = "latest"
     }
 
     secret_environment_variables {
-      key        = "SUPABASE_SERVICE_KEY"
+      key        = "CLOUD_SQL_DATABASE_NAME"
       project_id = var.project_id
-      secret     = "SUPABASE_SERVICE_KEY"
+      secret     = "CLOUD_SQL_DATABASE_NAME"
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "CLOUD_SQL_USER"
+      project_id = var.project_id
+      secret     = "CLOUD_SQL_USER"
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "CLOUD_SQL_PASSWORD"
+      project_id = var.project_id
+      secret     = "CLOUD_SQL_PASSWORD"
       version    = "latest"
     }
 
@@ -121,9 +144,11 @@ resource "google_cloudfunctions2_function" "function" {
   }
 
   depends_on = [
-    google_storage_bucket_object.analyze_substack_source,
-    google_secret_manager_secret_iam_member.secret_access_supabase_url,
-    google_secret_manager_secret_iam_member.secret_access_supabase_key,
+    google_storage_bucket_object.analyze_source,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_instance_connection_name,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_database_name,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_user,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_password,
     google_secret_manager_secret_iam_member.secret_access_openrouter_key,
     google_secret_manager_secret_iam_member.secret_access_apify_key,
     google_secret_manager_secret_iam_member.secret_access_gcp_function_url,
@@ -131,14 +156,24 @@ resource "google_cloudfunctions2_function" "function" {
 }
 
 # Data sources for existing secrets
-data "google_secret_manager_secret" "supabase_url" {
+data "google_secret_manager_secret" "cloud_sql_instance_connection_name" {
   project   = var.project_id
-  secret_id = "SUPABASE_URL"
+  secret_id = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
 }
 
-data "google_secret_manager_secret" "supabase_service_key" {
+data "google_secret_manager_secret" "cloud_sql_database_name" {
   project   = var.project_id
-  secret_id = "SUPABASE_SERVICE_KEY"
+  secret_id = "CLOUD_SQL_DATABASE_NAME"
+}
+
+data "google_secret_manager_secret" "cloud_sql_user" {
+  project   = var.project_id
+  secret_id = "CLOUD_SQL_USER"
+}
+
+data "google_secret_manager_secret" "cloud_sql_password" {
+  project   = var.project_id
+  secret_id = "CLOUD_SQL_PASSWORD"
 }
 
 data "google_secret_manager_secret" "openrouter_api_key" {
@@ -168,16 +203,30 @@ resource "google_secret_manager_secret_version" "gcp_analysis_function_url_versi
 }
 
 # Grant the function's service account access to the secrets
-resource "google_secret_manager_secret_iam_member" "secret_access_supabase_url" {
-  project   = data.google_secret_manager_secret.supabase_url.project
-  secret_id = data.google_secret_manager_secret.supabase_url.secret_id
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_instance_connection_name" {
+  project   = data.google_secret_manager_secret.cloud_sql_instance_connection_name.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_instance_connection_name.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_account_email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "secret_access_supabase_key" {
-  project   = data.google_secret_manager_secret.supabase_service_key.project
-  secret_id = data.google_secret_manager_secret.supabase_service_key.secret_id
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_database_name" {
+  project   = data.google_secret_manager_secret.cloud_sql_database_name.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_database_name.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_user" {
+  project   = data.google_secret_manager_secret.cloud_sql_user.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_user.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_password" {
+  project   = data.google_secret_manager_secret.cloud_sql_password.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_password.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_account_email}"
 }

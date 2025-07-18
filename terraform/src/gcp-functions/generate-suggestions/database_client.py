@@ -1,23 +1,19 @@
 import os
 import logging
 from typing import Any, Dict, List
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from supabase import create_client, Client
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from cloud_sql_client import get_cloud_sql_client
 
 logger = logging.getLogger(__name__)
 
 
-class SupabaseClient:
+class CloudSQLClient:
     def __init__(self):
-        """Initialize Supabase client."""
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
-
-        if not supabase_url or not supabase_service_key:
-            raise ValueError("Missing Supabase configuration")
-
-        self.client: Client = create_client(supabase_url, supabase_service_key)
+        """Initialize Cloud SQL client."""
+        self.client = get_cloud_sql_client()
 
     def get_user_preferences_complete(self, user_id: str) -> Dict[str, Any]:
         """
@@ -30,14 +26,15 @@ class SupabaseClient:
             Dictionary containing all user preferences
         """
         try:
-            response = (
-                self.client.table("user_preferences")
-                .select("topics_of_interest, websites, substacks, bio")
-                .eq("user_id", user_id)
-                .execute()
-            )
+            query = """
+                SELECT topics_of_interest, websites, substacks, bio 
+                FROM user_preferences 
+                WHERE user_id = :user_id
+            """
+            
+            results = self.client.execute_query(query, {"user_id": user_id})
 
-            if not response.data:
+            if not results:
                 logger.info(f"No user preferences found for user {user_id}")
                 return {
                     "topics_of_interest": [],
@@ -46,16 +43,16 @@ class SupabaseClient:
                     "bio": "",
                 }
 
-            preferences = response.data[0]
+            preferences = results[0]
             logger.info(
-                f"Found user preferences for user {user_id}: {len(preferences.get('substacks', []))} substacks"
+                f"Found user preferences for user {user_id}: {len(preferences.get('substacks', []) or [])} substacks"
             )
 
             return {
-                "topics_of_interest": preferences.get("topics_of_interest", []),
-                "websites": preferences.get("websites", []),
-                "substacks": preferences.get("substacks", []),
-                "bio": preferences.get("bio", ""),
+                "topics_of_interest": preferences.get("topics_of_interest", []) or [],
+                "websites": preferences.get("websites", []) or [],
+                "substacks": preferences.get("substacks", []) or [],
+                "bio": preferences.get("bio", "") or "",
             }
 
         except Exception as e:
@@ -67,14 +64,17 @@ class SupabaseClient:
         Get the user's writing style.
         """
         try:
-            response = (
-                self.client.table("writing_style_analysis")
-                .select("analysis_data")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            if response.data and len(response.data) > 0:
-                return response.data[0].get("analysis_data", "")
+            query = """
+                SELECT analysis_data 
+                FROM writing_style_analysis 
+                WHERE user_id = :user_id
+                LIMIT 1
+            """
+            
+            results = self.client.execute_query(query, {"user_id": user_id})
+            
+            if results:
+                return results[0].get("analysis_data", "") or ""
             else:
                 logger.info(f"No writing style analysis found for user {user_id}")
                 return ""
@@ -88,41 +88,25 @@ class SupabaseClient:
         Get the user's ideas that either don't have a post yet or the post was generated more than a week ago.
         """
         try:
-            # Get ideas with no posts
-            ideas_with_no_posts_res = (
-                self.client.table("idea_banks")
-                .select("id, data, created_at, posts!idea_bank_id!left(id)")
-                .eq("user_id", user_id)
-                .eq("data->>ai_suggested", "false")
-                .is_("posts", "null")
-                .execute()
-            )
-            ideas_with_no_posts = ideas_with_no_posts_res.data or []
-
-            # Get ideas with posts older than a week
             one_week_ago = (datetime.now() - timedelta(days=7)).isoformat()
-            ideas_with_old_posts_res = (
-                self.client.table("idea_banks")
-                .select("id, data, created_at, posts!idea_bank_id!left(id)")
-                .eq("user_id", user_id)
-                .eq("data->>ai_suggested", "false")
-                .not_.is_("posts", "null")  # Must have posts
-                .lt("posts.created_at", one_week_ago)
-                .execute()
-            )
-            ideas_with_old_posts = ideas_with_old_posts_res.data or []
+            
+            # Get ideas with no posts or posts older than a week
+            query = """
+                SELECT DISTINCT ib.id, ib.data, ib.created_at
+                FROM idea_banks ib
+                LEFT JOIN posts p ON ib.id = p.idea_bank_id
+                WHERE ib.user_id = :user_id 
+                  AND (ib.data->>'ai_suggested')::boolean = false
+                  AND (p.id IS NULL OR p.created_at < :one_week_ago)
+                ORDER BY ib.created_at DESC
+            """
+            
+            results = self.client.execute_query(query, {
+                "user_id": user_id,
+                "one_week_ago": one_week_ago
+            })
 
-            # Combine and deduplicate
-            all_ideas = {idea["id"]: idea for idea in ideas_with_no_posts}
-            for idea in ideas_with_old_posts:
-                all_ideas[idea["id"]] = idea
-
-            # Sort combined ideas by creation date
-            sorted_ideas = sorted(
-                all_ideas.values(), key=lambda x: x["created_at"], reverse=True
-            )
-
-            return sorted_ideas
+            return results or []
         except Exception as e:
             logger.error(f"Error fetching user ideas for user {user_id}: {e}")
             return []
@@ -143,19 +127,25 @@ class SupabaseClient:
             # Calculate 12 hours ago
             twelve_hours_ago = (datetime.now() - timedelta(hours=12)).isoformat()
 
-            response = (
-                self.client.table("idea_banks")
-                .select("id, data, created_at, posts!idea_bank_id!left(id)")
-                .eq("user_id", user_id)
-                .eq("data->>ai_suggested", "true")
-                .gte("created_at", twelve_hours_ago)
-                .is_("posts", "null")
-                .order("created_at", desc=True)
-                .execute()
-            )
-            if response.data:
+            query = """
+                SELECT ib.id, ib.data, ib.created_at
+                FROM idea_banks ib
+                LEFT JOIN posts p ON ib.id = p.idea_bank_id
+                WHERE ib.user_id = :user_id 
+                  AND (ib.data->>'ai_suggested')::boolean = true
+                  AND ib.created_at >= :twelve_hours_ago
+                  AND p.id IS NULL
+                ORDER BY ib.created_at DESC
+            """
+            
+            results = self.client.execute_query(query, {
+                "user_id": user_id,
+                "twelve_hours_ago": twelve_hours_ago
+            })
+            
+            if results:
                 logger.info(
-                    f"Found {len(response.data)} idea bank posts from last 12 hours for user {user_id}"
+                    f"Found {len(results)} idea bank posts from last 12 hours for user {user_id}"
                 )
                 return [
                     {
@@ -166,7 +156,7 @@ class SupabaseClient:
                         "content": post["data"]["content"],
                         "post_date": post["data"]["post_date"],
                     }
-                    for post in response.data
+                    for post in results
                 ]
             else:
                 logger.info(
@@ -198,17 +188,19 @@ class SupabaseClient:
             post_url = post["url"]
 
             # Check if this URL already exists for the user
-            existing_response = (
-                self.client.table("idea_banks")
-                .select("id")
-                .eq("user_id", user_id)
-                .like("data->>value", post_url)
-                .execute()
-            )
+            existing_query = """
+                SELECT id FROM idea_banks 
+                WHERE user_id = :user_id AND data->>'value' = :post_url
+            """
+            
+            existing_results = self.client.execute_query(existing_query, {
+                "user_id": user_id,
+                "post_url": post_url
+            })
 
-            if existing_response.data:
+            if existing_results:
                 # URL already exists, use the existing ID
-                existing_id = existing_response.data[0]["id"]
+                existing_id = existing_results[0]["id"]
                 updated_post["id"] = existing_id
                 logger.info(
                     f"Found existing idea bank entry for user {user_id}, URL {post_url}: {existing_id}"
@@ -216,6 +208,7 @@ class SupabaseClient:
                 updated_posts.append(updated_post)
             else:
                 # URL doesn't exist, create new entry
+                import json
                 data = {
                     "value": post_url,
                     "title": post["title"],
@@ -224,26 +217,28 @@ class SupabaseClient:
                     "post_date": post["post_date"],
                     "ai_suggested": True,
                 }
-                response = (
-                    self.client.table("idea_banks")
-                    .insert(
-                        {
-                            "user_id": user_id,
-                            "data": data,
-                        }
-                    )
-                    .execute()
-                )
+                
+                insert_query = """
+                    INSERT INTO idea_banks (user_id, data)
+                    VALUES (:user_id, :data)
+                    RETURNING id
+                """
+                
+                insert_results = self.client.execute_query(insert_query, {
+                    "user_id": user_id,
+                    "data": json.dumps(data)
+                })
 
-                if not response.data:
+                if not insert_results:
                     logger.error(
                         "No data returned when saving candidate post to idea banks"
                     )
                     raise Exception("No data returned from idea banks insert")
+                
                 logger.info(
-                    f"Saved new candidate post to idea banks for user {user_id}: {response.data}"
+                    f"Saved new candidate post to idea banks for user {user_id}: {insert_results}"
                 )
-                updated_post["id"] = response.data[0].get("id")
+                updated_post["id"] = insert_results[0]["id"]
                 updated_posts.append(updated_post)
         return updated_posts
 
@@ -251,27 +246,33 @@ class SupabaseClient:
         self, user_id: str, suggested_posts: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        Save suggested posts to the posts table in Supabase.
+        Save suggested posts to the posts table.
         """
         for i, post in enumerate(suggested_posts):
             try:
-                data = {
+                import json
+                insert_query = """
+                    INSERT INTO posts (user_id, title, content, platform, topics, status, idea_bank_id)
+                    VALUES (:user_id, :title, :content, :platform, :topics, :status, :idea_bank_id)
+                    RETURNING id
+                """
+                
+                results = self.client.execute_query(insert_query, {
                     "user_id": user_id,
                     "title": post.get("title"),
                     "content": post.get("linkedin_post", ""),
                     "platform": post.get("platform", "linkedin"),
-                    "topics": post.get("topics", []),
+                    "topics": json.dumps(post.get("topics", [])),
                     "status": "suggested",
-                    "idea_bank_id": post.get("idea_bank_id"),
-                }
-                response = self.client.table("posts").insert(data).execute()
+                    "idea_bank_id": post.get("idea_bank_id")
+                })
 
-                if response.data:
+                if results:
                     logger.info(
                         f"Successfully saved post {i + 1}/{len(suggested_posts)} to posts table"
                     )
                     # Store the post_id in the original data for reference
-                    suggested_posts[i]["post_id"] = response.data[0].get("id")
+                    suggested_posts[i]["post_id"] = results[0]["id"]
             except Exception as e:
                 logger.error(f"Error saving post {i + 1} to database: {e}")
                 continue
@@ -283,15 +284,17 @@ class SupabaseClient:
         Get the user's content strategy.
         """
         try:
-            response = (
-                self.client.table("content_strategies")
-                .select("strategy")
-                .eq("platform", "linkedin")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            if response.data and len(response.data) > 0:
-                return response.data[0].get("strategy", "")
+            query = """
+                SELECT strategy 
+                FROM content_strategies 
+                WHERE user_id = :user_id AND platform = 'linkedin'
+                LIMIT 1
+            """
+            
+            results = self.client.execute_query(query, {"user_id": user_id})
+            
+            if results:
+                return results[0].get("strategy", "") or ""
             else:
                 logger.info(
                     f"No content strategy found for user {user_id}. So creating one..."
@@ -318,21 +321,21 @@ Avoid using hashtags.
     """
 
         try:
-            response = (
-                self.client.table("content_strategies")
-                .insert(
-                    {
-                        "user_id": user_id,
-                        "platform": "linkedin",
-                        "strategy": STRATEGY,
-                    }
-                )
-                .execute()
-            )
+            insert_query = """
+                INSERT INTO content_strategies (user_id, platform, strategy)
+                VALUES (:user_id, :platform, :strategy)
+                RETURNING strategy
+            """
+            
+            results = self.client.execute_query(insert_query, {
+                "user_id": user_id,
+                "platform": "linkedin",
+                "strategy": STRATEGY
+            })
 
-            if response.data:
+            if results:
                 logger.info(f"Created content strategy for user {user_id}")
-                return response.data[0].get("strategy", "")
+                return results[0].get("strategy", "")
             else:
                 logger.error(f"Error creating content strategy for user {user_id}")
                 raise Exception("No data returned from content strategies insert")
@@ -345,42 +348,35 @@ Avoid using hashtags.
         Update the daily suggestions job status for the user.
         """
         try:
-            # check if the user has a daily suggestion schedule
-            response = (
-                self.client.table("daily_suggestion_schedules")
-                .select("id")
-                .eq("user_id", user_id)
-                .execute()
-            )
+            # Check if the user has a daily suggestion schedule
+            check_query = """
+                SELECT id FROM daily_suggestion_schedules 
+                WHERE user_id = :user_id
+                LIMIT 1
+            """
+            
+            results = self.client.execute_query(check_query, {"user_id": user_id})
 
-            if (
-                not response.data
-                or len(response.data) == 0
-                or not response.data[0].get("id")
-            ):
+            if not results:
                 logger.info(
                     f"No daily suggestion schedule found for user {user_id}. So creating one..."
                 )
                 return
 
-            # update the last run at time
-            response = (
-                self.client.table("daily_suggestion_schedules")
-                .update(
-                    {
-                        "last_run_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                )
-                .eq("id", response.data[0].get("id"))
-                .eq("user_id", user_id)
-                .execute()
-            )
+            # Update the last run at time
+            update_query = """
+                UPDATE daily_suggestion_schedules 
+                SET last_run_at = NOW(), updated_at = NOW()
+                WHERE user_id = :user_id
+            """
+            
+            rows_affected = self.client.execute_update(update_query, {"user_id": user_id})
 
-            if not response.data:
+            if rows_affected == 0:
                 logger.error(
                     f"Error updating daily suggestions job status for user {user_id}"
                 )
-                raise Exception("No data returned from daily suggestions jobs update")
+                raise Exception("No rows updated in daily suggestions jobs update")
 
             logger.info(f"Updated daily suggestions job status for user {user_id}")
         except Exception as e:

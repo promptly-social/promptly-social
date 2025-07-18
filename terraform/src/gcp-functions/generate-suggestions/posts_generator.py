@@ -1,7 +1,6 @@
 import os
 from typing import Any, Dict, List, Optional
 
-from supabase import Client
 from pydantic import BaseModel, Field
 from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -24,8 +23,7 @@ class GeneratedPost(BaseModel):
 
 
 class PostsGenerator:
-    def __init__(self, supabase_client: Client):
-        self.supabase_client = supabase_client
+    def __init__(self):
 
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 

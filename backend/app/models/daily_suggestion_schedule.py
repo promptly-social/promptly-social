@@ -5,7 +5,7 @@ DailySuggestionSchedule model for user-specific daily suggestion generation sche
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -18,7 +18,12 @@ class DailySuggestionSchedule(Base):
     __tablename__ = "daily_suggestion_schedules"
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False, unique=True)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
     cron_expression: Mapped[str] = mapped_column(String(100), nullable=False)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
     last_run_at: Mapped[datetime] = mapped_column(

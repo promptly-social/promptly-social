@@ -43,7 +43,7 @@ module "generate_suggestions_function" {
   app_name                           = var.app_name
   environment                        = var.environment
   function_name                      = "generate-suggestions-function-${var.environment}"
-  function_source_dir                = "../../../src/gcp-functions/generate-suggestions"
+  function_source_dir                = "../../../src/gcp-functions"
   number_of_posts_to_generate        = var.number_of_posts_to_generate
   openrouter_model_primary           = var.openrouter_model_primary
   openrouter_models_fallback         = var.openrouter_models_fallback

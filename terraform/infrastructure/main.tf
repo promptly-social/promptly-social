@@ -335,19 +335,6 @@ resource "google_secret_manager_secret_version" "linkedin_client_secret_initial_
   secret_data = "placeholder"
 }
 
-resource "google_secret_manager_secret" "database_url" {
-  secret_id = "DATABASE_URL"
-
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "database_url_initial_version" {
-  secret      = google_secret_manager_secret.database_url.id
-  secret_data = "placeholder-db-url"
-}
-
 resource "google_secret_manager_secret" "zyte_api_key" {
   secret_id = "ZYTE_API_KEY"
 
@@ -483,7 +470,7 @@ resource "google_secret_manager_secret_iam_member" "secrets_access" {
     openrouter_api_key    = google_secret_manager_secret.openrouter_api_key
     linkedin_client_id    = google_secret_manager_secret.linkedin_client_id
     linkedin_client_secret = google_secret_manager_secret.linkedin_client_secret
-    database_url          = google_secret_manager_secret.database_url
+    # database_url is now managed by the Cloud SQL module
     zyte_api_key          = google_secret_manager_secret.zyte_api_key
     apify_api_key         = google_secret_manager_secret.apify_api_key
     post_media_bucket_name = google_secret_manager_secret.post_media_bucket_name
@@ -515,9 +502,6 @@ module "cloud_run_service" {
   gcp_project_id             = var.project_id
   gcp_location               = var.region
   jwt_secret_name            = google_secret_manager_secret.jwt_secret.secret_id
-  supabase_url_name          = google_secret_manager_secret.supabase_url.secret_id
-  supabase_key_name          = google_secret_manager_secret.supabase_key.secret_id
-  supabase_service_key_name  = google_secret_manager_secret.supabase_service_key.secret_id
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
@@ -525,7 +509,10 @@ module "cloud_run_service" {
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
   linkedin_client_id_name    = google_secret_manager_secret.linkedin_client_id.secret_id
   linkedin_client_secret_name = google_secret_manager_secret.linkedin_client_secret.secret_id
-  database_url_name          = google_secret_manager_secret.database_url.secret_id
+  cloud_sql_database_name_name = module.cloud_sql.db_name_secret_id
+  cloud_sql_user_name = module.cloud_sql.db_username_secret_id
+  cloud_sql_password_name = module.cloud_sql.db_password_secret_id
+  cloud_sql_instance_connection_name_name = module.cloud_sql.db_instance_connection_name_secret_id
   post_media_bucket_name_name = google_secret_manager_secret.post_media_bucket_name.secret_id
   openrouter_model_primary_name = google_secret_manager_secret.openrouter_model_primary.secret_id
   openrouter_models_fallback_name = google_secret_manager_secret.openrouter_models_fallback.secret_id
@@ -534,6 +521,10 @@ module "cloud_run_service" {
   openrouter_large_models_fallback_name = google_secret_manager_secret.openrouter_large_models_fallback.secret_id
   openrouter_large_model_temperature_name = google_secret_manager_secret.openrouter_large_model_temperature.secret_id
   allow_unauthenticated_invocations = false
+
+  depends_on = [
+    module.cloud_sql
+  ]
 }
 
 # --- Frontend Infrastructure (GCS Bucket + CDN for Static Site) ---
@@ -834,4 +825,54 @@ resource "google_project_iam_member" "scheduler_logging_writer" {
   project = var.project_id
   role = "roles/logging.logWriter"
   member = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+}
+
+# Cloud SQL Database Module
+module "cloud_sql" {
+  source = "../modules/cloud-sql"
+  
+  # Required variables
+  project_id          = var.project_id
+  region             = var.region
+  environment        = var.environment
+  app_name           = var.app_name
+  terraform_sa_email = data.google_service_account.terraform_sa.email
+  app_sa_email       = data.google_service_account.app_sa.email
+  
+  # Instance configuration - environment-specific
+  database_version = "POSTGRES_15"
+  tier            = var.cloud_sql_tier
+  disk_size       = var.cloud_sql_disk_size
+  disk_type       = "PD_SSD"
+  disk_autoresize = true
+  disk_autoresize_limit = var.cloud_sql_disk_autoresize_limit
+  availability_type = var.cloud_sql_availability_type
+  
+  # Security configuration
+  require_ssl              = true
+  deletion_protection      = var.cloud_sql_deletion_protection
+  backup_enabled          = true
+  point_in_time_recovery  = true
+  backup_retention_count  = var.cloud_sql_backup_retention_count
+  transaction_log_retention_days = var.cloud_sql_transaction_log_retention_days
+  
+  # Network configuration
+  private_network = var.vpc_network
+  ipv4_enabled   = false
+  enable_private_path = true
+  authorized_networks = var.cloud_sql_authorized_networks
+  
+  # Monitoring configuration
+  query_insights_enabled = true
+  record_application_tags = true
+  record_client_address = true
+  
+  # Cloud Function service accounts that need database access
+  cloud_function_sa_emails = var.cloud_function_sa_emails
+  
+  depends_on = [
+    google_project_service.application_apis,
+    data.google_service_account.terraform_sa,
+    data.google_service_account.app_sa
+  ]
 }

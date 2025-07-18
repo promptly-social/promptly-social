@@ -7,7 +7,10 @@ from typing import Dict, Any, List
 import traceback
 
 import functions_framework
-from supabase import create_client, Client
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "shared"))
+from cloud_sql_client import get_cloud_sql_client
 from substack_analyzer import SubstackAnalyzer
 from linkedin_analyzer import LinkedInAnalyzer
 from import_sample_analyzer import ImportSampleAnalyzer
@@ -17,15 +20,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_supabase_client() -> Client:
-    """Initialize Supabase client."""
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
-
-    if not supabase_url or not supabase_service_key:
-        raise ValueError("Missing Supabase configuration")
-
-    return create_client(supabase_url, supabase_service_key)
+def get_cloud_sql_db():
+    """Initialize Cloud SQL client."""
+    return get_cloud_sql_client()
 
 
 def fetch_content(
@@ -78,7 +75,7 @@ def fetch_content(
 
 
 async def update_analysis_results(
-    supabase: Client,
+    db_client,
     user_id: str,
     analysis_result: Dict[str, Any],
     platform: str,
@@ -92,111 +89,104 @@ async def update_analysis_results(
         bio = analysis_result.get("bio", "")
 
         if websites or substacks or topics or bio:
-            # Fetch user preferences without .single() to avoid error when no records exist
-            user_preferences_result = (
-                supabase.table("user_preferences")
-                .select("*")
-                .eq("user_id", user_id)
-                .execute()
+            # Fetch existing user preferences
+            existing_prefs = db_client.execute_query(
+                "SELECT * FROM user_preferences WHERE user_id = :user_id",
+                {"user_id": user_id},
             )
 
-            # Create a mock object to maintain the same interface
-            user_preferences = type(
-                "obj",
-                (object,),
-                {
-                    "data": user_preferences_result.data[0]
-                    if user_preferences_result.data
-                    else None
-                },
-            )()
+            if existing_prefs:
+                # Update existing preferences
+                pref = existing_prefs[0]
+                existing_websites = pref.get("websites", []) or []
+                existing_substacks = pref.get("substacks", []) or []
+                existing_topics = pref.get("topics_of_interest", []) or []
 
-            if user_preferences.data:
-                existing_websites = user_preferences.data.get("websites", [])
-                user_preferences.data["websites"] = list(
-                    set(existing_websites + websites)
+                updated_websites = list(set(existing_websites + websites))
+                updated_substacks = list(set(existing_substacks + substacks))
+                updated_topics = list(set(existing_topics + topics))
+
+                update_query = """
+                    UPDATE user_preferences 
+                    SET websites = :websites, 
+                        substacks = :substacks, 
+                        topics_of_interest = :topics,
+                        bio = COALESCE(:bio, bio),
+                        updated_at = NOW()
+                    WHERE user_id = :user_id
+                """
+
+                db_client.execute_update(
+                    update_query,
+                    {
+                        "user_id": user_id,
+                        "websites": updated_websites,
+                        "substacks": updated_substacks,
+                        "topics": updated_topics,
+                        "bio": bio if bio else None,
+                    },
                 )
-
-                existing_substacks = user_preferences.data.get("substacks", [])
-                user_preferences.data["substacks"] = list(
-                    set(existing_substacks + substacks)
-                )
-
-                existing_topics = user_preferences.data.get("topics_of_interest", [])
-                user_preferences.data["topics_of_interest"] = list(
-                    set(existing_topics + topics)
-                )
-
-                if bio:
-                    user_preferences.data["bio"] = bio
-
-                preferences_response = (
-                    supabase.table("user_preferences")
-                    .update(user_preferences.data)
-                    .eq("user_id", user_id)
-                    .execute()
-                )
-
             else:
-                preferences_response = (
-                    supabase.table("user_preferences")
-                    .insert(
-                        {
-                            "user_id": user_id,
-                            "websites": websites,
-                            "substacks": substacks,
-                            "topics_of_interest": topics,
-                            "bio": bio,
-                        }
-                    )
-                    .execute()
+                # Create new preferences
+                insert_query = """
+                    INSERT INTO user_preferences (user_id, websites, substacks, topics_of_interest, bio)
+                    VALUES (:user_id, :websites, :substacks, :topics, :bio)
+                """
+
+                db_client.execute_update(
+                    insert_query,
+                    {
+                        "user_id": user_id,
+                        "websites": websites,
+                        "substacks": substacks,
+                        "topics": topics,
+                        "bio": bio,
+                    },
                 )
 
-            if preferences_response.data:
-                logger.info(f"Created user preferences for user {user_id}")
-            else:
-                logger.error(f"Failed to create user preferences for user {user_id}")
+            logger.info(f"Updated user preferences for user {user_id}")
 
         if analysis_result.get("writing_style"):
             # Store writing style analysis
-            writing_style_data = {
-                "user_id": user_id,
-                "source": platform,  # Use the actual platform (substack, linkedin, or import)
-                "analysis_data": analysis_result["writing_style"],
-                "last_analyzed_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
+            upsert_query = """
+                INSERT INTO writing_style_analysis 
+                (user_id, platform, analysis_data, content_count, last_analyzed_at)
+                VALUES (:user_id, :platform, :analysis_data, :content_count, NOW())
+                ON CONFLICT (user_id, platform) 
+                DO UPDATE SET 
+                    analysis_data = EXCLUDED.analysis_data,
+                    content_count = EXCLUDED.content_count,
+                    last_analyzed_at = NOW(),
+                    updated_at = NOW()
+            """
 
-            # Upsert writing style analysis using the unique constraint on (user_id)
-            style_response = (
-                supabase.table("writing_style_analysis")
-                .upsert(writing_style_data, on_conflict="user_id")
-                .execute()
+            db_client.execute_update(
+                upsert_query,
+                {
+                    "user_id": user_id,
+                    "platform": platform,
+                    "analysis_data": analysis_result["writing_style"],
+                    "content_count": len(analysis_result.get("content_analyzed", [])),
+                },
             )
 
-            if style_response.data:
-                logger.info(f"Updated writing style analysis for user {user_id}")
-            else:
-                logger.warning(
-                    f"Failed to update writing style analysis for user {user_id}"
-                )
+            logger.info(f"Updated writing style analysis for user {user_id}")
 
         # Update social connection with results and completion timestamp (only for platforms that use connections)
         if platform != "import":
-            response = (
-                supabase.table("social_connections")
-                .update(
-                    {
-                        "analysis_completed_at": datetime.now(timezone.utc).isoformat(),
-                        "analysis_status": "completed",
-                    }
-                )
-                .eq("user_id", user_id)
-                .eq("platform", platform)
-                .execute()
+            update_connection_query = """
+                UPDATE social_connections 
+                SET analysis_completed_at = NOW(),
+                    analysis_status = 'completed',
+                    updated_at = NOW()
+                WHERE user_id = :user_id AND platform = :platform
+            """
+
+            rows_affected = db_client.execute_update(
+                update_connection_query, {"user_id": user_id, "platform": platform}
             )
 
-            if response.data:
+            if rows_affected > 0:
                 logger.info(f"Updated social connection for user {user_id}")
             else:
                 logger.error(f"Failed to update social connection for user {user_id}")
@@ -209,7 +199,7 @@ async def update_analysis_results(
 
 
 async def mark_analysis_failed(
-    supabase: Client,
+    db_client,
     user_id: str,
     error_message: str,
     connection_data: Dict[str, Any],
@@ -224,14 +214,24 @@ async def mark_analysis_failed(
             "analysis_status": "error",
         }
 
-        supabase.table("social_connections").update(
+        update_query = """
+            UPDATE social_connections 
+            SET connection_data = :connection_data,
+                analysis_started_at = NULL,
+                analysis_completed_at = NULL,
+                analysis_status = 'error',
+                updated_at = NOW()
+            WHERE user_id = :user_id AND platform = :platform
+        """
+
+        db_client.execute_update(
+            update_query,
             {
-                "connection_data": updated_connection_data,
-                "analysis_started_at": None,
-                "analysis_completed_at": None,
-                "analysis_status": "error",
-            }
-        ).eq("user_id", user_id).eq("platform", platform).execute()
+                "user_id": user_id,
+                "platform": platform,
+                "connection_data": json.dumps(updated_connection_data),
+            },
+        )
 
         logger.info(f"Marked analysis as failed for user {user_id}")
 
@@ -240,7 +240,7 @@ async def mark_analysis_failed(
 
 
 @functions_framework.http
-def analyze_substack(request):
+def analyze(request):
     """
     GCP Cloud Function for analyzing social media content (Substack and LinkedIn).
 
@@ -318,21 +318,19 @@ def analyze_substack(request):
                 f"Starting {platform} analysis for user {user_id} with identifier {platform_username}"
             )
 
-        # Initialize Supabase client
-        supabase = get_supabase_client()
+        # Initialize Cloud SQL client
+        db_client = get_cloud_sql_db()
 
         # For import platform, we don't need to check social connections
+        connection = None
         if platform != "import":
             # Verify the social connection exists and is being analyzed
-            connection_response = (
-                supabase.table("social_connections")
-                .select("*")
-                .eq("user_id", user_id)
-                .eq("platform", platform)
-                .execute()
+            connections = db_client.execute_query(
+                "SELECT * FROM social_connections WHERE user_id = :user_id AND platform = :platform",
+                {"user_id": user_id, "platform": platform},
             )
 
-            if not connection_response.data:
+            if not connections:
                 error_msg = f"{platform} connection not found for user {user_id}"
                 logger.error(error_msg)
                 return (
@@ -341,7 +339,7 @@ def analyze_substack(request):
                     headers,
                 )
 
-            connection = connection_response.data[0]
+            connection = connections[0]
 
             if not connection.get("analysis_started_at"):
                 error_msg = f"Analysis not started for user {user_id}"
@@ -352,16 +350,15 @@ def analyze_substack(request):
                     headers,
                 )
 
-        user_preferences_response = (
-            supabase.table("user_preferences")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
+        # Get current user bio
+        user_preferences = db_client.execute_query(
+            "SELECT bio FROM user_preferences WHERE user_id = :user_id",
+            {"user_id": user_id},
         )
 
         current_bio = ""
-        if user_preferences_response.data:
-            current_bio = user_preferences_response.data[0].get("bio", "")
+        if user_preferences:
+            current_bio = user_preferences[0].get("bio", "") or ""
 
         # Perform the analysis
         try:
@@ -376,7 +373,7 @@ def analyze_substack(request):
             # Update database with results
             asyncio.run(
                 update_analysis_results(
-                    supabase,
+                    db_client,
                     user_id,
                     analysis_result,
                     platform,
@@ -415,7 +412,7 @@ def analyze_substack(request):
             if platform != "import":
                 asyncio.run(
                     mark_analysis_failed(
-                        supabase,
+                        db_client,
                         user_id,
                         str(analysis_error),
                         connection.get("connection_data", {}),

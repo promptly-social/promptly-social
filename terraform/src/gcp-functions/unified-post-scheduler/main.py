@@ -8,7 +8,11 @@ import traceback
 
 import functions_framework
 import httpx
-from supabase import create_client, Client
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
+
+from cloud_sql_client import get_cloud_sql_client
+from shared.cloud_sql_client import CloudSQLClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,15 +44,9 @@ async def retry_with_exponential_backoff(func, *args, **kwargs):
     return None
 
 
-def get_supabase_client() -> Client:
-    """Initialize Supabase client."""
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY")
-
-    if not supabase_url or not supabase_service_key:
-        raise ValueError("Missing Supabase configuration")
-
-    return create_client(supabase_url, supabase_service_key)
+def get_cloud_sql_db():
+    """Initialize Cloud SQL client."""
+    return get_cloud_sql_client()
 
 
 @functions_framework.http
@@ -75,12 +73,12 @@ def process_scheduled_posts(request):
         logger.info("Starting unified post scheduler execution")
         start_time = datetime.now(timezone.utc)
 
-        # Initialize Supabase client
-        supabase = get_supabase_client()
+        # Initialize Cloud SQL client
+        db_client = get_cloud_sql_db()
 
         # Get posts scheduled for publishing
         posts_to_publish = asyncio.run(
-            retry_with_exponential_backoff(get_posts_to_publish, supabase)
+            retry_with_exponential_backoff(get_posts_to_publish, db_client)
         )
 
         if not posts_to_publish:
@@ -103,7 +101,7 @@ def process_scheduled_posts(request):
         logger.info(f"Found {len(posts_to_publish)} posts to publish")
 
         # Process each post
-        results = asyncio.run(process_posts_batch(supabase, posts_to_publish))
+        results = asyncio.run(process_posts_batch(db_client, posts_to_publish))
 
         # Calculate summary statistics
         successful_posts = sum(1 for r in results if r["success"])
@@ -141,7 +139,7 @@ def process_scheduled_posts(request):
         )
 
 
-async def get_posts_to_publish(supabase: Client) -> List[Dict[str, Any]]:
+async def get_posts_to_publish(client: CloudSQLClient) -> List[Dict[str, Any]]:
     """
     Query database for posts scheduled in the last 10 minutes that haven't been published.
     """
@@ -153,18 +151,21 @@ async def get_posts_to_publish(supabase: Client) -> List[Dict[str, Any]]:
         logger.info(f"Querying for posts scheduled between {ten_minutes_ago} and {now}")
 
         # Query for scheduled posts in the time window
-        response = (
-            supabase.table("posts")
-            .select("*")
-            .eq("status", "scheduled")
-            .is_("posted_at", "null")
-            .gte("scheduled_at", ten_minutes_ago.isoformat())
-            .lte("scheduled_at", now.isoformat())
-            .order("scheduled_at", desc=False)
-            .execute()
-        )
+        query = """
+            SELECT * FROM posts 
+            WHERE status = :status 
+            AND posted_at IS NULL 
+            AND scheduled_at >= :ten_minutes_ago 
+            AND scheduled_at <= :now 
+            ORDER BY scheduled_at ASC
+        """
+        
+        posts = await client.execute_query_async(query, {
+            "status": "scheduled",
+            "ten_minutes_ago": ten_minutes_ago.isoformat(),
+            "now": now.isoformat()
+        })
 
-        posts = response.data or []
         logger.info(f"Found {len(posts)} posts ready for publishing")
 
         return posts
@@ -175,7 +176,7 @@ async def get_posts_to_publish(supabase: Client) -> List[Dict[str, Any]]:
 
 
 async def process_posts_batch(
-    supabase: Client, posts: List[Dict[str, Any]]
+    client: CloudSQLClient, posts: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """
     Process a batch of posts for publishing with error handling.
@@ -185,7 +186,7 @@ async def process_posts_batch(
     for post in posts:
         try:
             logger.info(f"Processing post {post['id']} for user {post['user_id']}")
-            result = await process_single_post(supabase, post)
+            result = await process_single_post(client, post)
             results.append(result)
         except Exception as e:
             logger.error(f"Failed to process post {post['id']}: {e}")
@@ -201,7 +202,7 @@ async def process_posts_batch(
             # Update post with error status
             try:
                 await update_post_status(
-                    supabase,
+                    client,
                     post["id"],
                     {
                         "sharing_error": f"Unified scheduler error: {str(e)}",
@@ -216,7 +217,7 @@ async def process_posts_batch(
     return results
 
 
-async def process_single_post(supabase: Client, post: Dict[str, Any]) -> Dict[str, Any]:
+async def process_single_post(client: CloudSQLClient, post: Dict[str, Any]) -> Dict[str, Any]:
     """
     Process a single post for publishing.
     """
@@ -225,19 +226,19 @@ async def process_single_post(supabase: Client, post: Dict[str, Any]) -> Dict[st
 
     try:
         # Get LinkedIn connection for the user
-        linkedin_connection = await get_linkedin_connection(supabase, user_id)
+        linkedin_connection = await get_linkedin_connection(client, user_id)
         if not linkedin_connection:
             raise Exception("LinkedIn connection not found")
 
         # Refresh token if needed
         refreshed_connection = await refresh_token_if_needed(
-            supabase, linkedin_connection
+            client, linkedin_connection
         )
         if not refreshed_connection:
             raise Exception("Failed to refresh LinkedIn token")
 
         # Get post media
-        media_items = await get_post_media(supabase, post_id)
+        media_items = await get_post_media(client, post_id)
 
         # Share to LinkedIn
         share_result = await share_to_linkedin(post, refreshed_connection, media_items)
@@ -246,7 +247,7 @@ async def process_single_post(supabase: Client, post: Dict[str, Any]) -> Dict[st
 
         # Update post status to posted
         await update_post_status(
-            supabase,
+            client,
             post_id,
             {
                 "status": "posted",
@@ -276,23 +277,26 @@ async def process_single_post(supabase: Client, post: Dict[str, Any]) -> Dict[st
 
 
 async def get_linkedin_connection(
-    supabase: Client, user_id: str
+    client: CloudSQLClient, user_id: str
 ) -> Optional[Dict[str, Any]]:
     """Get user's LinkedIn connection data."""
     try:
-        response = (
-            supabase.table("social_connections")
-            .select("*")
-            .eq("user_id", user_id)
-            .eq("platform", "linkedin")
-            .execute()
-        )
+        query = """
+            SELECT * FROM social_connections 
+            WHERE user_id = :user_id 
+            AND platform = :platform
+        """
+        
+        results = await client.execute_query_async(query, {
+            "user_id": user_id,
+            "platform": "linkedin"
+        })
 
-        if not response.data:
+        if not results:
             logger.error(f"LinkedIn connection not found for user {user_id}")
             return None
 
-        connection = response.data[0]
+        connection = results[0]
         connection_data = connection.get("connection_data", {})
 
         if not connection_data.get("access_token"):
@@ -307,7 +311,7 @@ async def get_linkedin_connection(
 
 
 async def refresh_token_if_needed(
-    supabase: Client, connection: Dict[str, Any]
+    client: CloudSQLClient, connection: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
     """Refresh LinkedIn access token if needed."""
     try:
@@ -392,9 +396,16 @@ async def refresh_token_if_needed(
                 )
 
             # Update database
-            supabase.table("social_connections").update(
-                {"connection_data": updated_connection_data}
-            ).eq("id", connection["id"]).execute()
+            update_query = """
+                UPDATE social_connections 
+                SET connection_data = :connection_data
+                WHERE id = :connection_id
+            """
+            
+            await client.execute_update_async(update_query, {
+                "connection_data": updated_connection_data,
+                "connection_id": connection["id"]
+            })
 
             # Update the connection object
             connection["connection_data"] = updated_connection_data
@@ -407,14 +418,19 @@ async def refresh_token_if_needed(
         return None
 
 
-async def get_post_media(supabase: Client, post_id: str) -> list:
+async def get_post_media(client: CloudSQLClient, post_id: str) -> list:
     """Get media attachments for a post."""
     try:
-        response = (
-            supabase.table("post_media").select("*").eq("post_id", post_id).execute()
-        )
+        query = """
+            SELECT * FROM post_media 
+            WHERE post_id = :post_id
+        """
+        
+        results = await client.execute_query_async(query, {
+            "post_id": post_id
+        })
 
-        return response.data or []
+        return results or []
     except Exception as e:
         logger.error(f"Error retrieving post media: {e}")
         return []
@@ -519,13 +535,27 @@ async def share_to_linkedin(
 
 
 async def update_post_status(
-    supabase: Client, post_id: str, updates: Dict[str, Any]
+    client: CloudSQLClient, post_id: str, updates: Dict[str, Any]
 ) -> bool:
     """Update post status and sharing information."""
     try:
-        response = supabase.table("posts").update(updates).eq("id", post_id).execute()
+        # Build dynamic update query based on provided fields
+        set_clauses = []
+        params = {"post_id": post_id}
+        
+        for key, value in updates.items():
+            set_clauses.append(f"{key} = :{key}")
+            params[key] = value
+        
+        query = f"""
+            UPDATE posts 
+            SET {', '.join(set_clauses)}
+            WHERE id = :post_id
+        """
+        
+        rows_affected = await client.execute_update_async(query, params)
 
-        if response.data:
+        if rows_affected > 0:
             logger.info(f"Updated post {post_id} with status: {updates.get('status')}")
             return True
         else:

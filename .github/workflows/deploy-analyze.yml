@@ -1,14 +1,14 @@
-name: Deploy Analyze Substack Cloud Function
+name: Deploy Analyze Cloud Function
 
 on:
   push:
     branches:
       - main
     paths:
-      - "terraform/src/gcp-functions/analyze-substack/**"
-      - "terraform/modules/analyze_substack_function/**"
-      - "terraform/environments/analyze_substack/**"
-      - ".github/workflows/deploy-analyze-substack.yml"
+      - "terraform/src/gcp-functions/analyze/**"
+      - "terraform/modules/analyze_function/**"
+      - "terraform/environments/analyze/**"
+      - ".github/workflows/deploy-analyze.yml"
   workflow_dispatch:
     inputs:
       environment:

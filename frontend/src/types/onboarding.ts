@@ -65,10 +65,8 @@ export const ONBOARDING_STEPS: Omit<
     icon: "👤",
     highlights: [
       "Add your LinkedIn handle (required)",
-      "Connect Substack if available",
-      "Click Analyze to analyze your writing style (takes up to 5 minutes)",
-      "About Me, Writing Style, and Topics of Interest will be analyzed",
-      "You can also provide your own writing sample for analysis",
+      "Add your Substack handle (optional)",
+      "Click Analyze to analyze your bio, writing style, and preferences (takes about 5 minutes)"
     ],
   },
   {
@@ -80,8 +78,6 @@ export const ONBOARDING_STEPS: Omit<
     highlights: [
       "Enter topics you like to write about",
       "Add news websites you follow",
-      "Add Substack blogs you follow",
-      "Review content style",
     ],
   },
   {

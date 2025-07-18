@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import DailySuggestionSchedule from "@/components/preferences/DailySuggestionSchedule";
+import DailySuggestionSchedule from "@/components/settings/DailySuggestionSchedule";
 import {
   Select,
   SelectContent,

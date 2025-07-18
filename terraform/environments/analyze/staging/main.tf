@@ -34,8 +34,8 @@ data "google_storage_bucket" "cf_source_bucket" {
   name = "promptly-cf-source-staging"
 }
 
-module "analyze_substack_function" {
-  source                        = "../../../modules/analyze_substack_function"
+module "analyze_function" {
+  source                        = "../../../modules/analyze_function"
   
   # New required variables for standardized pattern
   service_account_email         = "promptly-app-sa-staging@${var.project_id}.iam.gserviceaccount.com"
@@ -46,7 +46,7 @@ module "analyze_substack_function" {
   project_id                    = var.project_id
   region                        = var.region
   environment                   = "staging"
-  function_source_dir           = "../../../src/gcp-functions/analyze-substack"
+  function_source_dir           = "../../../src/gcp-functions"
   max_posts_to_analyze          = 10
   max_posts_to_analyze_linkedin = 20
   openrouter_model_primary      = "google/gemini-2.5-flash-preview-05-20"
@@ -56,10 +56,10 @@ module "analyze_substack_function" {
 
 output "function_uri" {
   description = "The URI of the deployed Cloud Function."
-  value       = module.analyze_substack_function.function_uri
+  value       = module.analyze_function.function_uri
 }
 
 output "function_name" {
   description = "The name of the deployed Cloud Function."
-  value       = module.analyze_substack_function.function_name
+  value       = module.analyze_function.function_name
 } 

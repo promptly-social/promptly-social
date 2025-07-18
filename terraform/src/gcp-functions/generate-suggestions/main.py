@@ -8,7 +8,7 @@ from datetime import datetime
 import functions_framework
 from posts_generator import PostsGenerator
 from article_fetcher import ArticleFetcher
-from supabase_client import SupabaseClient
+from database_client import CloudSQLClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -91,11 +91,11 @@ def generate_suggestions(request):
 
             logger.info(f"Generating suggestions for user {user_id}")
 
-            # Initialize Supabase client
-            supabase_client = SupabaseClient()
+            # Initialize Cloud SQL client
+            database_client = CloudSQLClient()
 
             # Get user preferences
-            user_preferences = supabase_client.get_user_preferences_complete(user_id)
+            user_preferences = database_client.get_user_preferences_complete(user_id)
 
             # Get topics of interest
             topics_of_interest = user_preferences.get("topics_of_interest", [])
@@ -104,17 +104,17 @@ def generate_suggestions(request):
             bio = user_preferences.get("bio", "")
 
             # Get writing style
-            writing_style = supabase_client.get_writing_style(user_id)
+            writing_style = database_client.get_writing_style(user_id)
 
             # Get user ideas
-            user_ideas = supabase_client.get_user_ideas(user_id)
+            user_ideas = database_client.get_user_ideas(user_id)
             logger.debug(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
 
             # initialize candidate posts with user ideas first
             candidate_posts = user_ideas
 
             # Get latest articles suggested by AI and saved in the idea banks
-            latest_idea_bank_posts = supabase_client.get_latest_articles_from_idea_bank(
+            latest_idea_bank_posts = database_client.get_latest_articles_from_idea_bank(
                 user_id
             )
 
@@ -130,7 +130,7 @@ def generate_suggestions(request):
                 )
                 logger.debug("Fetching more from Substack and websites")
 
-                # Initialize Zyte scraper with Supabase client
+                # Initialize Zyte scraper
                 article_fetcher = ArticleFetcher()
 
                 # Get substacks
@@ -162,7 +162,7 @@ def generate_suggestions(request):
 
                     if all_new_articles:
                         saved_posts = (
-                            supabase_client.save_candidate_posts_to_idea_banks(
+                            database_client.save_candidate_posts_to_idea_banks(
                                 user_id, all_new_articles
                             )
                         )
@@ -171,9 +171,9 @@ def generate_suggestions(request):
                             f"Saved {len(saved_posts)} new articles to idea bank."
                         )
 
-            posts_generator = PostsGenerator(supabase_client=supabase_client.client)
+            posts_generator = PostsGenerator()
 
-            linkedin_post_strategy = supabase_client.get_content_strategy(user_id)
+            linkedin_post_strategy = database_client.get_content_strategy(user_id)
 
             filtered_articles = await posts_generator.filter_articles(
                 candidate_posts,
@@ -209,10 +209,10 @@ def generate_suggestions(request):
                         break
 
             # save the generated posts to the contents table
-            saved_posts = supabase_client.save_suggested_posts(user_id, generated_posts)
+            saved_posts = database_client.save_suggested_posts(user_id, generated_posts)
 
             # update daily suggestions job status
-            supabase_client.update_daily_suggestions_job_status(user_id)
+            database_client.update_daily_suggestions_job_status(user_id)
 
             return (
                 json.dumps(saved_posts, indent=2, cls=DateTimeEncoder),

@@ -6,11 +6,13 @@
  */
 
 import React, { useState } from "react";
-import { X, ChevronRight, ChevronLeft, SkipForward } from "lucide-react";
+import { ChevronRight, ChevronLeft, SkipForward } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { useOnboarding } from "../../hooks/useOnboarding";
-import type { OnboardingStep } from "../../types/onboarding";
+import { SocialConnections } from "../profile/SocialConnections";
+import { UserPreferences } from "../preferences/UserPreferences";
+import { ContentScheduleSettings } from "../settings/ContentScheduleSettings";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -77,7 +79,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-semibold text-gray-900">
-              Welcome to Promptly Social Scribe! 🎉
+              Welcome to Promptly! 🎉
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -88,15 +90,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               className="text-gray-500 hover:text-gray-700"
             >
               <SkipForward className="h-4 w-4 mr-1" />
-              Skip Tour
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="h-4 w-4" />
+              Skip Setup
             </Button>
           </div>
         </div>
@@ -159,14 +153,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
             {/* Special Notes */}
             {currentStep.id === 1 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                <p className="text-yellow-800 text-sm">
-                  <strong>Note:</strong> The LinkedIn analysis can take up to 5
-                  minutes. You can also highlight the analyze/re-analyze button
-                  in the writing style section to provide your own writing
-                  sample.
-                </p>
-              </div>
+              <SocialConnections />
+            )}
+
+            {currentStep.id === 2 &&(
+              <UserPreferences />
+            )}
+
+            {currentStep.id === 3 && (
+              <ContentScheduleSettings />
             )}
 
             {currentStep.id === 5 && (
@@ -193,14 +188,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </Button>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleGoToStep}
-              className="flex items-center gap-2"
-            >
-              Go to {currentStep?.title}
-            </Button>
-
             {currentViewStep < 6 ? (
               <Button onClick={handleNext} className="flex items-center gap-2">
                 Next
@@ -208,7 +195,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </Button>
             ) : (
               <Button onClick={onClose} className="flex items-center gap-2">
-                Finish Tour
+                Finish Setup
               </Button>
             )}
           </div>

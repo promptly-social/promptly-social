@@ -1,4 +1,7 @@
 functions-framework==3.*
+cloud-sql-python-connector[asyncpg]==1.*
+sqlalchemy==2.*
+asyncpg==0.*
+psycopg2-binary==2.*
 httpx==0.27.*
-supabase==2.*
 python-dateutil==2.*

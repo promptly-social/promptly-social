@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
 import IdeaBankMobileView from "@/components/idea-bank/IdeaBankMobileView";
 import IdeaBankDesktopView from "@/components/idea-bank/IdeaBankDesktopView";
 import IdeaBankMediumView from "@/components/idea-bank/IdeaBankMediumView";
@@ -295,8 +294,6 @@ const IdeaBank: React.FC = () => {
     <AppLayout title="Ideas" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          {/* Onboarding Banner for Step 5 */}
-          <OnboardingBanner stepId={5} />
           
           {/* Page Header with Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

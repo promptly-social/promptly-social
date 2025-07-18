@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     configure_logging()
 
     try:
-        # Initialize database
+        # Initialize database (includes migration handling)
         await init_db()
         logger.info("Database initialized successfully")
 

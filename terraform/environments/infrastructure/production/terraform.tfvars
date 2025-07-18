@@ -38,3 +38,18 @@ manage_cloud_run_service = true
 manage_frontend_infra = true
 
 terraform_service_account_email = "promptly-tf-sa-production@promptly-social.iam.gserviceaccount.com"
+
+# Cloud SQL Configuration - Production (high-availability)
+cloud_sql_tier                    = "db-n1-standard-2"
+cloud_sql_disk_size              = 100
+cloud_sql_disk_autoresize_limit  = 500
+cloud_sql_availability_type      = "REGIONAL"
+cloud_sql_deletion_protection    = true   # Strong protection for production
+cloud_sql_backup_retention_count = 30     # Longer retention for production
+cloud_sql_authorized_networks    = []     # Use private IP only
+
+# Cloud Function service accounts that need database access
+# All Cloud Functions use the same App Service Account
+cloud_function_sa_emails = [
+  "promptly-app-sa-production@promptly-social.iam.gserviceaccount.com"
+]

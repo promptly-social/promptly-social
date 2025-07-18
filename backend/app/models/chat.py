@@ -20,9 +20,11 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     idea_bank_id: Mapped[Optional[UUID]] = mapped_column(
-        UUIDType(), ForeignKey("idea_banks.id"), nullable=True
+        UUIDType(), ForeignKey("idea_banks.id", ondelete="SET NULL"), nullable=True
     )
     conversation_type: Mapped[str] = mapped_column(
         String(50), nullable=False
@@ -52,7 +54,7 @@ class Message(Base):
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
     conversation_id: Mapped[UUID] = mapped_column(
-        UUIDType(), ForeignKey("conversations.id"), nullable=False
+        UUIDType(), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
     role: Mapped[str] = mapped_column(
         String(20), nullable=False

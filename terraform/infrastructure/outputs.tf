@@ -86,3 +86,35 @@ output "cloud_run_service_url" {
   description = "The URL of the Cloud Run service"
   value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].service_url : "n/a"
 }
+
+# Cloud SQL Outputs
+output "cloud_sql_instance_name" {
+  description = "The name of the Cloud SQL instance"
+  value       = module.cloud_sql.instance_name
+}
+
+output "cloud_sql_instance_connection_name" {
+  description = "The connection name of the Cloud SQL instance"
+  value       = module.cloud_sql.instance_connection_name
+}
+
+output "cloud_sql_private_ip_address" {
+  description = "The private IP address of the Cloud SQL instance"
+  value       = module.cloud_sql.private_ip_address
+}
+
+output "cloud_sql_database_name" {
+  description = "The name of the main database"
+  value       = module.cloud_sql.database_name
+}
+
+output "cloud_sql_connection_info" {
+  description = "Database connection information for applications"
+  value       = module.cloud_sql.connection_info
+  sensitive   = true
+}
+
+output "cloud_sql_secret_references" {
+  description = "Secret Manager references for database credentials"
+  value       = module.cloud_sql.secret_references
+}

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_async_db
+from app.dependencies import get_current_user, get_current_user_with_rls
 from app.schemas.auth import (
     LinkedInAuthRequest,
     RefreshTokenRequest,
@@ -27,43 +28,6 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 # Security scheme
 security = HTTPBearer(auto_error=False)
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_async_db),
-) -> UserResponse:
-    """
-    Dependency to get current authenticated user.
-
-    Args:
-        credentials: HTTP Authorization header
-        db: Database session
-
-    Returns:
-        Current user information
-
-    Raises:
-        HTTPException: If token is invalid or user not found
-    """
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication credentials required",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    auth_service = AuthService(db)
-    user = await auth_service.get_current_user(credentials.credentials)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
 
 
 @router.post("/signin/linkedin")
