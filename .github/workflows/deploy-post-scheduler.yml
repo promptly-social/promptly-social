@@ -7,7 +7,7 @@ on:
     paths:
       - "terraform/src/gcp-functions/unified-post-scheduler/**"
       - "terraform/modules/unified_post_scheduler_function/**"
-      - "terraform/environments/unified_post_scheduler_function/**"
+      - "terraform/environments/unified_post_scheduler/**"
       - ".github/workflows/deploy-post-scheduler.yml"
   workflow_dispatch:
     inputs:
@@ -48,14 +48,14 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-        working-directory: terraform/environments/unified_post_scheduler_function/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/unified_post_scheduler/${{ env.TARGET_ENV }}
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
-        working-directory: terraform/environments/unified_post_scheduler_function/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/unified_post_scheduler/${{ env.TARGET_ENV }}
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve
-        working-directory: terraform/environments/unified_post_scheduler_function/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/unified_post_scheduler/${{ env.TARGET_ENV }}
