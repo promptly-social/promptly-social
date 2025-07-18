@@ -7,11 +7,11 @@ It fetches Substack newsletters, parses content, and performs NLP analysis.
 
 import logging
 import json
+import os
 from typing import Dict, List, Any
 import random
 
-from llm_client import LLMClient
-from prompt_templates import writing_style_substack, topics_substack, bio_substack
+from openai import OpenAI
 from substack_api import User, Newsletter
 
 logger = logging.getLogger(__name__)
@@ -23,15 +23,24 @@ class SubstackAnalyzer:
     def __init__(self, max_posts: int = 10, openrouter_api_key: str = None):
         self.max_posts = max_posts
         self.user = None
-        # Centralized LLM client (shared config across functions)
-        self.llm_client = LLMClient()
+        self.openrouter_client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_api_key,
+        )
+        # Get model configuration from environment variables
+        self.model_primary = os.getenv(
+            "OPENROUTER_MODEL_PRIMARY", "google/gemini-2.5-flash-preview-05-20"
+        )
+        models_fallback_str = os.getenv(
+            "OPENROUTER_MODELS_FALLBACK", "google/gemini-2.5-flash"
+        )
+        self.models_fallback = [
+            model.strip() for model in models_fallback_str.split(",")
+        ]
+        self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_substack(
-        self,
-        platform_username: str,
-        current_bio: str,
-        content_to_analyze: List[str],
-        current_writing_style: str = "",
+        self, platform_username: str, current_bio: str, content_to_analyze: List[str]
     ) -> Dict[str, Any]:
         """
         Main analysis method that orchestrates the full analysis process.
@@ -111,10 +120,8 @@ class SubstackAnalyzer:
                     f"Substack newsletter URL: {newsletter_url}, posts: {len(newsletter_posts)}"
                 )
 
-                # Step 5 analyze writing style (update existing if provided)
-                writing_style = self._analyze_writing_style(
-                    newsletter_posts, current_writing_style
-                )
+                # Step 5 analyze writing style
+                writing_style = self._analyze_writing_style(newsletter_posts)
 
             # Compile results
             analysis_result = {
@@ -150,20 +157,46 @@ class SubstackAnalyzer:
             logger.error(f"Error fetching posts for {url}: {e}")
             return []
 
-    def _analyze_writing_style(
-        self, posts: List[Dict], current_writing_style: str = ""
-    ) -> str:
+    def _analyze_writing_style(self, posts: List[Dict]) -> str:
         """Analyze writing style of posts."""
         if not posts:
             logger.debug("No posts provided for writing style analysis")
             return ""
 
-        prompt = writing_style_substack(posts, current_writing_style)
-        try:
-            return self.llm_client.run_prompt(prompt)
-        except Exception as e:
-            logger.error(f"Error analyzing/updating writing style: {e}")
-            return current_writing_style
+        urls = "\n".join(posts)
+
+        prompt = f"""
+        You are an expert at analyzing writing style of a list of posts of an author.
+        You are given a list of URLs to posts.
+        Your task is to analyze the writing style of the posts using gender neutral descriptions.
+        Consider elements like based on different topics and themes:
+        - Tone (formal, casual, conversational, etc.)
+        - Voice (authoritative, friendly, analytical, etc.)
+        - Sentence structure and length
+        - Use of humor, metaphors, or storytelling
+        - Technical vs. accessible language
+        - Persuasive techniques
+        - Overall personality that comes through in the writing
+        Return the writing style analysis in plain text format without any markdown. Each observation should be on a new line.
+        Be specific and provide actionable insights that could help someone write in a similar style.
+        
+        URLs: {urls}
+        """
+
+        response = self.openrouter_client.chat.completions.create(
+            model=self.model_primary,
+            extra_body={
+                "models": self.models_fallback,
+            },
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+        )
+
+        if not response.choices:
+            logger.error("API call for writing style analysis returned no choices.")
+            return ""
+
+        return response.choices[0].message.content
 
     def _analyze_topics(self, posts: List[Dict]) -> List[str]:
         """Extract main topics from posts by processing in batches."""
@@ -201,43 +234,77 @@ class SubstackAnalyzer:
 
     def _analyze_topics_batch(self, posts: List[str]) -> List[str]:
         """Extract main topics from a batch of posts."""
-        if not posts:
+        urls = "\n".join(posts)
+        prompt = f"""
+        You are an expert at analyzing topics from a list of posts and substacks.
+        You are given a list of URLs to posts and substacks.
+        Your task is to extract the main topics from the posts and substacks.
+        Return a list of short topics without descriptions, such as AI, startups, technology, etc in a JSON format like this : {{"topics": [], "error": ""}}
+        If you cannot extract the topics, return an empty list.
+        URLs: {urls}
+        """
+
+        response = self.openrouter_client.chat.completions.create(
+            model=self.model_primary,
+            extra_body={
+                "models": self.models_fallback,
+            },
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+        )
+
+        if not response.choices:
+            logger.error("API call for topics batch analysis returned no choices.")
             return []
 
-        prompt = topics_substack(posts)
+        raw_content = response.choices[0].message.content
+        content_json = self._extract_json_from_llm_response(raw_content)
 
-        try:
-            raw_response = self.llm_client.run_prompt(prompt)
-            content_json = self._extract_json_from_llm_response(raw_response)
-            if content_json.get("error"):
-                logger.error(
-                    "Error extracting topics from batch: %s, raw content: %s",
-                    content_json.get("error"),
-                    raw_response,
-                )
-            return content_json.get("topics", [])
-        except Exception as e:
-            logger.error("LLM error extracting topics: %s", e)
-            return []
+        if content_json.get("error"):
+            logger.error(
+                f"Error extracting topics from batch: {content_json.get('error')}, raw content: {raw_content}"
+            )
+
+        return content_json.get("topics", [])
 
     def _create_user_bio(
-        self,
-        posts: List[Dict],
-        substack_bio: str,
-        current_bio: str,
+        self, posts: List[Dict], substack_bio: str, current_bio: str
     ) -> str:
         """Create a user bio from a list of posts and a current bio."""
         if not posts:
             logger.error("No posts provided for user bio creation")
             return substack_bio or current_bio
 
-        prompt = bio_substack(posts, substack_bio, current_bio)
+        urls = "\n".join(posts)
+        prompt = f"""
+        You are an expert at creating a user bio from a list of posts, their stubstack bio, and a current bio.
+        You are given a list of URLs to posts and a current bio.
+        Your task is to create a user bio from the posts and the current bio, please use the first person perspective and gender neutral descriptions.
+        Return the user bio in plain text format without any markdown. The substack bio and current bio might be empyt or incomplete.
+        If the substack bio and/or the current bio are given, update them based on your analysis.
+        The user bio should be a short description of the user's interests, what they do, the roles they hold, what they're passionate about.
+        If the information is available, also include the user's passions and interests in their personal life.
+        If the information is available, also include the user's perspective and opinions on various topics they write about.
+        This will be used as a persona for LLM to generate content in their style, preferences, and point of view.
+        URLs: {urls}
+        Substack bio: {substack_bio}
+        Current bio: {current_bio}
+        """
 
-        try:
-            return self.llm_client.run_prompt(prompt)
-        except Exception as e:
-            logger.error(f"Error creating/updating user bio: {e}")
+        response = self.openrouter_client.chat.completions.create(
+            model=self.model_primary,
+            extra_body={
+                "models": self.models_fallback,
+            },
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+        )
+
+        if not response.choices:
+            logger.error("API call for user bio creation returned no choices.")
             return substack_bio or current_bio
+
+        return response.choices[0].message.content
 
     def _create_empty_analysis(self, username: str) -> Dict[str, Any]:
         """Create empty analysis result when no posts are found."""

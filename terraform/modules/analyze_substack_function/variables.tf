@@ -1,3 +1,18 @@
+variable "service_account_email" {
+  description = "The email of the service account that will run this function."
+  type        = string
+}
+
+variable "source_bucket" {
+  description = "The name of the GCS bucket to store function source code."
+  type        = string
+}
+
+variable "source_hash" {
+  description = "Hash of the source code for versioning."
+  type        = string
+}
+
 variable "project_id" {
   description = "The GCP project ID."
   type        = string

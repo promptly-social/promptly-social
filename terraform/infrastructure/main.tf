@@ -88,9 +88,34 @@ resource "google_storage_bucket" "post_media_bucket" {
   depends_on = [google_project_service.application_apis]
 }
 
+# Create Storage Bucket for Cloud Function source code
+resource "google_storage_bucket" "cf_source_bucket" {
+  name          = "${var.app_name}-cf-source-${var.environment}"
+  project       = var.project_id
+  location      = "US-CENTRAL1"
+  storage_class = "STANDARD"
+
+  force_destroy = true # Allow destruction with objects for development
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = true
+  }
+
+  depends_on = [google_project_service.application_apis]
+}
+
 # Grant App SA access to the post media bucket
 resource "google_storage_bucket_iam_member" "app_sa_post_media_bucket_admin" {
   bucket = google_storage_bucket.post_media_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${data.google_service_account.app_sa.email}"
+}
+
+# Grant App SA access to the Cloud Function source bucket
+resource "google_storage_bucket_iam_member" "app_sa_cf_source_bucket_admin" {
+  bucket = google_storage_bucket.cf_source_bucket.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${data.google_service_account.app_sa.email}"
 }
@@ -146,6 +171,21 @@ resource "google_project_iam_member" "app_sa_runtime_permissions" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${data.google_service_account.app_sa.email}"
+}
+
+# Grant necessary permissions to Compute Engine default service account for Cloud Functions builds
+# This service account is used by Cloud Build for Cloud Functions deployment
+resource "google_project_iam_member" "compute_engine_sa_cloud_build_permissions" {
+  for_each = toset([
+    "roles/storage.objectViewer",      # Access to Cloud Function source bucket
+    "roles/logging.logWriter",         # Write build logs
+    "roles/artifactregistry.reader",   # Read from Artifact Registry repositories
+    "roles/artifactregistry.writer"    # Write to Artifact Registry repositories (cache, artifacts)
+  ])
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
 # Workload Identity Federation and service account impersonation are handled by the bootstrap module

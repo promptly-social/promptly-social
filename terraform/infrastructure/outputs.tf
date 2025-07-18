@@ -57,6 +57,11 @@ output "frontend_bucket_name" {
   value       = var.manage_frontend_infra ? google_storage_bucket.frontend_bucket[0].name : "n/a"
 }
 
+output "cf_source_bucket_name" {
+  description = "Name of the GCS bucket for Cloud Function source code."
+  value       = google_storage_bucket.cf_source_bucket.name
+}
+
 output "frontend_static_ip" {
   description = "Static IP for the frontend load balancer."
   value       = var.manage_frontend_infra ? google_compute_global_address.frontend_ip[0].address : "n/a"
