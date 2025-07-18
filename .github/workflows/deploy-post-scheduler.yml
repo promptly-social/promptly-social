@@ -1,14 +1,14 @@
-name: Deploy Share Post Cloud Function
+name: Deploy Post Scheduler Cloud Function
 
 on:
   push:
     branches:
       - main
     paths:
-      - "terraform/src/gcp-functions/share-post/**"
-      - "terraform/modules/share_post_function/**"
-      - "terraform/environments/share_post/**"
-      - ".github/workflows/deploy-share-post.yml"
+      - "terraform/src/gcp-functions/unified-post-scheduler/**"
+      - "terraform/modules/unified_post_scheduler_function/**"
+      - "terraform/environments/unified_post_scheduler_function/**"
+      - ".github/workflows/deploy-post-scheduler.yml"
   workflow_dispatch:
     inputs:
       environment:
@@ -48,14 +48,14 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-        working-directory: terraform/environments/share_post/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/unified_post_scheduler_function/${{ env.TARGET_ENV }}
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
-        working-directory: terraform/environments/share_post/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/unified_post_scheduler_function/${{ env.TARGET_ENV }}
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve
-        working-directory: terraform/environments/share_post/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/unified_post_scheduler_function/${{ env.TARGET_ENV }}
