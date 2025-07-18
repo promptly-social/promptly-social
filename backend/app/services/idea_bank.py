@@ -13,9 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.idea_bank import IdeaBank
 from app.models.posts import Post
 from app.schemas.idea_bank import IdeaBankCreate, IdeaBankUpdate
-from app.schemas.posts import PostCreate, PostResponse
-from app.services.post_generator import post_generator_service
-from app.services.profile import ProfileService
 
 
 class IdeaBankService:
@@ -288,6 +285,27 @@ class IdeaBankService:
 
         except Exception as e:
             logger.error(f"Error getting idea bank {idea_bank_id}: {e}")
+            raise
+
+    async def get_idea_banks_by_ids(
+        self, user_id: UUID, idea_bank_ids: list[UUID]
+    ) -> list[IdeaBank]:
+        """Get multiple idea banks by their IDs."""
+        try:
+            if not idea_bank_ids:
+                return []
+
+            query = select(IdeaBank).where(
+                and_(
+                    IdeaBank.id.in_(idea_bank_ids),
+                    IdeaBank.user_id == user_id,
+                )
+            )
+            result = await self.db.execute(query)
+            return result.scalars().all()
+
+        except Exception as e:
+            logger.error(f"Error getting idea banks by IDs: {e}")
             raise
 
     async def get_idea_bank_with_latest_post(

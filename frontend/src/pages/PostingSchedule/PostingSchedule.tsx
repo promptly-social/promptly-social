@@ -11,6 +11,7 @@ import {
   useSensors,
   closestCenter,
 } from "@dnd-kit/core";
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
 import AppLayout from "@/components/AppLayout";
 import { RescheduleModal } from "@/components/schedule-modal/RescheduleModal";
 import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
@@ -649,6 +650,9 @@ const PostingSchedule: React.FC = () => {
       >
         <main className="py-4 px-4 sm:py-8 sm:px-6">
           <div className="max-w-7xl mx-auto">
+            {/* Onboarding Banner for Step 6 */}
+            <OnboardingBanner stepId={6} />
+            
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>

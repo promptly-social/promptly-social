@@ -1,8 +1,7 @@
 import { apiClient } from "./auth-api";
-import type { Post } from "@/types/posts";
 
 export interface IdeaBankData {
-  type: "url" | "text" | "product";
+  type?: "url" | "text" | "product";
   value: string; // URL for article/product, text content for text type
   title?: string;
   // Product-specific fields
@@ -211,5 +210,35 @@ export const ideaBankApi = {
     await apiClient.request<void>(`/idea-banks/${id}`, {
       method: "DELETE",
     });
+  },
+
+  /**
+   * Get idea bank data for inspiration display
+   */
+  async getIdeaBank(id: string): Promise<IdeaBankData> {
+    const response = await apiClient.request<IdeaBank>(`/idea-banks/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Batch fetch idea banks by IDs for efficient loading
+   */
+  async getIdeaBanksByIds(ids: string[]): Promise<Record<string, IdeaBankData>> {
+    if (ids.length === 0) {
+      return {};
+    }
+
+    const params = new URLSearchParams();
+    ids.forEach(id => params.append("ids", id));
+    
+    const response = await apiClient.request<IdeaBank[]>(`/idea-banks/batch?${params.toString()}`);
+    
+    // Convert array response to record for easy lookup
+    const result: Record<string, IdeaBankData> = {};
+    response.forEach(ideaBank => {
+      result[ideaBank.id] = ideaBank.data;
+    });
+    
+    return result;
   },
 };

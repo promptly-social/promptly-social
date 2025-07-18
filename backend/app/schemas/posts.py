@@ -3,7 +3,7 @@ Posts related Pydantic schemas for request/response validation.
 """
 
 from datetime import datetime
-from typing import List, Optional, Any
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, UUID4
 
@@ -76,6 +76,9 @@ class PostUpdate(BaseModel):
     user_feedback: Optional[str] = None
     feedback_comment: Optional[str] = None
     posted_at: Optional[datetime] = None
+    scheduler_job_name: Optional[str] = None
+    linkedin_post_id: Optional[str] = None
+    sharing_error: Optional[str] = None
     article_url: Optional[str] = None
     linkedin_article_url: Optional[str] = None
 
@@ -90,6 +93,9 @@ class PostResponse(PostBase):
     user_feedback: Optional[str] = None
     feedback_comment: Optional[str] = None
     feedback_at: Optional[datetime] = None
+    scheduler_job_name: Optional[str] = None
+    linkedin_post_id: Optional[str] = None
+    sharing_error: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     posted_at: Optional[datetime] = None
@@ -136,3 +142,31 @@ class PostCountsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ImagePromptRequest(BaseModel):
+    """Schema for requesting an image prompt."""
+
+    postContent: str
+
+
+class ImagePromptResponse(BaseModel):
+    """Schema for returning an image prompt."""
+
+    imagePrompt: str
+
+
+class PostScheduleRequest(BaseModel):
+    """Schema for scheduling a post."""
+
+    scheduled_at: datetime
+    timezone: str = "UTC"
+
+
+class PostScheduleResponse(BaseModel):
+    """Schema for post scheduling response."""
+
+    success: bool
+    scheduled_at: datetime
+    scheduler_job_name: str
+    message: Optional[str] = None

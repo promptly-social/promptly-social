@@ -2,11 +2,12 @@
 Service layer for LinkedIn interactions.
 """
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
+
 import httpx
-from loguru import logger
 from app.core.config import settings
 from app.models.profile import SocialConnection
+from loguru import logger
 
 
 class LinkedInService:
@@ -182,8 +183,8 @@ class LinkedInService:
         Share a post to LinkedIn with optional media.
 
         :param text: The content of the post.
-        :param media_items: A list of media items to share. Can include articles or
-                            media assets (images/videos) with their URNs.
+        :param article_url: Optional URL to share as an article.
+        :param media_items: A list of media items to share (images/videos with their URNs).
         :param visibility: The visibility of the post ("PUBLIC" or "CONNECTIONS").
         """
         endpoint = f"{self.BASE_API_URL}/ugcPosts"
@@ -192,28 +193,35 @@ class LinkedInService:
             "shareMediaCategory": "NONE",
         }
 
-        combined_media: List[Dict[str, Any]] = []
+        logger.info(
+            f"LinkedIn share_post called with: text_length={len(text)}, article_url={article_url}, media_items_count={len(media_items) if media_items else 0}"
+        )
 
-        # Add article link first so it determines media category
-        if article_url:
-            combined_media.append({"originalUrl": article_url})
-
-        if media_items:
-            combined_media.extend(media_items)
-
-        if combined_media:
-            # Determine media category based on the first item
-            first_item = combined_media[0]
-            if "originalUrl" in first_item:
-                share_content["shareMediaCategory"] = "ARTICLE"
-            elif "media" in first_item and "image" in first_item["media"]:
-                share_content["shareMediaCategory"] = "IMAGE"
-            elif "media" in first_item and "video" in first_item["media"]:
-                share_content["shareMediaCategory"] = "VIDEO"
+        # Handle different media scenarios
+        if article_url and (not media_items or len(media_items) == 0):
+            # Article only
+            share_content["shareMediaCategory"] = "ARTICLE"
+            share_content["media"] = [{"status": "READY", "originalUrl": article_url}]
+        elif media_items and len(media_items) > 0:
+            # Media items (images/videos)
+            first_media = media_items[0]
+            if "media" in first_media:
+                media_urn = first_media["media"]
+                if "image" in media_urn.lower():
+                    share_content["shareMediaCategory"] = "IMAGE"
+                elif "video" in media_urn.lower():
+                    share_content["shareMediaCategory"] = "VIDEO"
+                else:
+                    # Default to image if we can't determine
+                    share_content["shareMediaCategory"] = "IMAGE"
 
             share_content["media"] = [
-                {"status": "READY", **item} for item in combined_media
+                {"status": "READY", **item} for item in media_items
             ]
+
+            # If there's also an article URL with media, we prioritize media
+            # LinkedIn doesn't support both article and media in the same post
+        # If neither article_url nor media_items, keep shareMediaCategory as "NONE"
 
         post_data = {
             "author": f"urn:li:person:{self.linkedin_user_id}",
@@ -221,6 +229,8 @@ class LinkedInService:
             "specificContent": {"com.linkedin.ugc.ShareContent": share_content},
             "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": visibility},
         }
+
+        logger.info(f"LinkedIn API payload: {post_data}")
 
         async with httpx.AsyncClient() as client:
             try:
@@ -234,4 +244,5 @@ class LinkedInService:
                 return response.json()
             except httpx.HTTPStatusError as e:
                 logger.error(f"Error sharing post to LinkedIn: {e.response.text}")
+                logger.error(f"Failed payload was: {post_data}")
                 raise

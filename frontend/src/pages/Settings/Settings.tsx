@@ -2,6 +2,7 @@ import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
 import AppLayout from "@/components/AppLayout";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Trash2 } from "lucide-react";
@@ -38,6 +39,9 @@ const Settings: React.FC = () => {
     <AppLayout title="Settings" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
+          {/* Onboarding Banner for Step 3 */}
+          <OnboardingBanner stepId={3} />
+          
           <ContentScheduleSettings />
           {/* Notification Settings */}
           {/* <Card>

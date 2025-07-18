@@ -1,8 +1,3 @@
-variable "gcp_analysis_function_url_version" {
-  description = "The version of the GCP analysis function URL secret, to trigger updates."
-  type        = string
-}
-
 variable "project_id" {
   description = "The GCP project ID."
   type        = string
@@ -109,6 +104,11 @@ variable "google_client_secret_name" {
 
 variable "gcp_analysis_function_url_name" {
   description = "The name of the Secret Manager secret for the GCP analysis function URL"
+  type        = string
+}
+
+variable "gcp_generate_suggestions_function_url_name" {
+  description = "The name of the Secret Manager secret for the GCP generate suggestions function URL"
   type        = string
 }
 

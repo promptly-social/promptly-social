@@ -232,6 +232,10 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
               </div>
             </div>
 
+            {!isEditing && post.topics.length > 0 && (
+              <PostCardTopics topics={post.topics} />
+            )}
+
             <div className="flex-shrink-0 flex items-center gap-4 text-sm text-gray-600">
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
@@ -240,10 +244,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
                 </span>
               </div>
             </div>
-
-            {!isEditing && post.topics.length > 0 && (
-              <PostCardTopics topics={post.topics} />
-            )}
           </div>
         )}
 

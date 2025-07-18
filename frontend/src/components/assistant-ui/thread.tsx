@@ -268,11 +268,14 @@ const AssistantMessage: FC = () => {
                 <Button
                   onClick={() => {
                     if (generatedPost?.linkedin_post) {
-                      onSchedule(generatedPost.linkedin_post);
+                      onSchedule(
+                        generatedPost.linkedin_post,
+                        generatedPost.topics
+                      );
                     }
                   }}
                 >
-                  Use this draft
+                  Edit this draft
                 </Button>
               </CardFooter>
             </Card>
@@ -294,7 +297,7 @@ const AssistantMessage: FC = () => {
                     }
                   }}
                 >
-                  Use this draft
+                  Edit this draft
                 </Button>
               </CardFooter>
             </Card>

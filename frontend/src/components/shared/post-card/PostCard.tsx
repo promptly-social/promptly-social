@@ -16,12 +16,15 @@ import { PostCardMeta } from "./components/PostCardMeta";
 import { PostCardTopics } from "./components/PostCardTopics";
 import { PostCardActions } from "./components/PostCardActions";
 import { PostCardFeedback } from "./components/PostCardFeedback";
+import { PostSharingError } from "./components/PostSharingError";
 import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
 import { NegativeFeedbackModal } from "@/components/shared/modals/NegativeFeedbackModal";
 import { ConfirmationModal } from "@/components/shared/modals/ConfirmationModal";
 import { postsApi } from "@/lib/posts-api";
 import { useToast } from "@/hooks/use-toast";
 import { usePostEditor } from "@/hooks/usePostEditor";
+import { ideaBankApi, IdeaBankData } from "@/lib/idea-bank-api";
+import { PostInspiration } from "./components/PostInspiration";
 
 interface PostCardProps {
   post: Post;
@@ -40,6 +43,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
   });
 
   const [signedMedia, setSignedMedia] = useState<PostMedia[]>(post.media);
+  const [inspiration, setInspiration] = useState<IdeaBankData | null>(null);
+  const [inspirationLoading, setInspirationLoading] = useState(false);
 
   // Helper to fetch the latest signed media from backend
   const refreshSignedMedia = useCallback(async () => {
@@ -59,6 +64,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [schedulingPostId, setSchedulingPostId] = useState<string | null>(null);
 
   const [feedbackModal, setFeedbackModal] = useState(false);
@@ -106,6 +112,29 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     fetchSignedMedia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id, post.updated_at, post.media?.length]);
+
+  // Fetch inspiration data when post has idea_bank_id
+  useEffect(() => {
+    const fetchInspiration = async () => {
+      if (!post.idea_bank_id) {
+        setInspiration(null);
+        return;
+      }
+
+      setInspirationLoading(true);
+      try {
+        const ideaBankData = await ideaBankApi.getIdeaBank(post.idea_bank_id);
+        setInspiration(ideaBankData);
+      } catch (error) {
+        console.error("Failed to fetch inspiration data:", error);
+        setInspiration(null);
+      } finally {
+        setInspirationLoading(false);
+      }
+    };
+
+    fetchInspiration();
+  }, [post.idea_bank_id]);
 
   // Cleanup object URLs
   useEffect(() => {
@@ -288,6 +317,27 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     setConfirmationModal({ isOpen: false, action: null });
   };
 
+  const handlePostNow = async () => {
+    setIsPosting(true);
+    try {
+      await postsApi.postNow(post.id);
+      onPostUpdate?.();
+      toast({ 
+        title: "Success", 
+        description: "Post published successfully!" 
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to publish post. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Error posting now:", error);
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
   const handleConfirmation = () => {
     if (confirmationModal.action === "dismiss") {
       handleDismissPost();
@@ -324,6 +374,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
               <PostEditorFields
                 editor={editor}
                 onExistingMediaRemove={handleExistingMediaRemove}
+                postStatus={post.status}
               />
               <div className="flex gap-2 py-2">
                 <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>
@@ -341,8 +392,15 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
 
           {!isEditing && (
             <>
-              <PostCardMeta post={post} />
+              <div className="flex items-center justify-between">
+                <PostCardMeta post={post} />
+                <PostSharingError hasError={!!post.sharing_error} />
+              </div>
               <PostCardTopics topics={post.topics} />
+
+              {inspiration && !inspirationLoading && (
+                <PostInspiration inspiration={inspiration} />
+              )}
 
               {!post.user_feedback && post.status === "suggested" && (
                 <PostCardFeedback
@@ -358,6 +416,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                 post={post}
                 savingPostId={isSaving ? post.id : null}
                 dismissingPostId={isDismissing ? post.id : null}
+                postingPostId={isPosting ? post.id : null}
                 onSchedulePost={() => setSchedulingPostId(post.id)}
                 onRemoveFromSchedule={() =>
                   setConfirmationModal({ isOpen: true, action: "remove" })
@@ -367,6 +426,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                 onDismissPost={() =>
                   setConfirmationModal({ isOpen: true, action: "dismiss" })
                 }
+                onPostNow={handlePostNow}
               />
             </>
           )}

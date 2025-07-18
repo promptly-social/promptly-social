@@ -16,30 +16,33 @@ const IdeaBankActions: React.FC<IdeaBankActionsProps> = ({
   onEdit,
   onDelete,
 }) => (
-  <div className="flex items-center gap-1">
+  <div className="flex flex-col items-start gap-1 w-full">
     <Button
       variant="ghost"
       size="sm"
       onClick={() => onGenerate(ideaBankWithPost)}
-      className="text-indigo-600 hover:text-indigo-800 p-1 h-8 w-8"
+      className="text-indigo-600 hover:text-indigo-800 justify-start px-2 py-1 h-auto w-full min-w-0"
     >
-      <Sparkles className="w-4 h-4" />
+      <Sparkles className="h-4 w-4 mr-2 flex-shrink-0" />
+      <span className="truncate">Draft Post</span>
     </Button>
     <Button
       variant="ghost"
       size="sm"
       onClick={() => onEdit(ideaBankWithPost)}
-      className="text-blue-600 hover:text-blue-800 p-1 h-8 w-8"
+      className="text-blue-600 hover:text-blue-800 justify-start px-2 py-1 h-auto w-full min-w-0"
     >
-      <Edit className="w-4 h-4" />
+      <Edit className="h-4 w-4 mr-2 flex-shrink-0" />
+      <span className="truncate">Edit Idea</span>
     </Button>
     <Button
       variant="ghost"
       size="sm"
       onClick={() => onDelete(ideaBankWithPost.idea_bank.id)}
-      className="text-red-600 hover:text-red-800 p-1 h-8 w-8"
+      className="text-red-600 hover:text-red-800 justify-start px-2 py-1 h-auto w-full min-w-0"
     >
-      <Trash2 className="w-4 h-4" />
+      <Trash2 className="h-4 w-4 mr-2 flex-shrink-0" />
+      <span className="truncate">Delete</span>
     </Button>
   </div>
 );

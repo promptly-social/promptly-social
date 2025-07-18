@@ -5,11 +5,15 @@ import { PostCard } from "@/components/shared/post-card/PostCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
 import AppLayout from "@/components/AppLayout";
 import { CreatePostModal } from "@/components/post-modal/CreatePostModal";
+import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
 import { PlusIcon, Sparkles } from "lucide-react";
 import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { postsApi } from "@/lib/posts-api";
+import { useToast } from "@/hooks/use-toast";
 
 const PostListLayout = ({ children }: { children: React.ReactNode }) => (
   <div className="space-y-6 p-4 sm:p-6 max-w-4xl mx-auto w-full">
@@ -23,11 +27,14 @@ export const MyPosts: React.FC = () => {
   );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isBrainstormOpen, setIsBrainstormOpen] = useState(false);
+  const [postToSchedule, setPostToSchedule] = useState<Post | null>(null);
+  const [isScheduling, setIsScheduling] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const postsPerPage = 10;
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const statusArray =
     activeTab === "drafts" ? ["suggested", "draft"] : [activeTab];
@@ -62,6 +69,32 @@ export const MyPosts: React.FC = () => {
     await invalidatePostsData();
   };
 
+  const handleScheduleRequest = (post: Post) => {
+    setPostToSchedule(post);
+  };
+
+  const handleSchedule = async (postId: string, scheduledAt: string) => {
+    setIsScheduling(true);
+    try {
+      await postsApi.schedulePost(postId, scheduledAt);
+      toast({
+        title: "Success",
+        description: "Post scheduled successfully.",
+      });
+      setPostToSchedule(null);
+      await invalidatePostsData();
+    } catch (error) {
+      console.error("Failed to schedule post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
   if (postsError) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -74,6 +107,8 @@ export const MyPosts: React.FC = () => {
     <AppLayout title="My Posts" emailBreakpoint="md">
       <div className="p-4 sm:p-6 border-b">
         <div className="max-w-4xl mx-auto w-full">
+          {/* Onboarding Banner for Step 4 */}
+          <OnboardingBanner stepId={4} />
           <div className="flex justify-end mb-4">
             <Button
               variant="default"
@@ -162,6 +197,7 @@ export const MyPosts: React.FC = () => {
         onCreated={async () => {
           await invalidatePostsData();
         }}
+        onScheduleRequest={handleScheduleRequest}
       />
       <PostGenerationChatDialog
         conversationType="brainstorm"
@@ -170,6 +206,13 @@ export const MyPosts: React.FC = () => {
         onScheduleComplete={async () => {
           await invalidatePostsData();
         }}
+      />
+      <PostScheduleModal
+        isOpen={!!postToSchedule}
+        onClose={() => setPostToSchedule(null)}
+        post={postToSchedule}
+        onSchedule={handleSchedule}
+        isScheduling={isScheduling}
       />
     </AppLayout>
   );

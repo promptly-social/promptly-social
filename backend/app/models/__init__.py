@@ -2,6 +2,7 @@
 
 from .content_strategies import ContentStrategy
 from .idea_bank import IdeaBank
+from .onboarding import UserOnboarding
 from .profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from .posts import Post
 from .user import User
@@ -10,6 +11,7 @@ from .daily_suggestion_schedule import DailySuggestionSchedule
 __all__ = [
     "ContentStrategy",
     "IdeaBank",
+    "UserOnboarding",
     "SocialConnection",
     "UserPreferences",
     "WritingStyleAnalysis",

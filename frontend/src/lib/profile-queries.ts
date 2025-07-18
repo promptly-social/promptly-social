@@ -30,7 +30,7 @@ export const useSocialConnections = (enabled: boolean = true) =>
     enabled,
   });
 
-// -------------------- Mutations ------------------
+// -------------------- Mutations --------------------
 export const useUpdateUserPreferences = () => {
   const qc = useQueryClient();
   return useMutation<UserPreferences, Error, UserPreferencesUpdate>({

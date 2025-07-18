@@ -207,6 +207,19 @@ class PostsAPI {
     );
   }
 
+  /**
+   * Post a post immediately to LinkedIn
+   */
+  async postNow(postId: string): Promise<{ message: string; details: unknown }> {
+    const response = await apiClient.request<{ message: string; details: unknown }>(
+      `/posts/${postId}/publish?platform=linkedin`,
+      {
+        method: "POST",
+      }
+    );
+    return response;
+  }
+
   async uploadPostMedia(postId: string, files: File[]): Promise<PostMedia[]> {
     const formData = new FormData();
     if (files && files.length > 0) {
@@ -259,6 +272,22 @@ class PostsAPI {
    */
   async getPostCounts(): Promise<PostCounts> {
     const response = await apiClient.request<PostCounts>("/posts/counts");
+    return response;
+  }
+
+  /**
+   * Generate an image prompt for a post
+   */
+  async generateImagePrompt(
+    postContent: string
+  ): Promise<{ imagePrompt: string }> {
+    const response = await apiClient.request<{ imagePrompt: string }>(
+      "/posts/image-prompt",
+      {
+        method: "POST",
+        body: JSON.stringify({ postContent }),
+      }
+    );
     return response;
   }
 }

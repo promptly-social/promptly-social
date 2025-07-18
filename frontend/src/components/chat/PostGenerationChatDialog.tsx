@@ -18,6 +18,7 @@ import { Conversation, ConversationMessage } from "@/types/chat";
 import { postsApi } from "@/lib/posts-api";
 import { Post } from "@/types/posts";
 import { PostScheduleModal } from "../schedule-modal/PostScheduleModal";
+import { CreatePostModal } from "../post-modal/CreatePostModal";
 import { useToast } from "../ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmationModal } from "../shared/modals/ConfirmationModal";
@@ -25,7 +26,7 @@ import { Button } from "../ui/button";
 import { archiveConversation } from "@/lib/chat-api";
 
 type PostSchedulingContextType = {
-  onSchedule: (content: string) => void;
+  onSchedule: (content: string, topics?: string[]) => void;
 };
 
 const PostSchedulingContext = createContext<PostSchedulingContextType | null>(
@@ -69,26 +70,20 @@ const ChatDialogContent = ({
   const [isArchiving, setIsArchiving] = useState(false);
 
   const [postToSchedule, setPostToSchedule] = useState<Post | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [draftContent, setDraftContent] = useState("");
+  const [draftTopics, setDraftTopics] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handleOpenScheduleModal = (content: string) => {
-    if (!user) return;
-    const tempPost: Post = {
-      id: `temp-${Date.now()}`,
-      content,
-      idea_bank_id: idea?.idea_bank.id,
-      status: "draft",
-      scheduled_at: undefined,
-      posted_at: undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      user_id: user.id,
-      platform: "linkedin",
-      topics: [],
-      media: [],
-    };
-    setPostToSchedule(tempPost);
+  const handleOpenCreateModal = (content: string, topics?: string[]) => {
+    setDraftContent(content);
+    setDraftTopics(topics || []);
+    setShowCreateModal(true);
+  };
+
+  const handleScheduleRequest = (post: Post) => {
+    setPostToSchedule(post);
   };
 
   const handleSchedule = async (_postId: string, scheduledAt: string) => {
@@ -96,13 +91,7 @@ const ChatDialogContent = ({
 
     setIsScheduling(true);
     try {
-      const newPost = await postsApi.createPost({
-        content: postToSchedule.content,
-        idea_bank_id: idea?.idea_bank.id,
-        status: "draft",
-      });
-
-      await postsApi.schedulePost(newPost.id, scheduledAt);
+      await postsApi.schedulePost(postToSchedule.id, scheduledAt);
 
       toast({
         title: "Success",
@@ -194,7 +183,7 @@ const ChatDialogContent = ({
 
   return (
     <PostSchedulingContext.Provider
-      value={{ onSchedule: handleOpenScheduleModal }}
+      value={{ onSchedule: handleOpenCreateModal }}
     >
       <ChatThreadRuntime
         key={conversation.id}
@@ -206,6 +195,16 @@ const ChatDialogContent = ({
         placeholder="Write a message..."
         onStartNewConversation={handleStartNewConversation}
       />
+
+      <CreatePostModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={onScheduleComplete}
+        onScheduleRequest={handleScheduleRequest}
+        initialContent={draftContent}
+        initialTopics={draftTopics}
+      />
+
       <PostScheduleModal
         isOpen={!!postToSchedule}
         onClose={() => setPostToSchedule(null)}

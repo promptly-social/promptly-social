@@ -481,7 +481,7 @@ module "cloud_run_service" {
   google_client_id_name      = google_secret_manager_secret.google_client_id.secret_id
   google_client_secret_name  = google_secret_manager_secret.google_client_secret.secret_id
   gcp_analysis_function_url_name = google_secret_manager_secret.gcp_analysis_function_url.secret_id
-  gcp_analysis_function_url_version = google_secret_manager_secret_version.gcp_analysis_function_url_initial_version.version
+  gcp_generate_suggestions_function_url_name = google_secret_manager_secret.gcp_generate_suggestions_function_url.secret_id
   openrouter_api_key_name    = google_secret_manager_secret.openrouter_api_key.secret_id
   linkedin_client_id_name    = google_secret_manager_secret.linkedin_client_id.secret_id
   linkedin_client_secret_name = google_secret_manager_secret.linkedin_client_secret.secret_id
