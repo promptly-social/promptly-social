@@ -20,8 +20,8 @@ data "google_storage_bucket" "source_bucket" {
 # Generate source hash for versioning
 locals {
   source_hash = substr(sha256(join("", [
-    for f in fileset("${path.module}/../../../src/gcp-functions/unified-post-scheduler", "**") :
-    filesha256("${path.module}/../../../src/gcp-functions/unified-post-scheduler/${f}")
+    for f in fileset("${path.module}/../../../src/gcp-functions/unified_post_scheduler", "**") :
+    filesha256("${path.module}/../../../src/gcp-functions/unified_post_scheduler/${f}")
   ])), 0, 8)
 }
 
