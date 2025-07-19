@@ -90,3 +90,5 @@ coverage.xml
 gcp-sa-key.json
 
 .kiro/*
+
+backend/app.db
