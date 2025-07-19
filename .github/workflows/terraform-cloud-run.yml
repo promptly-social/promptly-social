@@ -46,6 +46,7 @@ env:
 
 jobs:
   terraform:
+    name: "Terraform Deploy Cloud Run (${{ inputs.environment || github.event.inputs.environment }})"
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || github.event.inputs.environment }}
     outputs:

@@ -20,7 +20,7 @@ on:
 
 jobs:
   build-and-deploy-frontend:
-    name: Build and Deploy Frontend
+    name: "Build & Deploy Frontend (${{ github.event.inputs.environment || 'staging' }})"
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
     permissions:

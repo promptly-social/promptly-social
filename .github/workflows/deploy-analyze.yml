@@ -22,7 +22,7 @@ on:
 
 jobs:
   deploy:
-    name: "Deploy to GCP"
+    name: "Deploy Analyze Function to ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}"
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
     permissions:
