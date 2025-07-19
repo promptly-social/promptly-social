@@ -56,7 +56,7 @@ def setup_environment():
 
     # Set default for optional variables
     if not os.getenv("NUMBER_OF_POSTS_TO_GENERATE"):
-        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "1"
+        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "5"
         print("ℹ️  Set NUMBER_OF_POSTS_TO_GENERATE to default value: 5")
 
     print("✅ All required environment variables are set")
@@ -75,7 +75,7 @@ async def test_generate_suggestions(user_id: str):
 
     try:
         # Call the function
-        response_data, status_code, headers = await generate_suggestions(mock_request)
+        response_data, status_code, headers = generate_suggestions(mock_request)
 
         # Parse response
         if isinstance(response_data, str):
@@ -123,7 +123,7 @@ async def main():
         print("\n❌ Environment setup failed. Exiting.")
         sys.exit(1)
 
-    test_user_id = "1dffd8e7-d135-465d-8a6c-8beed6b1064d"
+    test_user_id = "60e26ed3-1d48-4595-9667-fd865c609443"
     # Run the main test
     response, status = await test_generate_suggestions(test_user_id)
 
@@ -134,13 +134,13 @@ async def main():
     # Test with missing user_id
     print("\n🔍 Testing with missing user_id:")
     mock_request = MockRequest({})
-    response_data, status_code, headers = await generate_suggestions(mock_request)
+    response_data, status_code, headers = generate_suggestions(mock_request)
     print(f"   Status: {status_code} (expected: 400)")
 
     # Test with invalid JSON
     print("\n🔍 Testing with invalid request:")
     mock_request = MockRequest(None)
-    response_data, status_code, headers = await generate_suggestions(mock_request)
+    response_data, status_code, headers = generate_suggestions(mock_request)
     print(f"   Status: {status_code} (expected: 400)")
 
     print("\n🎉 Local testing completed!")

@@ -102,9 +102,18 @@ class CloudSQLClient:
         engine = self.get_engine()
         
         with engine.connect() as conn:
-            result = conn.execute(text(query), params or {})
-            columns = result.keys()
-            return [dict(zip(columns, row)) for row in result.fetchall()]
+            # Use transaction for INSERT/UPDATE/DELETE operations that return data
+            query_upper = query.strip().upper()
+            if query_upper.startswith(('INSERT', 'UPDATE', 'DELETE')):
+                with conn.begin():
+                    result = conn.execute(text(query), params or {})
+                    columns = result.keys()
+                    return [dict(zip(columns, row)) for row in result.fetchall()]
+            else:
+                # Regular SELECT queries don't need transactions
+                result = conn.execute(text(query), params or {})
+                columns = result.keys()
+                return [dict(zip(columns, row)) for row in result.fetchall()]
     
     async def execute_query_async(self, query: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Execute a query asynchronously and return results as list of dictionaries."""

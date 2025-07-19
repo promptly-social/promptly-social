@@ -115,7 +115,7 @@ def generate_suggestions(request):
 
             # Get user ideas
             user_ideas = database_client.get_user_ideas(user_id)
-            logger.debug(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
+            print(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
 
             # initialize candidate posts with user ideas first
             candidate_posts = user_ideas
@@ -131,7 +131,7 @@ def generate_suggestions(request):
                 os.getenv("NUMBER_OF_POSTS_TO_GENERATE", "5")
             )
 
-            if len(candidate_posts) < number_of_posts_to_generate:
+            if len(candidate_posts) < (number_of_posts_to_generate * 2):
                 logger.debug(
                     f"{len(candidate_posts)} latest articles found from idea banks for user {user_id} fetched in the last 12 hours"
                 )
@@ -147,12 +147,12 @@ def generate_suggestions(request):
                 websites = user_preferences.get("websites", [])
 
                 fetch_tasks = []
-                if substacks:
-                    fetch_tasks.append(
-                        article_fetcher.fetch_candidate_articles(
-                            substacks, topics_of_interest, bio, 10, True
-                        )
-                    )
+                # if substacks:
+                #     fetch_tasks.append(
+                #         article_fetcher.fetch_candidate_articles(
+                #             substacks, topics_of_interest, bio, 10, True
+                #         )
+                #     )
                 if websites:
                     fetch_tasks.append(
                         article_fetcher.fetch_candidate_articles(
@@ -185,7 +185,6 @@ def generate_suggestions(request):
             filtered_articles = await posts_generator.filter_articles(
                 candidate_posts,
                 bio,
-                writing_style,
                 topics_of_interest,
                 number_of_posts_to_generate,
             )
@@ -212,7 +211,7 @@ def generate_suggestions(request):
             for post in generated_posts:
                 for candidate_post in candidate_posts:
                     if candidate_post.get("url") == post.get("post_url"):
-                        post["post_id"] = candidate_post.get("id")
+                        post["post_id"] = candidate_post.get("id").__str__()
                         break
 
             # save the generated posts to the contents table
@@ -236,4 +235,16 @@ def generate_suggestions(request):
                 headers,
             )
 
-    return asyncio.run(run_async())
+    # Handle both sync and async contexts
+    try:
+        # Try to get the current event loop
+        asyncio.get_running_loop()
+        # If we're already in an event loop, create a task
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, run_async())
+            return future.result()
+    except RuntimeError:
+        # No event loop running, safe to use asyncio.run()
+        return asyncio.run(run_async())

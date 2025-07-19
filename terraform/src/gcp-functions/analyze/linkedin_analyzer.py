@@ -43,7 +43,11 @@ class LinkedInAnalyzer:
         self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_linkedin(
-        self, account_id: str, current_bio: str, content_to_analyze: List[str]
+        self,
+        account_id: str,
+        current_bio: str,
+        content_to_analyze: List[str],
+        user_writing_style: str,
     ) -> Dict[str, Any]:
         """
         Main analysis method that orchestrates the full LinkedIn analysis process.
@@ -52,6 +56,7 @@ class LinkedInAnalyzer:
             account_id: The LinkedIn public profile name for the LinkedIn connection
             current_bio: The current bio of the user
             content_to_analyze: A list of content to analyze, such as bio, writing_style, etc.
+            writing_style: The writing style of the user
 
         Returns:
             Complete analysis results dictionary
@@ -95,7 +100,9 @@ class LinkedInAnalyzer:
                 )
 
                 # Analyze writing style
-                writing_style = self._analyze_writing_style(user_linkedin_posts)
+                writing_style = self._analyze_writing_style(
+                    user_linkedin_posts, user_writing_style
+                )
 
             # Compile results
             analysis_result = {
@@ -323,7 +330,7 @@ class LinkedInAnalyzer:
             logger.error(f"Error analyzing topics batch: {e}")
             return []
 
-    def _analyze_writing_style(self, posts: List[str]) -> str:
+    def _analyze_writing_style(self, posts: List[str], user_writing_style: str) -> str:
         """Analyze writing style of LinkedIn posts."""
         if not posts:
             logger.debug("No posts provided for writing style analysis")
@@ -331,6 +338,11 @@ class LinkedInAnalyzer:
 
         # Combine posts with reasonable length limit
         combined_posts = "\n\n---\n\n".join(posts)
+
+        if user_writing_style:
+            user_writing_style_prompt = f"User's Current Writing Style (if available):\n{user_writing_style}\n\n"
+        else:
+            user_writing_style_prompt = ""
 
         prompt = f"""
         You are an expert at analyzing writing style of LinkedIn posts of an author.
@@ -347,9 +359,12 @@ class LinkedInAnalyzer:
         
         Return the writing style analysis in plain text format without any markdown. Each observation should be on a new line.
         Be specific and provide actionable insights that could help someone write in a similar style.
+        If the user's current writing style is provided, incorporate it into the analysis.
         
         LinkedIn Posts:
         {combined_posts}
+        
+        {user_writing_style_prompt}
         """
 
         try:

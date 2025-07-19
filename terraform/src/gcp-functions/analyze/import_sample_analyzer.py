@@ -35,7 +35,11 @@ class ImportSampleAnalyzer:
         self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_import_sample(
-        self, text_sample: str, current_bio: str, content_to_analyze: List[str]
+        self,
+        text_sample: str,
+        current_bio: str,
+        content_to_analyze: List[str],
+        user_writing_style: str = None,
     ) -> Dict[str, Any]:
         """
         Main analysis method that orchestrates the writing sample analysis process.
@@ -60,7 +64,9 @@ class ImportSampleAnalyzer:
             writing_style = ""
             if "writing_style" in content_to_analyze:
                 # Analyze writing style from the sample
-                writing_style = self._analyze_writing_style_from_sample(text_sample)
+                writing_style = self._analyze_writing_style_from_sample(
+                    text_sample, user_writing_style
+                )
 
             # Compile results
             analysis_result = {
@@ -79,7 +85,9 @@ class ImportSampleAnalyzer:
             logger.error(f"Error analyzing import sample: {e}")
             raise
 
-    def _analyze_writing_style_from_sample(self, text_sample: str) -> str:
+    def _analyze_writing_style_from_sample(
+        self, text_sample: str, user_writing_style: str = None
+    ) -> str:
         """Analyze writing style from the imported writing sample."""
         if not text_sample:
             logger.debug("No text sample provided for writing style analysis")
@@ -101,8 +109,21 @@ class ImportSampleAnalyzer:
         Return the writing style analysis in plain text format without any markdown. Each observation should be on a new line.
         Be specific and provide actionable insights that could help someone write in a similar style.
         
+        If the user's current writing style is provided, incorporate it into the analysis.
+
         Writing Sample:
         {text_sample}
+        """
+
+        if user_writing_style:
+            user_writing_style_prompt = f"User's Current Writing Style (if available):\n{user_writing_style}\n\n"
+        else:
+            user_writing_style_prompt = ""
+
+        prompt = f"""
+        {prompt}
+        
+        {user_writing_style_prompt}
         """
 
         try:

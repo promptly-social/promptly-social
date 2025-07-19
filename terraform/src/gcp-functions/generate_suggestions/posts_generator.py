@@ -24,7 +24,6 @@ class GeneratedPost(BaseModel):
 
 class PostsGenerator:
     def __init__(self):
-
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
         # Get large model configuration from environment variables for posts generation
@@ -56,7 +55,6 @@ class PostsGenerator:
         self,
         candidate_posts: List[Dict[str, Any]],
         bio: str,
-        writing_style: str,
         topics_of_interest: List[str],
         number_of_posts_to_generate: int,
     ) -> List[FilteredArticlesResult]:
@@ -64,12 +62,21 @@ class PostsGenerator:
         Filter the articles based on the user's bio, writing style, and topics of interest.
         """
 
+        print(f"{len(candidate_posts)} candidate posts are being filtered.")
+
+        # Convert UUIDs to strings for LLM prompt
+        candidate_posts_serializable = []
+        for post in candidate_posts:
+            post_copy = post.copy()
+            if "id" in post_copy and hasattr(post_copy["id"], "__str__"):
+                post_copy["id"] = str(post_copy["id"])
+            candidate_posts_serializable.append(post_copy)
+
         prompt = f"""You are an expert Content Strategist who helps thought leaders find compelling articles to use as inspiration for creating engaging LinkedIn posts. Your goal is to select articles that will spark discussion, showcase expertise, and resonate with a professional audience.
 
 **User Profile:**
 - **Bio:** {bio}
 - **Topics of Interest:** {topics_of_interest}
-- **Writing Style:** {writing_style}
 
 For the purpose of *selecting* articles, focus on the article's **content and substance**, not its writing style. The user's writing style will be applied when the post is generated later.
 
@@ -121,6 +128,8 @@ From the list of candidate articles, select UP TO {number_of_posts_to_generate} 
 
         ids = filtered_articles_result.ids
 
+        print(f"{len(ids)} articles were selected: {ids}")
+
         if len(ids) == 0:
             print(
                 "No articles were found that match the user's bio, writing style, and topics of interest."
@@ -129,14 +138,14 @@ From the list of candidate articles, select UP TO {number_of_posts_to_generate} 
 
         filtered_articles = []
         for id in ids:
-            for post in candidate_posts:
+            for post in candidate_posts_serializable:
                 if post.get("id") == id:
                     filtered_articles.append(post)
                     break
 
         if len(filtered_articles) < number_of_posts_to_generate:
             print(
-                f"Only {len(filtered_articles)} articles were found that match the user's bio, writing style, and topics of interest."
+                f"{len(filtered_articles)} articles were found that match the user's bio, writing style, and topics of interest."
             )
 
         return filtered_articles
@@ -188,8 +197,9 @@ From the list of candidate articles, select UP TO {number_of_posts_to_generate} 
 
 -   **Plain Text Only:** The entire post must be plain text. Do NOT use any Markdown formatting (like `*bold*`, `_italics_`, or `- lists`).
 -   **No AI- giveaways:** Avoid generic phrases, emojis, or special characters (like em-dashes or arrows) that scream "AI-generated".
+-   **Do Not make up personal anecdotes:** The post must be based on the source material. Do not fabricate personal anecdotes or experiences if not provided in the user's bio.
 -   **No Source Link:** Do NOT include the link to the original article in the post.
--   **Topics, not Hashtags:** Identify a relevant topic for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
+-   **Topics, not Hashtags:** Identify one relevant topic for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
 
 Finally, return the generated post and the topics in the required JSON format.
 """

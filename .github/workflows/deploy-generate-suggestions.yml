@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "terraform/src/gcp-functions/generate-suggestions/**"
+      - "terraform/src/gcp-functions/generate_suggestions/**"
       - "terraform/modules/generate_suggestions_function/**"
       - "terraform/environments/generate_suggestions/**"
       - ".github/workflows/deploy-generate-suggestions.yml"

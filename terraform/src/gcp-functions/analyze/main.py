@@ -33,6 +33,7 @@ def fetch_content(
     platform_identifier: str,
     current_bio: str,
     content_to_analyze: List[str],
+    writing_style: str = None,
     text_sample: str = None,
 ) -> Dict[str, Any]:
     """
@@ -51,7 +52,7 @@ def fetch_content(
             max_posts=max_posts, openrouter_api_key=openrouter_api_key
         )
         return analyzer.analyze_substack(
-            platform_identifier, current_bio, content_to_analyze
+            platform_identifier, current_bio, content_to_analyze, writing_style
         )
 
     elif platform == "linkedin":
@@ -61,7 +62,7 @@ def fetch_content(
             openrouter_api_key=openrouter_api_key,
         )
         return analyzer.analyze_linkedin(
-            platform_identifier, current_bio, content_to_analyze
+            platform_identifier, current_bio, content_to_analyze, writing_style
         )
 
     elif platform == "import":
@@ -70,7 +71,7 @@ def fetch_content(
 
         analyzer = ImportSampleAnalyzer(openrouter_api_key=openrouter_api_key)
         return analyzer.analyze_import_sample(
-            text_sample, current_bio, content_to_analyze
+            text_sample, current_bio, content_to_analyze, writing_style
         )
 
     else:
@@ -359,6 +360,15 @@ def analyze(request):
             {"user_id": user_id},
         )
 
+        user_writing_style = db_client.execute_query(
+            "SELECT analysis_data FROM writing_style_analysis WHERE user_id = :user_id",
+            {"user_id": user_id},
+        )
+
+        writing_style = ""
+        if user_writing_style:
+            writing_style = user_writing_style[0].get("analysis_data", "") or ""
+
         current_bio = ""
         if user_preferences:
             current_bio = user_preferences[0].get("bio", "") or ""
@@ -370,6 +380,7 @@ def analyze(request):
                 platform_username,
                 current_bio,
                 content_to_analyze,
+                writing_style,
                 text_sample,
             )
 

@@ -339,27 +339,18 @@ class ArticleFetcher:
 - **Topics of Interest:** {user_topics_of_interest}
 
 **Candidate Articles:**
-You will be given a list of articles, each with a title, description, and URL.
+You will be given a list of articles, each with an id, title, description, and URL.
 {articles}
 
 **Your Task:**
-From the list of candidate articles, select UP TO {number_of_articles_to_select} that are BEST suited for creating high-engagement LinkedIn posts.
+From the list of candidate articles, select UP TO {number_of_articles_to_select} that are BEST suited for the user to read and create high-engagement LinkedIn posts.
 
 **Selection Criteria (What to look for):**
-- **Thought-Provoking Content:** Does the article present a strong opinion, a unique perspective, or deep analysis? Does it challenge common wisdom?
-- **Conversation Starter:** Can the user add their own experience or opinion to it easily? Will it encourage comments and debate?
-- **Relevance to User's Expertise:** Does it align with the user's bio and topics of interest, positioning them as an expert?
-- **Broader Appeal:** Does it discuss a trend, a strategy, or a timeless concept rather than being a niche product update?
-
-**What to AVOID (Very Important):**
-- **Software Updates & Product Announcements:** Do not select articles that are just about a new version release, a new feature, or a product launch. These are generally poor for engagement. For example, avoid titles like "Announcing Product X v2.4".
-- **Simple News Reports or Press Releases:** Avoid articles that just state facts without providing analysis or opinion. For example, avoid "Company ABC Acquires Company XYZ".
-- **Hiring Announcements or Company-specific News:** Avoid articles that are only relevant to one company's internal affairs.
+- **Judging from the title and description, select articles that the user would possibly read and find interesting and engaging.**
 
 **Instructions:**
-1. Carefully analyze each article in the provided list against the criteria above.
-2. Select the top {number_of_articles_to_select} articles that best match.
-3. Return a list results in the required JSON format.
+1. Select the top {number_of_articles_to_select} articles that best match.
+2. Return a list results in the required JSON format.
 """
 
             model = OpenAIModel(

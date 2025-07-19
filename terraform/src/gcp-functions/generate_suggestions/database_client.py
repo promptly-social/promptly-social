@@ -248,7 +248,6 @@ class CloudSQLClient:
         """
         for i, post in enumerate(suggested_posts):
             try:
-                import json
 
                 insert_query = """
                     INSERT INTO posts (user_id, title, content, platform, topics, status, idea_bank_id)
@@ -263,7 +262,7 @@ class CloudSQLClient:
                         "title": post.get("title"),
                         "content": post.get("linkedin_post", ""),
                         "platform": post.get("platform", "linkedin"),
-                        "topics": json.dumps(post.get("topics", [])),
+                        "topics": post.get("topics", []),  # Pass as Python list for PostgreSQL array
                         "status": "suggested",
                         "idea_bank_id": post.get("idea_bank_id"),
                     },

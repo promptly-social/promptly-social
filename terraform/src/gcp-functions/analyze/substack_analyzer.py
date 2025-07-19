@@ -40,7 +40,11 @@ class SubstackAnalyzer:
         self.temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
     def analyze_substack(
-        self, platform_username: str, current_bio: str, content_to_analyze: List[str]
+        self,
+        platform_username: str,
+        current_bio: str,
+        content_to_analyze: List[str],
+        user_writing_style: str = None,
     ) -> Dict[str, Any]:
         """
         Main analysis method that orchestrates the full analysis process.
@@ -121,7 +125,9 @@ class SubstackAnalyzer:
                 )
 
                 # Step 5 analyze writing style
-                writing_style = self._analyze_writing_style(newsletter_posts)
+                writing_style = self._analyze_writing_style(
+                    newsletter_posts, user_writing_style
+                )
 
             # Compile results
             analysis_result = {
@@ -157,7 +163,9 @@ class SubstackAnalyzer:
             logger.error(f"Error fetching posts for {url}: {e}")
             return []
 
-    def _analyze_writing_style(self, posts: List[Dict]) -> str:
+    def _analyze_writing_style(
+        self, posts: List[Dict], user_writing_style: str = None
+    ) -> str:
         """Analyze writing style of posts."""
         if not posts:
             logger.debug("No posts provided for writing style analysis")
@@ -179,8 +187,20 @@ class SubstackAnalyzer:
         - Overall personality that comes through in the writing
         Return the writing style analysis in plain text format without any markdown. Each observation should be on a new line.
         Be specific and provide actionable insights that could help someone write in a similar style.
+        If the user's current writing style is provided, incorporate it into the analysis.
         
         URLs: {urls}
+        """
+
+        if user_writing_style:
+            user_writing_style_prompt = f"User's Current Writing Style (if available):\n{user_writing_style}\n\n"
+        else:
+            user_writing_style_prompt = ""
+
+        prompt = f"""
+        {prompt}
+        
+        {user_writing_style_prompt}
         """
 
         response = self.openrouter_client.chat.completions.create(
