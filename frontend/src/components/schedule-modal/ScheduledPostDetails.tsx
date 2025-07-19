@@ -6,16 +6,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import {
-  Calendar,
-  Bookmark,
-  Edit3,
-  Trash2,
-  RefreshCw,
-  Save,
-  X,
-} from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Post, PostMedia } from "@/types/posts";
 import { postsApi } from "@/lib/posts-api";
 import { PostCardHeader } from "../shared/post-card/components/PostCardHeader";
@@ -154,24 +145,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
     }
   };
 
-  const handlePublish = async () => {
-    if (post) {
-      setIsPublishing(true);
-      try {
-        await postsApi.publishPost(post.id, "linkedin");
-        if (onPostPublished) {
-          onPostPublished(post.id);
-        }
-        onClose();
-      } catch (error) {
-        console.error("Failed to publish post:", error);
-        // You might want to show a toast notification here
-      } finally {
-        setIsPublishing(false);
-      }
-    }
-  };
-
   const handleCancel = () => {
     if (post) {
       editor.reset({
@@ -248,71 +221,6 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
         )}
 
         <DialogFooter className="flex-shrink-0 gap-2">
-          {/* {isEditing ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isProcessing || isSaving}
-              >
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isProcessing || isSaving}>
-                {isProcessing || isSaving ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save Changes
-              </Button>
-            </>
-          ) : (
-            <>
-              {onSaveForLater && (
-                <Button
-                  variant="outline"
-                  onClick={() => post && onSaveForLater(post)}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Bookmark className="w-4 h-4 mr-2" />
-                      Remove from Schedule
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setIsEditing(true)}>
-                <Edit3 className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
-              {onReschedule && (
-                <Button
-                  variant="default"
-                  onClick={() => post && onReschedule(post)}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  {isNewPost ? "Schedule" : "Reschedule"}
-                </Button>
-              )}
-              {onDelete && (
-                <Button
-                  variant="destructive"
-                  onClick={() => post && onDelete(post)}
-                  disabled={isProcessing}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              )}
-            </>
-          )} */}
           <ScheduledPostActions
             post={post}
             onSaveForLater={() => post && onSaveForLater(post)}
