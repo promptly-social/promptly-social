@@ -4,7 +4,7 @@ import { useProfile } from "@/contexts/ProfileContext";
 
 export const PostCardHeader = () => {
   const { user } = useAuth();
-  const { linkedinConnection, userPreferences } = useProfile();
+  const { linkedinConnection } = useProfile();
 
   const userAvatar = linkedinConnection?.connection_data?.avatar_url || "";
   const userName = user?.full_name || user?.email || "User";

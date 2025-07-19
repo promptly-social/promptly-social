@@ -2,16 +2,23 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { postsApi } from "../posts-api";
 import { apiClient } from "../auth-api";
 
+// Mock the API client
+vi.mock("../auth-api", () => ({
+  apiClient: {
+    request: vi.fn(),
+  },
+}));
+
 describe("PostsAPI", () => {
   beforeEach(() => {
-    vi.spyOn(apiClient, "request").mockResolvedValue({} as any);
+    vi.spyOn(apiClient, "request").mockResolvedValue({});
     vi.clearAllMocks();
   });
 
   describe("generateImagePrompt", () => {
     it("calls the correct endpoint with post content", async () => {
       const mockResponse = { imagePrompt: "Generated prompt for the image" };
-      (apiClient.request as any).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const result = await postsApi.generateImagePrompt("Test post content");
 
@@ -24,7 +31,7 @@ describe("PostsAPI", () => {
 
     it("handles API errors", async () => {
       const error = new Error("API Error");
-      (apiClient.request as any).mockRejectedValue(error);
+      vi.mocked(apiClient.request).mockRejectedValue(error);
 
       await expect(
         postsApi.generateImagePrompt("Test content")
@@ -46,7 +53,7 @@ describe("PostsAPI", () => {
           updated_at: "2024-01-01T00:00:00Z",
         },
       ];
-      (apiClient.request as any).mockResolvedValue(mockMedia);
+      vi.mocked(apiClient.request).mockResolvedValue(mockMedia);
 
       const result = await postsApi.getPostMedia("post-1");
 
@@ -57,7 +64,7 @@ describe("PostsAPI", () => {
     });
 
     it("handles empty media response", async () => {
-      (apiClient.request as any).mockResolvedValue([]);
+      vi.mocked(apiClient.request).mockResolvedValue([]);
 
       const result = await postsApi.getPostMedia("post-1");
 
@@ -82,7 +89,7 @@ describe("PostsAPI", () => {
           updated_at: "2024-01-01T00:00:00Z",
         },
       ];
-      (apiClient.request as any).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const result = await postsApi.uploadPostMedia("post-1", mockFiles);
 
@@ -94,7 +101,7 @@ describe("PostsAPI", () => {
     });
 
     it("handles empty file array", async () => {
-      (apiClient.request as any).mockResolvedValue([]);
+      vi.mocked(apiClient.request).mockResolvedValue([]);
 
       const result = await postsApi.uploadPostMedia("post-1", []);
 
@@ -113,7 +120,7 @@ describe("PostsAPI", () => {
         message: "Post published successfully",
         details: { linkedin_id: "12345" },
       };
-      (apiClient.request as any).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const result = await postsApi.postNow("post-1");
 
@@ -128,7 +135,7 @@ describe("PostsAPI", () => {
 
     it("handles publishing errors", async () => {
       const error = new Error("Publishing failed");
-      (apiClient.request as any).mockRejectedValue(error);
+      vi.mocked(apiClient.request).mockRejectedValue(error);
 
       await expect(postsApi.postNow("post-1")).rejects.toThrow(
         "Publishing failed"
@@ -143,7 +150,7 @@ describe("PostsAPI", () => {
         scheduled: 3,
         posted: 10,
       };
-      (apiClient.request as any).mockResolvedValue(mockCounts);
+      vi.mocked(apiClient.request).mockResolvedValue(mockCounts);
 
       const result = await postsApi.getPostCounts();
 
@@ -161,7 +168,7 @@ describe("PostsAPI", () => {
         size: 20,
         total_pages: 0,
       };
-      (apiClient.request as any).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const result = await postsApi.getPosts();
 
@@ -177,7 +184,7 @@ describe("PostsAPI", () => {
         size: 10,
         total_pages: 0,
       };
-      (apiClient.request as unknown).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const params = {
         status: ["draft", "scheduled"],
@@ -220,7 +227,7 @@ describe("PostsAPI", () => {
         size: 50,
         total_pages: 1,
       };
-      (apiClient.request as any).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const result = await postsApi.getPostsForCalendar(
         "2024-01-01",
@@ -235,7 +242,7 @@ describe("PostsAPI", () => {
 
     it("returns empty array on API error", async () => {
       const error = new Error("API Error");
-      (apiClient.request as any).mockRejectedValue(error);
+      vi.mocked(apiClient.request).mockRejectedValue(error);
 
       // Mock console.error to avoid test output noise
       const consoleSpy = vi
@@ -264,7 +271,7 @@ describe("PostsAPI", () => {
         size: 1000,
         total_pages: 0,
       };
-      (apiClient.request as unknown).mockResolvedValue(mockResponse);
+      vi.mocked(apiClient.request).mockResolvedValue(mockResponse);
 
       const result = await postsApi.getPostsForCalendar(
         "2024-01-01",

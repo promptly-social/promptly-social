@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit3, Check, MoreHorizontal } from "lucide-react";
+import { Edit3, Check, Link, MoreHorizontal } from "lucide-react";
 import { Post, PostMedia, PostUpdate } from "@/types/posts";
 import { PostCardHeader } from "./components/PostCardHeader";
 import { PostContent } from "./components/PostContent";
@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePostEditor } from "@/hooks/usePostEditor";
 import { ideaBankApi, IdeaBankData } from "@/lib/idea-bank-api";
 import { PostInspiration } from "./components/PostInspiration";
+import { LinkedInButton } from "./components/LinkedInButton";
 
 interface PostCardProps {
   post: Post;
@@ -349,8 +350,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     <>
       <Card className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-white max-w-[600]">
         <div className="flex justify-between items-start p-4">
-          <div className="flex-grow">
+          <div className="flex-grow justify-between flex items-center">
             <PostCardHeader />
+            <LinkedInButton post={post} />
           </div>
         </div>
 
@@ -380,7 +382,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
             <>
               <div className="flex items-center justify-between">
                 <PostCardMeta post={post} />
-                <PostSharingError hasError={!!post.sharing_error} />
+                <div className="flex items-center">
+                  <PostSharingError hasError={!!post.sharing_error} />
+                </div>
               </div>
               <PostCardTopics topics={post.topics} />
 
