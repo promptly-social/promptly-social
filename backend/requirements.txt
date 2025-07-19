@@ -55,6 +55,7 @@ google-auth==2.29.0
     # via -r requirements.in
 google-cloud-scheduler==2.16.1  # for Cloud Scheduler API integration
 google-cloud-storage
+google-cloud-iam  # for IAM credentials API (signed URLs)
 cloud-sql-python-connector[pg8000]==1.18.3  # for Cloud SQL connections
 cloud-sql-python-connector[asyncpg]==1.18.3
 gotrue==2.12.2

@@ -16,6 +16,8 @@ from sqlalchemy.orm import selectinload
 from google.cloud import storage
 from google.oauth2 import service_account
 from google.auth import default
+from google.auth import impersonated_credentials
+from google.cloud import iam_credentials_v1
 import asyncio
 
 from app.core.config import settings
@@ -28,34 +30,30 @@ from app.services.linkedin_service import LinkedInService
 class PostsService:
     """Service for posts operations."""
 
+    # Class-level cache for shared credentials and clients
+    _shared_storage_client = None
+    _shared_signing_credentials = None
+    _shared_iam_client = None
+    _shared_service_account_email = None
+    _shared_bucket = None
+    _credentials_initialized = False
+
     def __init__(self, db: AsyncSession):
         self._db = db
+        self._signed_url_cache = {}  # Instance-level cache for signed URLs
 
-        # Initialize GCS client only outside of test environment. This prevents
-        # Google Application Default Credentials look-ups during unit tests.
-        self.storage_client = None
-        self.bucket = None
-        self.signing_credentials = None
-        self._signed_url_cache = {}  # Cache for signed URLs
+        # Use shared credentials (initialized once per application lifecycle)
+        self.storage_client = PostsService._shared_storage_client
+        self.signing_credentials = PostsService._shared_signing_credentials
+        self.iam_client = PostsService._shared_iam_client
+        self.service_account_email = PostsService._shared_service_account_email
+        self.bucket = PostsService._shared_bucket
 
-        if settings.environment != "test":
-            try:
-                # Initialize credentials for signing
-                self._initialize_credentials()
-
-                # Initialize storage client
-                self.storage_client = storage.Client(
-                    credentials=self.signing_credentials
-                )
-                if settings.post_media_bucket_name:
-                    self.bucket = self.storage_client.bucket(
-                        settings.post_media_bucket_name
-                    )
-            except Exception as e:
-                # Log but do not raise in non-test environments to keep app running.
-                logger.warning(
-                    f"Failed to initialize GCS client (env={settings.environment}): {e}"
-                )
+        # Initialize credentials if not already done
+        if settings.environment != "test" and not PostsService._credentials_initialized:
+            # Use synchronous initialization since __init__ can't be async
+            # This will only run once per application lifecycle
+            self._ensure_credentials_initialized()
 
     async def upload_media_for_post(
         self, user_id: UUID, post_id: UUID, files: List[UploadFile]
@@ -96,8 +94,84 @@ class PostsService:
 
         return created_media
 
-    def _initialize_credentials(self):
-        """Initialize service account credentials for GCS signing."""
+    @classmethod
+    def _ensure_credentials_initialized(cls):
+        """Ensure credentials are initialized exactly once per application lifecycle."""
+        if cls._credentials_initialized:
+            return
+
+        try:
+            logger.info("Initializing GCS credentials (one-time setup)")
+
+            # Initialize credentials for signing
+            cls._initialize_shared_credentials()
+
+            # Initialize storage client
+            cls._shared_storage_client = storage.Client(
+                credentials=cls._shared_signing_credentials
+            )
+
+            # For impersonated credentials, create proper signing credentials
+            if not cls._has_private_key_static(cls._shared_signing_credentials):
+                try:
+                    # Get service account email from settings or detect from environment
+                    cls._shared_service_account_email = (
+                        settings.gcp_app_service_account_email
+                        or cls._get_service_account_email_static()
+                    )
+
+                    if cls._shared_service_account_email:
+                        # Create impersonated credentials for signing
+                        source_credentials = cls._shared_signing_credentials
+                        target_scopes = [
+                            "https://www.googleapis.com/auth/cloud-platform"
+                        ]
+
+                        cls._shared_signing_credentials = (
+                            impersonated_credentials.Credentials(
+                                source_credentials=source_credentials,
+                                target_principal=cls._shared_service_account_email,
+                                target_scopes=target_scopes,
+                                delegates=[],
+                            )
+                        )
+
+                        logger.info(
+                            f"Created impersonated credentials for service account: {cls._shared_service_account_email}"
+                        )
+
+                        # Initialize IAM client as fallback
+                        cls._shared_iam_client = (
+                            iam_credentials_v1.IAMCredentialsClient()
+                        )
+                    else:
+                        logger.warning(
+                            "Could not detect service account email for impersonation"
+                        )
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to initialize impersonated credentials: {e}"
+                    )
+
+            if settings.post_media_bucket_name:
+                cls._shared_bucket = cls._shared_storage_client.bucket(
+                    settings.post_media_bucket_name
+                )
+
+            # Mark as initialized
+            cls._credentials_initialized = True
+            logger.info("GCS credentials initialization completed")
+
+        except Exception as e:
+            # Log but do not raise in non-test environments to keep app running.
+            logger.warning(
+                f"Failed to initialize GCS client (env={settings.environment}): {e}"
+            )
+
+    @classmethod
+    def _initialize_shared_credentials(cls):
+        """Initialize service account credentials for GCS signing (class-level)."""
         try:
             # Try to use service account key file if provided
             if settings.gcp_service_account_key_path and os.path.exists(
@@ -106,14 +180,17 @@ class PostsService:
                 logger.info(
                     f"Using service account key file: {settings.gcp_service_account_key_path}"
                 )
-                self.signing_credentials = (
+                cls._shared_signing_credentials = (
                     service_account.Credentials.from_service_account_file(
                         settings.gcp_service_account_key_path
                     )
                 )
             else:
-                # Try to get default credentials and check if they have a private key
+                # Try to get default credentials and check their type
                 credentials, project = default()
+                credential_type = type(credentials).__name__
+
+                logger.info(f"Detected credential type: {credential_type}")
 
                 # Check if we're running on GCP with service account credentials
                 if hasattr(credentials, "service_account_email") and hasattr(
@@ -122,32 +199,97 @@ class PostsService:
                     logger.info(
                         "Using GCP service account credentials with private key"
                     )
-                    self.signing_credentials = credentials
+                    cls._shared_signing_credentials = credentials
                 elif os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
                     # Try to load from the credentials file
                     cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
                     logger.info(
                         f"Using credentials from GOOGLE_APPLICATION_CREDENTIALS: {cred_path}"
                     )
-                    self.signing_credentials = (
+                    cls._shared_signing_credentials = (
                         service_account.Credentials.from_service_account_file(cred_path)
                     )
                 else:
-                    # Fallback: try to use default credentials anyway (might work in some GCP environments)
-                    logger.warning(
-                        "No service account key found. Signed URLs may not work with current credentials."
-                    )
-                    self.signing_credentials = credentials
+                    # Check if these are user OAuth2 credentials (from gcloud auth application-default login)
+                    if (
+                        "UserAccessTokenCredentials" in credential_type
+                        or "oauth2" in credential_type.lower()
+                    ):
+                        logger.warning(
+                            "Detected user OAuth2 credentials (from 'gcloud auth application-default login'). "
+                            "These cannot be used for signing URLs. Consider using a service account key file "
+                            "or setting GOOGLE_APPLICATION_CREDENTIALS to a service account key."
+                        )
+                    else:
+                        logger.warning(
+                            f"Using default credentials of type {credential_type}. "
+                            "Signed URLs may not work if these credentials lack private keys."
+                        )
+
+                    cls._shared_signing_credentials = credentials
 
         except Exception as e:
             logger.error(f"Failed to initialize signing credentials: {e}")
             # Use default credentials as fallback
             try:
                 credentials, project = default()
-                self.signing_credentials = credentials
+                cls._shared_signing_credentials = credentials
             except Exception as fallback_e:
                 logger.error(f"Failed to get default credentials: {fallback_e}")
-                self.signing_credentials = None
+                cls._shared_signing_credentials = None
+
+    @staticmethod
+    def _has_private_key_static(credentials) -> bool:
+        """Static version of _has_private_key for class-level initialization."""
+        if not credentials:
+            return False
+
+        # Check for service account credentials with private key
+        if hasattr(credentials, "_private_key") and credentials._private_key:
+            return True
+
+        # Check for other credential types that might have private keys
+        if hasattr(credentials, "private_key") and credentials.private_key:
+            return True
+
+        return False
+
+    @staticmethod
+    def _get_service_account_email_static() -> Optional[str]:
+        """Static version of _get_service_account_email for class-level initialization."""
+        try:
+            # Try to get from default credentials
+            credentials, project = default()
+            if hasattr(credentials, "service_account_email"):
+                return credentials.service_account_email
+
+            # Try to get from metadata server (GCP environments only)
+            # This will fail for local development, which is expected
+            import requests
+
+            metadata_url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email"
+            headers = {"Metadata-Flavor": "Google"}
+            response = requests.get(metadata_url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                email = response.text.strip()
+                logger.debug(f"Detected service account email from metadata: {email}")
+                return email
+        except Exception as e:
+            logger.debug(f"Could not detect service account email: {e}")
+
+        return None
+
+    def _has_private_key(self, credentials) -> bool:
+        """Check if credentials have a private key for signing (instance method for compatibility)."""
+        return PostsService._has_private_key_static(credentials)
+
+    def _is_impersonated_credentials(self, credentials) -> bool:
+        """Check if credentials are impersonated credentials."""
+        if not credentials:
+            return False
+
+        # Check if these are impersonated credentials
+        return isinstance(credentials, impersonated_credentials.Credentials)
 
     def _get_cache_key(self, storage_path: str, expiration_hours: int = 1) -> str:
         """Generate cache key for signed URL."""
@@ -186,27 +328,127 @@ class PostsService:
             blob = self.bucket.blob(storage_path)
             expiration = timedelta(hours=expiration_hours)
 
-            # Generate signed URL
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=expiration,
-                method="GET",
-                credentials=self.signing_credentials,
-            )
+            # Try to generate signed URL with different methods
+            signed_url = None
 
-            # Cache the signed URL
-            expires_at = datetime.now(timezone.utc) + expiration
-            self._signed_url_cache[cache_key] = {
-                "url": signed_url,
-                "expires_at": expires_at.isoformat(),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }
+            # Method 1: Use credentials with private key (works locally with service account files and impersonated credentials)
+            if self._has_private_key(
+                self.signing_credentials
+            ) or self._is_impersonated_credentials(self.signing_credentials):
+                credential_type = (
+                    "private key"
+                    if self._has_private_key(self.signing_credentials)
+                    else "impersonated"
+                )
+                logger.debug(f"Using {credential_type} credentials for {storage_path}")
+                signed_url = blob.generate_signed_url(
+                    version="v4",
+                    expiration=expiration,
+                    method="GET",
+                    credentials=self.signing_credentials,
+                )
+            # Method 2: Use IAM Service Account Credentials API (fallback for GCP environments)
+            elif self.iam_client and self.service_account_email:
+                logger.debug(f"Using IAM credentials API fallback for {storage_path}")
+                signed_url = self._generate_signed_url_with_iam(
+                    blob, expiration, storage_path
+                )
+            else:
+                # Method 3: Final fallback - try with default credentials anyway
+                # This will likely fail for user OAuth2 credentials, but we'll try
+                credential_type = (
+                    type(self.signing_credentials).__name__
+                    if self.signing_credentials
+                    else "None"
+                )
+                logger.debug(
+                    f"Attempting final fallback signing for {storage_path} with {credential_type}"
+                )
 
-            logger.debug(f"Generated and cached signed URL for {storage_path}")
-            return signed_url
+                # For user OAuth2 credentials, this will fail with a helpful error message
+                signed_url = blob.generate_signed_url(
+                    version="v4",
+                    expiration=expiration,
+                    method="GET",
+                    credentials=self.signing_credentials,
+                )
+
+            if signed_url:
+                # Cache the signed URL
+                expires_at = datetime.now(timezone.utc) + expiration
+                self._signed_url_cache[cache_key] = {
+                    "url": signed_url,
+                    "expires_at": expires_at.isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+                logger.debug(f"Generated and cached signed URL for {storage_path}")
+                return signed_url
+            else:
+                logger.error(f"Failed to generate signed URL for {storage_path}")
+                return None
 
         except Exception as e:
             logger.error(f"Error generating signed URL for {storage_path}: {e}")
+            return None
+
+    def _generate_signed_url_with_iam(
+        self, blob, expiration: timedelta, storage_path: str
+    ) -> Optional[str]:
+        """Generate signed URL using IAM Service Account Credentials API."""
+        try:
+            import base64
+            import urllib.parse
+            from datetime import datetime, timezone
+
+            # Calculate expiration timestamp
+            expires_timestamp = int(
+                (datetime.now(timezone.utc) + expiration).timestamp()
+            )
+
+            # Build the string to sign
+            http_verb = "GET"
+            content_md5 = ""
+            content_type = ""
+            expires = str(expires_timestamp)
+            canonicalized_extension_headers = ""
+            canonicalized_resource = f"/{self.bucket.name}/{storage_path}"
+
+            string_to_sign = "\n".join(
+                [
+                    http_verb,
+                    content_md5,
+                    content_type,
+                    expires,
+                    canonicalized_extension_headers + canonicalized_resource,
+                ]
+            )
+
+            # Use IAM service to sign the string
+            name = f"projects/-/serviceAccounts/{self.service_account_email}"
+            payload = string_to_sign.encode("utf-8")
+
+            request = iam_credentials_v1.SignBlobRequest(name=name, payload=payload)
+
+            response = self.iam_client.sign_blob(request=request)
+            signature = base64.b64encode(response.signed_blob).decode("utf-8")
+
+            # Build the signed URL
+            query_params = {
+                "GoogleAccessId": self.service_account_email,
+                "Expires": expires,
+                "Signature": signature,
+            }
+
+            query_string = urllib.parse.urlencode(query_params)
+            signed_url = f"https://storage.googleapis.com/{self.bucket.name}/{storage_path}?{query_string}"
+
+            return signed_url
+
+        except Exception as e:
+            logger.error(
+                f"Error generating signed URL with IAM for {storage_path}: {e}"
+            )
             return None
 
     async def delete_media_for_post(self, user_id: UUID, post_id: UUID, media_id: UUID):
