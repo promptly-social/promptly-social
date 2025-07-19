@@ -7,7 +7,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Calendar,
   Bookmark,
@@ -24,6 +23,7 @@ import { PostContent } from "../shared/post-card/components/PostContent";
 import { PostEditorFields } from "../shared/post-card/components/PostEditorFields";
 import { usePostEditor } from "@/hooks/usePostEditor";
 import { PostCardTopics } from "../shared/post-card/components/PostCardTopics";
+import { ScheduledPostActions } from "./ScheduledPostActions";
 
 interface ScheduledPostDetailsProps {
   isOpen: boolean;
@@ -248,7 +248,7 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
         )}
 
         <DialogFooter className="flex-shrink-0 gap-2">
-          {isEditing ? (
+          {/* {isEditing ? (
             <>
               <Button
                 variant="outline"
@@ -312,7 +312,20 @@ export const ScheduledPostDetails: React.FC<ScheduledPostDetailsProps> = ({
                 </Button>
               )}
             </>
-          )}
+          )} */}
+          <ScheduledPostActions
+            post={post}
+            onSaveForLater={() => post && onSaveForLater(post)}
+            onReschedule={() => post && onReschedule(post)}
+            onDelete={() => post && onDelete(post)}
+            onEdit={() => setIsEditing(true)}
+            handleCancel={handleCancel}
+            handleSave={handleSave}
+            isProcessing={isProcessing}
+            isNewPost={isNewPost}
+            isSaving={isSaving}
+            isEditing={isEditing}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

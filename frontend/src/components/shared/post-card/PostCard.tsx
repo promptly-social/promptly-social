@@ -173,7 +173,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         await refreshSignedMedia();
       }
 
-      toast({ title: "Success", description: "Post updated successfully." });
       onPostUpdate?.(updatedPost);
       handleCancelEdit();
     } catch (error) {
@@ -322,9 +321,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     try {
       await postsApi.postNow(post.id);
       onPostUpdate?.();
-      toast({ 
-        title: "Success", 
-        description: "Post published successfully!" 
+      toast({
+        title: "Success",
+        description: "Post published successfully!",
       });
     } catch (error) {
       toast({

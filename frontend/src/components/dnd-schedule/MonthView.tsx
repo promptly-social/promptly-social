@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { DroppableMonthDay } from "./DroppableMonthDay";
 import { Post } from "@/types/posts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getPostsForDate } from "@/utils/calendar";
 
 interface MonthViewProps {
   currentDate: Date;
@@ -36,17 +37,7 @@ const getMonthCalendarDays = (baseDate: Date) => {
   return days;
 };
 
-const getPostsForDate = (date: Date, posts: Post[]) => {
-  return posts.filter((post) => {
-    if (!post.scheduled_at) return false;
-    const postDate = new Date(post.scheduled_at);
-    return (
-      postDate.getDate() === date.getDate() &&
-      postDate.getMonth() === date.getMonth() &&
-      postDate.getFullYear() === date.getFullYear()
-    );
-  });
-};
+
 
 export const MonthView: React.FC<MonthViewProps> = ({
   currentDate,

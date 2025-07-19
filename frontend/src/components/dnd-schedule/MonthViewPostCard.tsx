@@ -17,6 +17,7 @@ interface DraggablePostCardProps {
   compact?: boolean;
   style?: React.CSSProperties;
   enableDroppable?: boolean;
+  isPosted?: boolean;
 }
 
 export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
@@ -28,11 +29,15 @@ export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
   compact = false,
   style: customStyle,
   enableDroppable = true,
+  isPosted = false,
 }) => {
   const isMobile = useIsMobile();
   const isPast = post.scheduled_at
     ? new Date(post.scheduled_at) < new Date()
     : false;
+
+  // Posted posts should never be draggable
+  const isDragDisabled = !showDragHandle || isPast || isPosted;
 
   const {
     attributes,
@@ -46,13 +51,41 @@ export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
       type: "post",
       post,
     },
-    disabled: !showDragHandle || isPast,
+    disabled: isDragDisabled,
   });
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: post.id,
-    disabled: !showDragHandle || !enableDroppable || isPast,
+    disabled: !showDragHandle || !enableDroppable || isPast || isPosted,
   });
+
+  // Get styling based on post type
+  const getPostStyling = () => {
+    if (isPosted) {
+      return {
+        cardClass:
+          "bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-colors",
+        textClass: "text-gray-800",
+        timeClass: "text-gray-600 font-medium",
+        cursor: "cursor-pointer hover:shadow-sm", // No drag cursor for posted posts, subtle hover effect
+        contentBg: "bg-gray-50",
+        badgeClass: "bg-gray-100 text-gray-800 border-gray-300",
+      };
+    }
+    return {
+      cardClass:
+        "bg-white border-gray-200 hover:border-gray-300 transition-colors",
+      textClass: "text-gray-600",
+      timeClass: "text-gray-900",
+      cursor: showDragHandle
+        ? "cursor-grab active:cursor-grabbing hover:shadow-md"
+        : "cursor-pointer hover:shadow-sm",
+      contentBg: "bg-gray-50",
+      badgeClass: "bg-gray-100 text-gray-800 border-gray-300",
+    };
+  };
+
+  const styling = getPostStyling();
 
   // Combine the refs
   const setNodeRef = (node: HTMLElement | null) => {
@@ -141,25 +174,25 @@ export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
         ref={setNodeRef}
         style={style}
         className={`transition-all select-none ${
-          showDragHandle
-            ? "cursor-grab active:cursor-grabbing"
-            : "cursor-pointer"
+          styling.cursor
         } hover:shadow-md ${
           isOver && enableDroppable ? "ring-2 ring-blue-400 bg-blue-50" : ""
-        } ${className}`}
-        {...(showDragHandle ? { ...attributes, ...listeners } : {})}
+        } ${styling.cardClass} ${className}`}
+        {...(!isDragDisabled ? { ...attributes, ...listeners } : {})}
         onClick={onClick}
       >
         <CardContent className="p-2.5">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1 mb-1.5">
-                <span className="text-xs font-semibold text-gray-900">
-                  {post.scheduled_at && formatTime(post.scheduled_at)}
+                <span className={`text-xs font-semibold ${styling.timeClass}`}>
+                  {isPosted
+                    ? post.posted_at && formatTime(post.posted_at)
+                    : post.scheduled_at && formatTime(post.scheduled_at)}
                 </span>
               </div>
               <p
-                className={`text-xs text-gray-600 leading-tight ${
+                className={`text-xs ${styling.textClass} leading-tight ${
                   isMobile ? "line-clamp-2" : "truncate"
                 }`}
               >
@@ -177,28 +210,34 @@ export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`transition-all ${
-        showDragHandle ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
-      } hover:shadow-md ${
+      className={`transition-all ${styling.cursor} hover:shadow-md ${
         isOver && enableDroppable ? "ring-2 ring-blue-400 bg-blue-50" : ""
-      } ${className}`}
+      } ${styling.cardClass} ${className}`}
       onClick={onClick}
-      {...(showDragHandle ? { ...attributes, ...listeners } : {})}
+      {...(!isDragDisabled ? { ...attributes, ...listeners } : {})}
     >
       <CardContent className="p-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <div className="bg-gray-50 p-2 rounded-lg mb-2">
-              <p className="text-sm text-gray-800 leading-relaxed line-clamp-2">
+            <div className={`${styling.contentBg} p-2 rounded-lg mb-2`}>
+              <p
+                className={`text-sm ${
+                  isPosted ? "text-green-800" : "text-gray-800"
+                } leading-relaxed line-clamp-2`}
+              >
                 {post.content}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div
+              className={`flex items-center gap-2 text-sm ${styling.textClass}`}
+            >
               <div className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 <span>
-                  {post.scheduled_at && formatDate(post.scheduled_at)}
+                  {isPosted
+                    ? post.posted_at && formatDate(post.posted_at)
+                    : post.scheduled_at && formatDate(post.scheduled_at)}
                 </span>
               </div>
             </div>

@@ -79,7 +79,9 @@ jobs:
         working-directory: ./backend
         run: |
           # Run a quick test to ensure the container starts
-          docker run --rm -d --name test-container -p 8001:8000 backend-test:latest
+          docker run --rm -d --name test-container -p 8001:8000 \
+          -e ENVIRONMENT=test \
+          backend-test:latest
           sleep 10
           # Test health endpoint (assuming you have one)
           curl -f http://localhost:8001/health || (docker logs test-container && exit 1)

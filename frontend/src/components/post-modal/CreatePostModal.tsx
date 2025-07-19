@@ -21,6 +21,7 @@ interface CreatePostModalProps {
   onScheduleRequest?: (post: Post) => void;
   initialContent?: string;
   initialTopics?: string[];
+  ideaBankId?: string;
 }
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({
@@ -30,6 +31,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   onScheduleRequest,
   initialContent,
   initialTopics,
+  ideaBankId,
 }) => {
   const editor = usePostEditor();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,6 +63,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         article_url: editor.articleUrl || undefined,
         status: "draft",
         platform: "linkedin", // default platform; adjust as needed
+        idea_bank_id: ideaBankId,
       });
 
       // Upload media if any

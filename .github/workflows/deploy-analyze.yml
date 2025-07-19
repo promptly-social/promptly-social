@@ -48,14 +48,14 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-        working-directory: terraform/environments/analyze_substack/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/analyze/${{ env.TARGET_ENV }}
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
-        working-directory: terraform/environments/analyze_substack/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/analyze/${{ env.TARGET_ENV }}
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve
-        working-directory: terraform/environments/analyze_substack/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/analyze/${{ env.TARGET_ENV }}

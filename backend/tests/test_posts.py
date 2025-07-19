@@ -330,3 +330,147 @@ class TestPosts:
 
         # Should return 401 (unauthorized) not 404 (not found), proving endpoint exists
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @pytest.mark.asyncio
+    async def test_calendar_posts_date_filtering(self):
+        """Test that calendar posts are filtered correctly by date ranges for both scheduled and posted posts."""
+        from datetime import datetime, timezone
+        from unittest.mock import AsyncMock
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.services.posts import PostsService
+        from app.models.posts import Post
+        from uuid import uuid4
+
+        # Mock database session
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = PostsService(mock_db)
+
+        user_id = uuid4()
+
+        # Create mock posts with different statuses and dates
+        scheduled_post = Post(
+            id=uuid4(),
+            user_id=user_id,
+            content="Scheduled post",
+            status="scheduled",
+            scheduled_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            posted_at=None,
+        )
+
+        posted_post = Post(
+            id=uuid4(),
+            user_id=user_id,
+            content="Posted post",
+            status="posted",
+            scheduled_at=None,
+            posted_at=datetime(2024, 1, 20, 14, 0, 0, tzinfo=timezone.utc),
+        )
+
+        # Mock the database query results
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 2
+
+        mock_posts_result = MagicMock()
+        mock_posts_result.scalars.return_value.all.return_value = [
+            scheduled_post,
+            posted_post,
+        ]
+
+        mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_posts_result])
+
+        # Test calendar query with date range and both statuses
+        result = await service.get_posts_list(
+            user_id=user_id,
+            status=["scheduled", "posted"],
+            after_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            before_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+            page=1,
+            size=100,
+        )
+
+        # Verify the result structure
+        assert result["total"] == 2
+        assert len(result["items"]) == 2
+        assert result["page"] == 1
+        assert result["size"] == 100
+
+        # Verify database was called twice (count + select)
+        assert mock_db.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_calendar_posts_scheduled_only_filtering(self):
+        """Test that calendar posts correctly filter only scheduled posts by scheduled_at."""
+        from datetime import datetime, timezone
+        from unittest.mock import AsyncMock, MagicMock
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.services.posts import PostsService
+        from uuid import uuid4
+
+        # Mock database session
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = PostsService(mock_db)
+
+        user_id = uuid4()
+
+        # Mock the database query results
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 1
+
+        mock_posts_result = MagicMock()
+        mock_posts_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_posts_result])
+
+        # Test query with only scheduled status
+        result = await service.get_posts_list(
+            user_id=user_id,
+            status=["scheduled"],
+            after_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            before_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+        )
+
+        # Verify the result structure
+        assert result["total"] == 1
+        assert result["page"] == 1
+
+        # Verify database was called
+        assert mock_db.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_calendar_posts_posted_only_filtering(self):
+        """Test that calendar posts correctly filter only posted posts by posted_at."""
+        from datetime import datetime, timezone
+        from unittest.mock import AsyncMock
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.services.posts import PostsService
+        from uuid import uuid4
+
+        # Mock database session
+        mock_db = AsyncMock(spec=AsyncSession)
+        service = PostsService(mock_db)
+
+        user_id = uuid4()
+
+        # Mock the database query results
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 1
+
+        mock_posts_result = MagicMock()
+        mock_posts_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_posts_result])
+
+        # Test query with only posted status
+        result = await service.get_posts_list(
+            user_id=user_id,
+            status=["posted"],
+            after_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            before_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+        )
+
+        # Verify the result structure
+        assert result["total"] == 1
+        assert result["page"] == 1
+
+        # Verify database was called
+        assert mock_db.execute.call_count == 2

@@ -78,40 +78,52 @@ const PostingSchedule: React.FC = () => {
     });
   };
 
-  // React Query – cache scheduled posts per view mode/date window
+  // React Query – cache posts per view mode/date window
   const queryClient = useQueryClient();
   const { data: queryPosts = [], isLoading: isPostsLoading } = useQuery({
     queryKey: [
-      "scheduledPosts",
+      "schedulePosts",
       viewMode,
       viewMode === "list"
         ? "list"
         : `${currentDate.getFullYear()}-${currentDate.getMonth()}`,
     ],
     queryFn: async () => {
-      let after_date: string | undefined;
-      let before_date: string | undefined;
-
       if (viewMode === "list") {
-        after_date = new Date().toISOString();
+        // For list view, only show scheduled posts from now onwards
+        const after_date = new Date().toISOString();
+        const response = await postsApi.getPosts({
+          status: ["scheduled"],
+          after_date,
+          order_by: "scheduled_at",
+          order_direction: "asc",
+          size: 100,
+        });
+        return sortPostsByScheduledAt(response.items);
       } else {
+        // For month view, show both scheduled and posted posts for the calendar range
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month + 2, 0);
-        after_date = startDate.toISOString();
-        before_date = endDate.toISOString();
-      }
 
-      const response = await postsApi.getPosts({
-        status: ["scheduled"],
-        after_date,
-        before_date,
-        order_by: "scheduled_at",
-        order_direction: "asc",
-        size: 100,
-      });
-      return sortPostsByScheduledAt(response.items);
+        const calendarPosts = await postsApi.getPostsForCalendar(
+          startDate.toISOString().split("T")[0],
+          endDate.toISOString().split("T")[0]
+        );
+
+        // Sort by relevant date (scheduled_at for scheduled, posted_at for posted)
+        return calendarPosts.sort((a, b) => {
+          const aDate = a.status === "posted" ? a.posted_at : a.scheduled_at;
+          const bDate = b.status === "posted" ? b.posted_at : b.scheduled_at;
+
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+
+          return new Date(aDate).getTime() - new Date(bDate).getTime();
+        });
+      }
     },
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
@@ -196,7 +208,7 @@ const PostingSchedule: React.FC = () => {
         title: "Post Rescheduled",
         description: "Post has been successfully rescheduled.",
       });
-      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
+      await queryClient.invalidateQueries({ queryKey: ["schedulePosts"] });
     } catch (error) {
       console.error("Error rescheduling post:", error);
       toast({
@@ -233,11 +245,7 @@ const PostingSchedule: React.FC = () => {
         setSelectedPost(updatedPost);
       }
 
-      toast({
-        title: "Post Updated",
-        description: "Your post has been successfully updated.",
-      });
-      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
+      await queryClient.invalidateQueries({ queryKey: ["schedulePosts"] });
     } catch (error) {
       console.error("Error updating post:", error);
       toast({
@@ -284,7 +292,7 @@ const PostingSchedule: React.FC = () => {
         title: "Saved for Later",
         description: "Post has been removed from schedule and moved to Drafts.",
       });
-      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
+      await queryClient.invalidateQueries({ queryKey: ["schedulePosts"] });
     } catch (error) {
       console.error("Error saving post for later:", error);
       toast({
@@ -319,7 +327,7 @@ const PostingSchedule: React.FC = () => {
         title: "Post Deleted",
         description: "The post has been permanently deleted.",
       });
-      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
+      await queryClient.invalidateQueries({ queryKey: ["schedulePosts"] });
     } catch (error) {
       console.error("Error deleting post:", error);
       toast({
@@ -584,7 +592,7 @@ const PostingSchedule: React.FC = () => {
     } finally {
       setIsRescheduling(false);
       setIsDropActionModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["scheduledPosts"] });
+      await queryClient.invalidateQueries({ queryKey: ["schedulePosts"] });
     }
   };
 
@@ -649,7 +657,6 @@ const PostingSchedule: React.FC = () => {
       >
         <main className="py-4 px-4 sm:py-8 sm:px-6">
           <div className="max-w-7xl mx-auto">
-           
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>

@@ -14,6 +14,13 @@ interface DroppableMonthDayProps {
   showDropZone?: boolean;
 }
 
+// Utility function to separate posts by type
+const separatePostsByType = (posts: Post[]) => {
+  const scheduledPosts = posts.filter(post => post.status === 'scheduled');
+  const postedPosts = posts.filter(post => post.status === 'posted');
+  return { scheduledPosts, postedPosts };
+};
+
 export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
   date,
   posts,
@@ -43,6 +50,10 @@ export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
     return checkDate < today;
   })();
 
+  // Separate posts by type for different handling
+  const { scheduledPosts, postedPosts } = separatePostsByType(posts);
+  const totalPosts = scheduledPosts.length + postedPosts.length;
+  
   const maxPostsToShow = isMobile ? 1 : 2;
 
   return (
@@ -83,7 +94,27 @@ export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
           className="space-y-1.5 p-1"
           style={{ maxHeight: "120px", overflowY: "auto" }}
         >
-          {posts.map((post) => (
+          {/* Render posted posts first (they appear at top) */}
+          {postedPosts.map((post) => (
+            <MonthViewPostCard
+              key={post.id}
+              post={post}
+              onClick={() => onPostClick?.(post)}
+              className="text-xs"
+              showDragHandle={false} // Posted posts are not draggable
+              compact={true}
+              enableDroppable={false}
+              isPosted={true} // New prop to identify posted posts
+            />
+          ))}
+
+          {/* Add spacing between posted and scheduled posts if both exist */}
+          {postedPosts.length > 0 && scheduledPosts.length > 0 && (
+            <div className="border-t border-gray-200 my-1.5" />
+          )}
+
+          {/* Render scheduled posts (they can be dragged) */}
+          {scheduledPosts.map((post) => (
             <MonthViewPostCard
               key={post.id}
               post={post}
@@ -92,18 +123,19 @@ export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
               showDragHandle={showDropZone}
               compact={true}
               enableDroppable={false}
+              isPosted={false}
             />
           ))}
 
-          {posts.length > maxPostsToShow && (
+          {totalPosts > maxPostsToShow && (
             <div className="text-center">
               <span className="text-xs text-gray-500">
-                +{posts.length - maxPostsToShow} more
+                +{totalPosts - maxPostsToShow} more
               </span>
             </div>
           )}
 
-          {posts.length === 0 &&
+          {totalPosts === 0 &&
             isOver &&
             !isPastDate &&
             isCurrentMonth &&
@@ -115,7 +147,7 @@ export const DroppableMonthDay: React.FC<DroppableMonthDayProps> = ({
               </div>
             )}
 
-          {posts.length === 0 && isPastDate && isCurrentMonth && (
+          {totalPosts === 0 && isPastDate && isCurrentMonth && (
             <div className="text-center">
               <span className="text-xs text-gray-400">Past</span>
             </div>

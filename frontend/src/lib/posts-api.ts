@@ -290,6 +290,28 @@ class PostsAPI {
     );
     return response;
   }
+
+  /**
+   * Get posts for calendar view - includes both scheduled and posted posts for a date range
+   */
+  async getPostsForCalendar(startDate: string, endDate: string): Promise<Post[]> {
+    try {
+      const response = await this.getPosts({
+        status: ['scheduled', 'posted'],
+        after_date: startDate,
+        before_date: endDate,
+        size: 50, // 100 is max, but 50 is generous
+        order_by: 'scheduled_at,posted_at',
+        order_direction: 'asc'
+      });
+      
+      return response.items;
+    } catch (error) {
+      console.error('Failed to fetch calendar posts:', error);
+      // Return empty array on error to allow calendar to still display
+      return [];
+    }
+  }
 }
 
 export const postsApi = new PostsAPI();

@@ -141,25 +141,102 @@ class PostsService:
                 filters.append(Post.platform == platform)
             if status:
                 filters.append(Post.status.in_(status))
-            if after_date:
-                filters.append(Post.scheduled_at >= after_date)
-            if before_date:
-                filters.append(Post.scheduled_at <= before_date)
+
+            # Enhanced date filtering logic for calendar queries
+            if after_date or before_date:
+                date_filters = []
+
+                # For scheduled posts, filter by scheduled_at
+                if after_date and before_date:
+                    scheduled_filter = and_(
+                        Post.scheduled_at >= after_date,
+                        Post.scheduled_at <= before_date,
+                        Post.status == "scheduled",
+                    )
+                    posted_filter = and_(
+                        Post.posted_at >= after_date,
+                        Post.posted_at <= before_date,
+                        Post.status == "posted",
+                    )
+                    date_filters.extend([scheduled_filter, posted_filter])
+                elif after_date:
+                    scheduled_filter = and_(
+                        Post.scheduled_at >= after_date, Post.status == "scheduled"
+                    )
+                    posted_filter = and_(
+                        Post.posted_at >= after_date, Post.status == "posted"
+                    )
+                    date_filters.extend([scheduled_filter, posted_filter])
+                elif before_date:
+                    scheduled_filter = and_(
+                        Post.scheduled_at <= before_date, Post.status == "scheduled"
+                    )
+                    posted_filter = and_(
+                        Post.posted_at <= before_date, Post.status == "posted"
+                    )
+                    date_filters.extend([scheduled_filter, posted_filter])
+
+                # If we have multiple status types and date filters, we need to handle them properly
+                if (
+                    status
+                    and len(status) > 1
+                    and ("scheduled" in status and "posted" in status)
+                ):
+                    # For calendar queries with both scheduled and posted posts
+                    from sqlalchemy import or_
+
+                    filters.append(or_(*date_filters))
+                elif status and "scheduled" in status and "posted" not in status:
+                    # Only scheduled posts
+                    if after_date:
+                        filters.append(Post.scheduled_at >= after_date)
+                    if before_date:
+                        filters.append(Post.scheduled_at <= before_date)
+                elif status and "posted" in status and "scheduled" not in status:
+                    # Only posted posts
+                    if after_date:
+                        filters.append(Post.posted_at >= after_date)
+                    if before_date:
+                        filters.append(Post.posted_at <= before_date)
+                else:
+                    # Default behavior for backward compatibility
+                    if after_date:
+                        filters.append(Post.scheduled_at >= after_date)
+                    if before_date:
+                        filters.append(Post.scheduled_at <= before_date)
 
             count_query = select(func.count()).select_from(Post).where(and_(*filters))
             count_result = await self._db.execute(count_query)
             total = count_result.scalar() or 0
             total_pages = math.ceil(total / size) if size > 0 else 0
 
+            # Handle multiple order_by fields for calendar queries
+            order_fields = []
+            if "," in order_by:
+                # Multiple order fields (e.g., "scheduled_at,posted_at")
+                for field in order_by.split(","):
+                    field = field.strip()
+                    if hasattr(Post, field):
+                        if order_direction == "desc":
+                            order_fields.append(desc(getattr(Post, field)))
+                        else:
+                            order_fields.append(getattr(Post, field))
+            else:
+                # Single order field
+                if hasattr(Post, order_by):
+                    if order_direction == "desc":
+                        order_fields.append(desc(getattr(Post, order_by)))
+                    else:
+                        order_fields.append(getattr(Post, order_by))
+                else:
+                    # Fallback to created_at if order_by field doesn't exist
+                    order_fields.append(desc(Post.created_at))
+
             query = (
                 select(Post)
                 .where(and_(*filters))
                 .options(selectinload(Post.media))
-                .order_by(
-                    desc(getattr(Post, order_by))
-                    if order_direction == "desc"
-                    else getattr(Post, order_by)
-                )
+                .order_by(*order_fields)
                 .offset(offset)
                 .limit(size)
             )
