@@ -42,12 +42,12 @@ on:
 env:
   TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
   TF_VAR_region: ${{ secrets.GCP_REGION }}
-  TF_VAR_environment: ${{ github.event.inputs.environment }}
+  TF_VAR_environment: ${{ inputs.environment || github.event.inputs.environment }}
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ inputs.environment || github.event.inputs.environment }}
     outputs:
       service_url: ${{ steps.tf_output.outputs.service_url || steps.tf_output_no_changes.outputs.service_url }}
 
@@ -57,7 +57,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform/environments/infrastructure/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/environments/infrastructure/${{ inputs.environment || github.event.inputs.environment }}
 
     steps:
       - name: Checkout code
@@ -82,8 +82,8 @@ jobs:
         id: plan
         run: |
           IMAGE_TAG_VAR=""
-          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            IMAGE_TAG_VAR="-var=image_tag=${{ github.event.inputs.image_tag }}"
+          if [ -n "${{ inputs.image_tag || github.event.inputs.image_tag }}" ]; then
+            IMAGE_TAG_VAR="-var=image_tag=${{ inputs.image_tag || github.event.inputs.image_tag }}"
           fi
           terraform plan -detailed-exitcode -out=tfplan -var="manage_cloud_run_service=true" $IMAGE_TAG_VAR
           echo "plan_exitcode=$?" >> $GITHUB_OUTPUT

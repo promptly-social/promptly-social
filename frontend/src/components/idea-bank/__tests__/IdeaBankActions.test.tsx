@@ -4,7 +4,7 @@ import IdeaBankActions from '../IdeaBankActions';
 import type { IdeaBankWithPost } from '@/lib/idea-bank-api';
 
 // Mock the UI components
-vi.mock('@/components/ui/button', () => ({
+vi.doMock('@/components/ui/button', () => ({
   Button: ({ children, onClick, disabled, className, ...props }: any) => (
     <button 
       onClick={onClick} 

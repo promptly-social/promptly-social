@@ -14,7 +14,7 @@ on:
       action:
         description: "Terraform action"
         required: true
-        default: "plan"
+        default: "apply"
         type: choice
         options:
           - plan
@@ -23,18 +23,19 @@ on:
       auto_approve:
         description: "Auto approve terraform apply"
         required: false
-        default: false
+        default: true
         type: boolean
 
 env:
   TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
   TF_VAR_region: ${{ secrets.GCP_REGION }}
-  TF_VAR_environment: ${{ github.event.inputs.environment }}
+  TF_VAR_environment: ${{ github.event.inputs.environment || 'staging' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'staging' }}
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
 
     permissions:
       contents: read
@@ -42,7 +43,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform/environments/infrastructure/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/environments/infrastructure/${{ github.event.inputs.environment || 'staging' }}
 
     steps:
       - name: Checkout code

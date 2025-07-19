@@ -11,6 +11,7 @@ vi.mock("../auth-api", () => ({
 
 describe("PostsAPI", () => {
   beforeEach(() => {
+    vi.spyOn(apiClient, "request").mockResolvedValue({} as any);
     vi.clearAllMocks();
   });
 
