@@ -92,36 +92,6 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Run database migrations
-        working-directory: ./backend
-        env:
-          CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
-          CLOUD_SQL_DATABASE_NAME: ${{ secrets.CLOUD_SQL_DATABASE_NAME }}
-          CLOUD_SQL_USER: ${{ secrets.CLOUD_SQL_USER }}
-          CLOUD_SQL_PASSWORD: ${{ secrets.CLOUD_SQL_PASSWORD }}
-          ENVIRONMENT: ${{ github.event.inputs.environment }}
-          AUTO_APPLY_MIGRATIONS: true
-        run: |
-          echo "Running database migrations for ${{ github.event.inputs.environment }}..."
-          python -c "
-          from app.core.migrations import migration_manager
-          print('=== Checking Migration Status ===')
-          status = migration_manager.get_migration_status()
-          print(f'Migration Status: {status}')
-          
-          pending = migration_manager.check_pending_migrations()
-          if pending:
-              print(f'Applying {len(pending)} pending migrations: {pending}')
-              result = migration_manager.apply_pending_migrations()
-              if result:
-                  print('✅ Migrations applied successfully!')
-              else:
-                  print('❌ Migration failed')
-                  exit(1)
-          else:
-              print('✅ No pending migrations')
-          "
-
   build-and-push:
     runs-on: ubuntu-latest
     needs: [test, migrate]
