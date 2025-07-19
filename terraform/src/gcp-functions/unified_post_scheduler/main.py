@@ -160,12 +160,11 @@ async def get_posts_to_publish(client: CloudSQLClient) -> List[Dict[str, Any]]:
             AND scheduled_at <= :now 
             ORDER BY scheduled_at ASC
         """
-        
-        posts = await client.execute_query_async(query, {
-            "status": "scheduled",
-            "ten_minutes_ago": ten_minutes_ago,
-            "now": now
-        })
+
+        posts = await client.execute_query_async(
+            query,
+            {"status": "scheduled", "ten_minutes_ago": ten_minutes_ago, "now": now},
+        )
 
         logger.info(f"Found {len(posts)} posts ready for publishing")
 
@@ -218,7 +217,9 @@ async def process_posts_batch(
     return results
 
 
-async def process_single_post(client: CloudSQLClient, post: Dict[str, Any]) -> Dict[str, Any]:
+async def process_single_post(
+    client: CloudSQLClient, post: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Process a single post for publishing.
     """
@@ -287,11 +288,10 @@ async def get_linkedin_connection(
             WHERE user_id = :user_id 
             AND platform = :platform
         """
-        
-        results = await client.execute_query_async(query, {
-            "user_id": user_id,
-            "platform": "linkedin"
-        })
+
+        results = await client.execute_query_async(
+            query, {"user_id": user_id, "platform": "linkedin"}
+        )
 
         if not results:
             logger.error(f"LinkedIn connection not found for user {user_id}")
@@ -402,11 +402,14 @@ async def refresh_token_if_needed(
                 SET connection_data = :connection_data
                 WHERE id = :connection_id
             """
-            
-            await client.execute_update_async(update_query, {
-                "connection_data": updated_connection_data,
-                "connection_id": connection["id"]
-            })
+
+            await client.execute_update_async(
+                update_query,
+                {
+                    "connection_data": updated_connection_data,
+                    "connection_id": connection["id"],
+                },
+            )
 
             # Update the connection object
             connection["connection_data"] = updated_connection_data
@@ -426,10 +429,8 @@ async def get_post_media(client: CloudSQLClient, post_id: str) -> list:
             SELECT * FROM post_media 
             WHERE post_id = :post_id
         """
-        
-        results = await client.execute_query_async(query, {
-            "post_id": post_id
-        })
+
+        results = await client.execute_query_async(query, {"post_id": post_id})
 
         return results or []
     except Exception as e:
@@ -526,7 +527,7 @@ async def share_to_linkedin(
 
             return {
                 "linkedin_post_id": result.get("id"),
-                "shared_at": datetime.now(timezone.utc).isoformat(),
+                "shared_at": datetime.now(timezone.utc),
                 "response": result,
             }
 
@@ -543,17 +544,17 @@ async def update_post_status(
         # Build dynamic update query based on provided fields
         set_clauses = []
         params = {"post_id": post_id}
-        
+
         for key, value in updates.items():
             set_clauses.append(f"{key} = :{key}")
             params[key] = value
-        
+
         query = f"""
             UPDATE posts 
-            SET {', '.join(set_clauses)}
+            SET {", ".join(set_clauses)}
             WHERE id = :post_id
         """
-        
+
         rows_affected = await client.execute_update_async(query, params)
 
         if rows_affected > 0:
