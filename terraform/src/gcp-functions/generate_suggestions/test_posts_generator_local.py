@@ -56,15 +56,43 @@ TOPICS_OF_INTEREST = [
 NUMBER_OF_POSTS_TO_GENERATE = 3
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 TEST_POSTS_FILE = "filtered_posts.json"
-LINKEDIN_POST_STRATEGY = """
-        Best Practices for Crafting Engaging LinkedIn Post Text
-Start with a Strong Hook: Begin the post with a compelling question, a surprising statistic, or a bold statement to immediately capture the reader's attention and stop them from scrolling.
-Encourage Conversation: End your post with a clear call-to-action or an open-ended question that prompts readers to share their own experiences, opinions, or advice in the comments. Frame the text to start a discussion, not just to broadcast information.
-Write for Readability: Use short paragraphs, single-sentence lines, and bullet points to break up large blocks of text. This makes the post easier to scan and digest on a mobile device.
-Provide Genuine Value: The core of the text should offer insights, tips, or a personal story that is valuable to your target audience. Avoid pure self-promotion and focus on sharing expertise or relatable experiences.
-Incorporate Strategic Mentions: When mentioning other people or companies, tag them using @. Limit this to a maximum of five relevant tags per post to encourage a response without appearing spammy.
+LINKEDIN_POST_STRATEGY = """CORE MESSAGE & TONE:
+Focus on a central theme in the post
+The tone should be authentic and human. It should feel like a real person sharing a genuine experience or insight, not like corporate marketing copy. Incorporate a mix of sentiment; for example, if discussing a success, first touch upon the struggle or failure that preceded it.
+
+FORMATTING & CONSTRAINTS:
 Avoid using hashtags.
-        """
+Links: ABSOLUTELY NO external links in the body of the post.
+Emojis: Use emojis very sparingly. A maximum of one emoji to set the tone is sufficient.   
+Engagement Bait: Do not use any phrases that explicitly ask for likes, follows, or simple comments (e.g., "Like this post if..."). The question at the end should be for genuine discussion.   
+
+POST STRUCTURE & CONTENT:
+The Hook (First 1-2 Lines):
+This is the most critical part. It must be a "scroll-stopper" that creates immediate curiosity, tension, or challenges a common belief.   
+
+Choose one of these proven hook styles:
+Contrarian Opinion: "Stop hiring for [common practice]. Here's why."
+Relatable Pain Point: "You spent 40 hours on a proposal. They ghosted you."
+Shock Value / Story Teaser: "I almost shut down my business last week."
+Counter-Intuitive Idea: "My biggest career mistake was taking the promotion."
+
+The Body (Main Content):
+Keep the entire post concise, between 150 and 200 words.   
+Structure it for maximum scannability on a mobile phone. This means:
+Using very short paragraphs (2-3 lines MAXIMUM).
+Using plenty of line breaks for white space.   
+Tell a story or provide clear, actionable value. Avoid generic advice.
+
+The Call-to-Action (CTA - The Final Line):
+End with a specific, open-ended question that demands a story or a detailed opinion from the reader. This is crucial for generating the long, thoughtful comments the algorithm rewards.   
+
+DO NOT use low-effort questions like "Thoughts?", "Do you agree?", or "What do you think?".
+
+INSTEAD, use high-effort questions like:
+"What's the worst piece of career advice you've ever received?"
+"What's the biggest lesson you learned from a project that failed?"
+"What's one thing you wish you knew when you started your career in [your industry]?"
+"""
 
 
 def load_filtered_posts(file_path: str) -> List[Dict[str, Any]]:
