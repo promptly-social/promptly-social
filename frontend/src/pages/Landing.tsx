@@ -535,7 +535,7 @@ const Landing = () => {
                 Terms of Service
               </a>
               <a
-                href="mailto:support@promptly.com"
+                href="mailto:support@promptly.social"
                 className="hover:text-gray-900 transition-colors font-medium"
               >
                 Support

@@ -215,6 +215,7 @@ const ChatDialogContent = ({
         initialContent={draftContent}
         initialTopics={draftTopics}
         ideaBankId={ideaBankId}
+        ideaBankValue={idea?.idea_bank.data.value}
       />
 
       <PostScheduleModal

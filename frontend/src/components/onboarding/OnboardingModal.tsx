@@ -49,7 +49,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const handleStepComplete = async () => {
     try {
       await updateStep(currentViewStep, true);
-      if (currentViewStep < 6) {
+      if (currentViewStep < totalSteps) {
         setCurrentViewStep(currentViewStep + 1);
       } else {
         onClose();
@@ -78,7 +78,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-semibold text-gray-900">
-             🎉 Welcome to Promptly!
+              🎉 Welcome to Promptly!
             </h2>
           </div>
           <div className="flex items-center gap-2">
