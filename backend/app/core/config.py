@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(default="sqlite:///./app.db")
+    use_local_db: bool = Field(
+        default=False
+    )  # Set to True to use local DB instead of Cloud SQL
 
     # Cloud SQL specific settings
     cloud_sql_instance_connection_name: Optional[str] = Field(default=None)
@@ -149,8 +152,17 @@ class Settings(BaseSettings):
         Get the appropriate database URL based on configuration.
 
         Returns:
-            str: Database URL (Cloud SQL if configured, otherwise fallback)
+            str: Database URL (respects test environment and local development settings)
         """
+        # In test environment, always use the database_url (usually SQLite)
+        if self.environment in ["test", "testing"]:
+            return self.database_url
+
+        # If use_local_db is True, use local database instead of Cloud SQL
+        if self.use_local_db:
+            return self.database_url
+
+        # Otherwise, use Cloud SQL if configured
         cloud_sql_url = self.get_cloud_sql_database_url()
         if cloud_sql_url:
             return cloud_sql_url

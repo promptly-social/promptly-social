@@ -4,8 +4,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
-import { Post } from "@/lib/posts-api";
+import { Post } from "@/types/posts";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { formatTime, formatDate } from "@/utils/datetime";
 
 interface DraggablePostCardProps {
   post: Post;
@@ -59,25 +60,6 @@ export const MonthViewPostCard: React.FC<DraggablePostCardProps> = ({
     if (enableDroppable) {
       setDropRef(node);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
   };
 
   // Static overlay component - no drag/drop functionality

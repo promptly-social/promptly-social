@@ -13,7 +13,6 @@ from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 
 from app.core.config import settings
 
@@ -60,9 +59,9 @@ class MigrationManager:
 
     def _get_sync_engine(self):
         """Get the sync engine from database module."""
-        from app.core.database import sync_engine
+        from app.core.database import get_sync_engine
 
-        return sync_engine
+        return get_sync_engine()
 
     def _acquire_migration_lock(self, timeout: int = 60) -> bool:
         """
@@ -96,13 +95,18 @@ class MigrationManager:
                     conn.commit()
 
                     # Clean up stale locks (older than 30 minutes)
+                    # Use database-agnostic approach
+                    from datetime import datetime, timedelta
+
+                    cutoff_time = datetime.now() - timedelta(minutes=30)
                     conn.execute(
                         text(
                             """
                         DELETE FROM migration_lock 
-                        WHERE locked_at < CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+                        WHERE locked_at < :cutoff_time
                     """
-                        )
+                        ),
+                        {"cutoff_time": cutoff_time},
                     )
                     conn.commit()
 
@@ -483,7 +487,6 @@ class MigrationManager:
                     return False
         except Exception as e:
             logger.error(f"Database connection validation failed: {e}")
-            logger.error(f"Database URL being used: {settings.get_database_url()}")
             return False
 
 

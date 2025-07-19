@@ -109,25 +109,83 @@ def get_sync_engine_config():
 
 def _create_engines():
     """Create database engines based on configuration."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.ext.asyncio import create_async_engine
 
-    # Use Cloud SQL connection factory
-    from app.core.cloud_sql import cloud_sql_factory
+    # Check if we should use Cloud SQL or local database
+    # Get the actual database URL that will be used
+    actual_db_url = settings.get_database_url()
 
-    logger.info("Using Google Cloud SQL for database connections")
-    async_engine = cloud_sql_factory.create_async_engine()
-    sync_engine = cloud_sql_factory.create_engine()
+    # Use local database for test environment
+    if settings.environment in ["test", "testing"]:
+        # Use local database (SQLite for testing)
+        async_url = settings.get_async_database_url()
+        sync_url = actual_db_url
+
+        logger.info(f"Using local database: {sync_url}")
+
+        async_engine = create_async_engine(async_url, **get_engine_config())
+        sync_engine = create_engine(sync_url, **get_sync_engine_config())
+    else:
+        # Use Cloud SQL connection factory
+        from app.core.cloud_sql import cloud_sql_factory
+
+        logger.info("Using Google Cloud SQL for database connections")
+        async_engine = cloud_sql_factory.create_async_engine()
+        sync_engine = cloud_sql_factory.create_engine()
 
     return async_engine, sync_engine
 
 
-# Create engines based on configuration
-async_engine, sync_engine = _create_engines()
+# Lazy engine creation - engines will be created when first accessed
+_async_engine = None
+_sync_engine = None
+_async_session_local = None
+_session_local = None
 
-AsyncSessionLocal = async_sessionmaker(
-    async_engine, class_=AsyncSession, expire_on_commit=False
-)
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
+def get_async_engine():
+    """Get or create the async engine."""
+    global _async_engine
+    if _async_engine is None:
+        _async_engine, _ = _create_engines()
+    return _async_engine
+
+
+def get_sync_engine():
+    """Get or create the sync engine."""
+    global _sync_engine
+    if _sync_engine is None:
+        _, _sync_engine = _create_engines()
+    return _sync_engine
+
+
+def get_async_session_local():
+    """Get or create the async session factory."""
+    global _async_session_local
+    if _async_session_local is None:
+        _async_session_local = async_sessionmaker(
+            get_async_engine(), class_=AsyncSession, expire_on_commit=False
+        )
+    return _async_session_local
+
+
+def get_session_local():
+    """Get or create the sync session factory."""
+    global _session_local
+    if _session_local is None:
+        _session_local = sessionmaker(
+            autocommit=False, autoflush=False, bind=get_sync_engine()
+        )
+    return _session_local
+
+
+# For backward compatibility, create module-level variables that use lazy initialization
+# These will be accessed as functions: async_engine(), sync_engine(), etc.
+async_engine = get_async_engine
+sync_engine = get_sync_engine
+AsyncSessionLocal = get_async_session_local
+SessionLocal = get_session_local
 
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
@@ -137,7 +195,8 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     Yields:
         AsyncSession: Database session
     """
-    async with AsyncSessionLocal() as session:
+    session_factory = get_async_session_local()
+    async with session_factory() as session:
         try:
             yield session
             await session.commit()
@@ -163,7 +222,8 @@ async def get_async_db_with_user_context(
     """
     from app.core.rls import AuthContextHandler
 
-    async with AsyncSessionLocal() as session:
+    session_factory = get_async_session_local()
+    async with session_factory() as session:
         try:
             # Set user context for RLS
             await AuthContextHandler.set_current_user(session, user_id)
@@ -190,7 +250,8 @@ def get_sync_db():
     Yields:
         Session: Sync database session
     """
-    db = SessionLocal()
+    session_factory = get_session_local()
+    db = session_factory()
     try:
         yield db
         db.commit()
@@ -252,7 +313,8 @@ async def init_db() -> None:
 
         # Validate RLS setup after migrations
         try:
-            async with AsyncSessionLocal() as session:
+            session_factory = get_async_session_local()
+            async with session_factory() as session:
                 rls_valid = await rls_manager.validate_rls_setup(session)
                 if rls_valid:
                     logger.info("RLS validation completed successfully")
@@ -284,7 +346,8 @@ async def close_db() -> None:
     Close database connections.
     This is typically called during application shutdown.
     """
-    await async_engine.dispose()
+    if _async_engine is not None:
+        await _async_engine.dispose()
 
     # Close Cloud SQL connectors if they were used
     if _is_cloud_sql_configured():
