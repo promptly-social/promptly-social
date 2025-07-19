@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePostEditor } from "@/hooks/usePostEditor";
 import { ideaBankApi, IdeaBankData } from "@/lib/idea-bank-api";
 import { PostInspiration } from "./components/PostInspiration";
+import { LinkedInButton } from "./components/LinkedInButton";
 
 interface PostCardProps {
   post: Post;
@@ -349,8 +350,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
     <>
       <Card className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-white max-w-[600]">
         <div className="flex justify-between items-start p-4">
-          <div className="flex-grow">
+          <div className="flex-grow justify-between flex items-center">
             <PostCardHeader />
+            <LinkedInButton post={post} />
           </div>
         </div>
 
@@ -381,18 +383,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
               <div className="flex items-center justify-between">
                 <PostCardMeta post={post} />
                 <div className="flex items-center">
-                  {post.status === "posted" && post.linkedin_article_url && (
-                    <a
-                      href={post.linkedin_article_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mr-2"
-                    >
-                      <Button variant="outline" size="icon">
-                        <Link className="h-4 w-4" />
-                      </Button>
-                    </a>
-                  )}
                   <PostSharingError hasError={!!post.sharing_error} />
                 </div>
               </div>
