@@ -70,7 +70,9 @@ def run_migrations_online() -> None:
     # Use our application's database engine which handles Cloud SQL properly
     from app.core.database import sync_engine
 
-    with sync_engine.connect() as connection:
+    # sync_engine is a function that returns the engine, so we need to call it
+    engine = sync_engine()
+    with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
