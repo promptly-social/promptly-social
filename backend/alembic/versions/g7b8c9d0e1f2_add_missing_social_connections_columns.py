@@ -22,24 +22,33 @@ def upgrade() -> None:
     # Add missing columns to social_connections table if they don't exist
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    existing_columns = [col['name'] for col in inspector.get_columns('social_connections')]
-    
+    existing_columns = [
+        col["name"] for col in inspector.get_columns("social_connections")
+    ]
+
     if "analysis_started_at" not in existing_columns:
         op.add_column(
-            "social_connections", 
-            sa.Column("analysis_started_at", sa.DateTime(timezone=True), nullable=True)
+            "social_connections",
+            sa.Column("analysis_started_at", sa.DateTime(timezone=True), nullable=True),
         )
-    
+
     if "analysis_completed_at" not in existing_columns:
         op.add_column(
-            "social_connections", 
-            sa.Column("analysis_completed_at", sa.DateTime(timezone=True), nullable=True)
+            "social_connections",
+            sa.Column(
+                "analysis_completed_at", sa.DateTime(timezone=True), nullable=True
+            ),
         )
-    
+
     if "analysis_status" not in existing_columns:
         op.add_column(
-            "social_connections", 
-            sa.Column("analysis_status", sa.String(), nullable=False, server_default=sa.text("'not_started'"))
+            "social_connections",
+            sa.Column(
+                "analysis_status",
+                sa.String(),
+                nullable=False,
+                server_default=sa.text("'not_started'"),
+            ),
         )
 
 

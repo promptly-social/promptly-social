@@ -22,13 +22,17 @@ def upgrade() -> None:
     # Add post scheduling fields if they don't exist
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    existing_columns = [col['name'] for col in inspector.get_columns('posts')]
-    existing_indexes = [idx['name'] for idx in inspector.get_indexes('posts')]
-    
+    existing_columns = [col["name"] for col in inspector.get_columns("posts")]
+    existing_indexes = [idx["name"] for idx in inspector.get_indexes("posts")]
+
     if "scheduler_job_name" not in existing_columns:
-        op.add_column("posts", sa.Column("scheduler_job_name", sa.String(255), nullable=True))
+        op.add_column(
+            "posts", sa.Column("scheduler_job_name", sa.String(255), nullable=True)
+        )
     if "linkedin_post_id" not in existing_columns:
-        op.add_column("posts", sa.Column("linkedin_post_id", sa.String(255), nullable=True))
+        op.add_column(
+            "posts", sa.Column("linkedin_post_id", sa.String(255), nullable=True)
+        )
     if "sharing_error" not in existing_columns:
         op.add_column("posts", sa.Column("sharing_error", sa.Text(), nullable=True))
 
@@ -52,7 +56,9 @@ def upgrade() -> None:
             "idx_posts_scheduled_pending",
             "posts",
             ["scheduled_at", "status"],
-            postgresql_where=sa.text("scheduled_at IS NOT NULL AND status = 'scheduled'"),
+            postgresql_where=sa.text(
+                "scheduled_at IS NOT NULL AND status = 'scheduled'"
+            ),
         )
 
 

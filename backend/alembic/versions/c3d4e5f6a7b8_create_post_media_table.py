@@ -24,7 +24,7 @@ def upgrade() -> None:
     connection = op.get_bind()
     inspector = sa.inspect(connection)
     existing_tables = inspector.get_table_names()
-    
+
     if "post_media" not in existing_tables:
         op.create_table(
             "post_media",
@@ -73,7 +73,7 @@ def upgrade() -> None:
         op.create_index("idx_post_media_user_id", "post_media", ["user_id"])
 
     # Remove old media columns from posts table if they exist (they're now in post_media table)
-    existing_columns = [col['name'] for col in inspector.get_columns('posts')]
+    existing_columns = [col["name"] for col in inspector.get_columns("posts")]
     if "media_type" in existing_columns:
         op.drop_column("posts", "media_type")
     if "media_url" in existing_columns:

@@ -103,7 +103,7 @@ class OnboardingService:
     def complete_onboarding(db: Session, user_id: str) -> UserOnboarding:
         """Mark onboarding as completed."""
         onboarding = OnboardingService.get_or_create_user_onboarding(db, user_id)
-        
+
         # Mark all steps as completed
         onboarding.step_profile_completed = True
         onboarding.step_content_preferences_completed = True
@@ -111,7 +111,7 @@ class OnboardingService:
         onboarding.step_my_posts_completed = True
         onboarding.step_content_ideas_completed = True
         onboarding.step_posting_schedule_completed = True
-        
+
         # Mark as completed
         onboarding.is_completed = True
         onboarding.is_skipped = False

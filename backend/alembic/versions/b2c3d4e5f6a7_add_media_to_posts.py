@@ -22,14 +22,16 @@ def upgrade() -> None:
     # Add media columns to posts table if they don't exist
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    existing_columns = [col['name'] for col in inspector.get_columns('posts')]
-    
+    existing_columns = [col["name"] for col in inspector.get_columns("posts")]
+
     if "media_type" not in existing_columns:
         op.add_column("posts", sa.Column("media_type", sa.Text(), nullable=True))
     if "media_url" not in existing_columns:
         op.add_column("posts", sa.Column("media_url", sa.Text(), nullable=True))
     if "linkedin_asset_urn" not in existing_columns:
-        op.add_column("posts", sa.Column("linkedin_asset_urn", sa.Text(), nullable=True))
+        op.add_column(
+            "posts", sa.Column("linkedin_asset_urn", sa.Text(), nullable=True)
+        )
 
 
 def downgrade() -> None:

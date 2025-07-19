@@ -25,7 +25,7 @@ def upgrade() -> None:
     connection = op.get_bind()
     inspector = sa.inspect(connection)
     existing_tables = inspector.get_table_names()
-    
+
     if "daily_suggestion_schedules" not in existing_tables:
         op.create_table(
             "daily_suggestion_schedules",
@@ -37,7 +37,9 @@ def upgrade() -> None:
             ),
             sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
             sa.Column("cron_expression", sa.Text(), nullable=False),
-            sa.Column("timezone", sa.Text(), nullable=False, server_default=sa.text("'UTC'")),
+            sa.Column(
+                "timezone", sa.Text(), nullable=False, server_default=sa.text("'UTC'")
+            ),
             sa.Column("last_run_at", sa.TIMESTAMP(timezone=True), nullable=True),
             sa.Column(
                 "created_at",
@@ -58,7 +60,9 @@ def upgrade() -> None:
                 name="fk_daily_suggestion_schedules_user_id",
                 ondelete="CASCADE",
             ),
-            sa.UniqueConstraint("user_id", name="daily_suggestion_schedules_user_unique"),
+            sa.UniqueConstraint(
+                "user_id", name="daily_suggestion_schedules_user_unique"
+            ),
             sa.CheckConstraint(
                 "cron_expression <> ''",
                 name="daily_suggestion_schedules_cron_expression_check",

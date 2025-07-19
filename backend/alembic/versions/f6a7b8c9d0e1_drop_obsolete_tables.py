@@ -24,19 +24,21 @@ def upgrade() -> None:
     connection = op.get_bind()
     inspector = sa.inspect(connection)
     existing_tables = inspector.get_table_names()
-    
+
     # Drop scraped_content table if it exists
     if "scraped_content" in existing_tables:
         # Drop indexes first
-        existing_indexes = [idx['name'] for idx in inspector.get_indexes('scraped_content')]
+        existing_indexes = [
+            idx["name"] for idx in inspector.get_indexes("scraped_content")
+        ]
         if "idx_scraped_content_topics" in existing_indexes:
             op.drop_index("idx_scraped_content_topics", table_name="scraped_content")
         if "idx_scraped_content_user_id" in existing_indexes:
             op.drop_index("idx_scraped_content_user_id", table_name="scraped_content")
-        
+
         # Drop the table
         op.drop_table("scraped_content")
-    
+
     # Drop imported_content table if it exists
     if "imported_content" in existing_tables:
         op.drop_table("imported_content")
@@ -81,7 +83,7 @@ def downgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )
-    
+
     # Recreate indexes
     op.create_index("idx_scraped_content_user_id", "scraped_content", ["user_id"])
     op.create_index(
@@ -90,7 +92,7 @@ def downgrade() -> None:
         ["topics"],
         postgresql_using="gin",
     )
-    
+
     # Recreate imported_content table
     op.create_table(
         "imported_content",

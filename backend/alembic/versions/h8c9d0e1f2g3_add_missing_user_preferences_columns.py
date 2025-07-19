@@ -23,30 +23,36 @@ def upgrade() -> None:
     # Add missing columns to user_preferences table if they don't exist
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    existing_columns = [col['name'] for col in inspector.get_columns('user_preferences')]
-    
+    existing_columns = [
+        col["name"] for col in inspector.get_columns("user_preferences")
+    ]
+
     if "substacks" not in existing_columns:
         op.add_column(
-            "user_preferences", 
-            sa.Column("substacks", postgresql.ARRAY(sa.Text()), nullable=False, server_default=sa.text("'{}'"))
+            "user_preferences",
+            sa.Column(
+                "substacks",
+                postgresql.ARRAY(sa.Text()),
+                nullable=False,
+                server_default=sa.text("'{}'"),
+            ),
         )
-    
+
     if "bio" not in existing_columns:
         op.add_column(
-            "user_preferences", 
-            sa.Column("bio", sa.String(), nullable=False, server_default=sa.text("''"))
+            "user_preferences",
+            sa.Column("bio", sa.String(), nullable=False, server_default=sa.text("''")),
         )
-    
+
     if "preferred_posting_time" not in existing_columns:
         op.add_column(
-            "user_preferences", 
-            sa.Column("preferred_posting_time", sa.Time(timezone=False), nullable=True)
+            "user_preferences",
+            sa.Column("preferred_posting_time", sa.Time(timezone=False), nullable=True),
         )
-    
+
     if "timezone" not in existing_columns:
         op.add_column(
-            "user_preferences", 
-            sa.Column("timezone", sa.String(), nullable=True)
+            "user_preferences", sa.Column("timezone", sa.String(), nullable=True)
         )
 
 

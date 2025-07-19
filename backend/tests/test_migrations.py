@@ -22,10 +22,13 @@ class TestMigrationManager:
         assert manager.alembic_cfg is not None
         assert manager.alembic_cfg_path is not None
 
-    @patch("app.core.migrations.sync_engine")
+    @patch("app.core.database.sync_engine")
     def test_validate_database_connection_success(self, mock_engine):
         """Test successful database connection validation."""
         mock_conn = Mock()
+        mock_result = Mock()
+        mock_result.scalar.return_value = 1
+        mock_conn.execute.return_value = mock_result
         mock_engine.connect.return_value.__enter__.return_value = mock_conn
 
         manager = MigrationManager()
@@ -34,7 +37,7 @@ class TestMigrationManager:
         assert result is True
         mock_conn.execute.assert_called_once()
 
-    @patch("app.core.migrations.sync_engine")
+    @patch("app.core.database.sync_engine")
     def test_validate_database_connection_failure(self, mock_engine):
         """Test database connection validation failure."""
         mock_engine.connect.side_effect = Exception("Connection failed")
@@ -44,7 +47,7 @@ class TestMigrationManager:
 
         assert result is False
 
-    @patch("app.core.migrations.sync_engine")
+    @patch("app.core.database.sync_engine")
     def test_acquire_migration_lock_success(self, mock_engine):
         """Test successful migration lock acquisition."""
         mock_conn = Mock()
@@ -58,8 +61,9 @@ class TestMigrationManager:
 
         assert result is True
 
-    @patch("app.core.migrations.sync_engine")
-    def test_acquire_migration_lock_failure(self, mock_engine):
+    @patch("time.sleep")  # Mock sleep to prevent actual delays
+    @patch("app.core.database.sync_engine")
+    def test_acquire_migration_lock_failure(self, mock_engine, mock_sleep):
         """Test migration lock acquisition failure."""
         mock_conn = Mock()
         mock_result = Mock()
@@ -68,12 +72,13 @@ class TestMigrationManager:
         mock_engine.connect.return_value.__enter__.return_value = mock_conn
 
         manager = MigrationManager()
-        result = manager._acquire_migration_lock()
+        # Use a very short timeout to avoid waiting
+        result = manager._acquire_migration_lock(timeout=0.1)
 
         assert result is False
 
     @patch("app.core.migrations.ScriptDirectory")
-    @patch("app.core.migrations.sync_engine")
+    @patch("app.core.database.sync_engine")
     def test_check_pending_migrations_none_applied(self, mock_engine, mock_script_dir):
         """Test checking pending migrations when none are applied."""
         # Mock the migration context
@@ -104,7 +109,7 @@ class TestMigrationManager:
             assert pending == ["rev1", "rev2"]  # Should be in correct order
 
     @patch("app.core.migrations.ScriptDirectory")
-    @patch("app.core.migrations.sync_engine")
+    @patch("app.core.database.sync_engine")
     def test_check_pending_migrations_some_applied(self, mock_engine, mock_script_dir):
         """Test checking pending migrations when some are applied."""
         # Mock the migration context

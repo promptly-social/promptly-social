@@ -22,12 +22,14 @@ def upgrade() -> None:
     # Add article URL columns to posts table if they don't exist
     connection = op.get_bind()
     inspector = sa.inspect(connection)
-    existing_columns = [col['name'] for col in inspector.get_columns('posts')]
-    
+    existing_columns = [col["name"] for col in inspector.get_columns("posts")]
+
     if "article_url" not in existing_columns:
         op.add_column("posts", sa.Column("article_url", sa.Text(), nullable=True))
     if "linkedin_article_url" not in existing_columns:
-        op.add_column("posts", sa.Column("linkedin_article_url", sa.Text(), nullable=True))
+        op.add_column(
+            "posts", sa.Column("linkedin_article_url", sa.Text(), nullable=True)
+        )
 
 
 def downgrade() -> None:
