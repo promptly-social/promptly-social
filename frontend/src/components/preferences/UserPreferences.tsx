@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
-import { profileApi } from "@/lib/profile-api";
+import { useProfile } from "@/contexts/ProfileContext";
+import { useUpdateUserPreferences } from "@/lib/profile-queries";
 import { useToast } from "@/hooks/use-toast";
 import { Settings, Plus, X, Tag, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,60 +16,63 @@ interface UserPreference {
 }
 
 export const UserPreferences: React.FC = () => {
-  const { user } = useAuth();
+  const { userPreferences, loading: isLoading } = useProfile();
   const { toast } = useToast();
-  const [preferences, setPreferences] = useState<UserPreference>({
-    topics: [],
-    websites: [],
-    substacks: [],
-  });
+  const updatePreferencesMutation = useUpdateUserPreferences();
+  
+  // Local state for pending changes
+  const [pendingChanges, setPendingChanges] = useState<UserPreference | null>(null);
+  
+  // Use pending changes if available, otherwise fall back to server data
+  const preferences = useMemo(() => {
+    if (pendingChanges) return pendingChanges;
+    return {
+      topics: userPreferences?.topics_of_interest || [],
+      websites: userPreferences?.websites || [],
+      substacks: userPreferences?.substacks || [],
+    };
+  }, [userPreferences, pendingChanges]);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!pendingChanges || !userPreferences) return false;
+    
+    const serverPrefs = {
+      topics: userPreferences.topics_of_interest || [],
+      websites: userPreferences.websites || [],
+      substacks: userPreferences.substacks || [],
+    };
+    
+    return (
+      JSON.stringify(pendingChanges.topics.sort()) !== JSON.stringify(serverPrefs.topics.sort()) ||
+      JSON.stringify(pendingChanges.websites.sort()) !== JSON.stringify(serverPrefs.websites.sort()) ||
+      JSON.stringify(pendingChanges.substacks.sort()) !== JSON.stringify(serverPrefs.substacks.sort())
+    );
+  }, [pendingChanges, userPreferences]);
+
   const [newTopic, setNewTopic] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
   const [newSubstack, setNewSubstack] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadPreferences();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const loadPreferences = async () => {
-    setIsLoading(true);
-    try {
-      const data = await profileApi.getUserPreferences();
-
-      setPreferences({
-        topics: data.topics_of_interest || [],
-        websites: data.websites || [],
-        substacks: data.substacks || [],
-      });
-    } catch (error) {
-      console.error("Error loading preferences:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load preferences",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const savePreferencesToBackend = async (newPreferences: UserPreference) => {
+  // Save changes function
+  const saveChanges = useCallback(async () => {
+    if (!pendingChanges) return;
+    
     setIsSaving(true);
     try {
-      await profileApi.updateUserPreferences({
-        topics_of_interest: newPreferences.topics,
-        websites: newPreferences.websites,
-        substacks: newPreferences.substacks,
+      await updatePreferencesMutation.mutateAsync({
+        topics_of_interest: pendingChanges.topics,
+        websites: pendingChanges.websites,
+        substacks: pendingChanges.substacks,
       });
-
+      
+      // Clear pending changes after successful save
+      setPendingChanges(null);
+      
       toast({
-        title: "Success",
-        description: "Preferences saved automatically",
+        title: "Saved",
+        description: "Preferences updated successfully",
       });
     } catch (error) {
       console.error("Error saving preferences:", error);
@@ -81,32 +84,38 @@ export const UserPreferences: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [pendingChanges, updatePreferencesMutation, toast]);
 
-  const addTopic = async () => {
+  // Discard changes function
+  const discardChanges = useCallback(() => {
+    setPendingChanges(null);
+    setNewTopic("");
+    setNewWebsite("");
+    setNewSubstack("");
+  }, []);
+
+  const addTopic = () => {
     if (newTopic.trim() && !preferences.topics.includes(newTopic.trim())) {
       const newPreferences = {
         ...preferences,
         topics: [...preferences.topics, newTopic.trim()],
       };
 
-      setPreferences(newPreferences);
       setNewTopic("");
-      await savePreferencesToBackend(newPreferences);
+      setPendingChanges(newPreferences);
     }
   };
 
-  const removeTopic = async (topicToRemove: string) => {
+  const removeTopic = (topicToRemove: string) => {
     const newPreferences = {
       ...preferences,
       topics: preferences.topics.filter((topic) => topic !== topicToRemove),
     };
 
-    setPreferences(newPreferences);
-    await savePreferencesToBackend(newPreferences);
+    setPendingChanges(newPreferences);
   };
 
-  const addWebsite = async () => {
+  const addWebsite = () => {
     if (
       newWebsite.trim() &&
       !preferences.websites.includes(newWebsite.trim())
@@ -116,13 +125,12 @@ export const UserPreferences: React.FC = () => {
         websites: [...preferences.websites, newWebsite.trim()],
       };
 
-      setPreferences(newPreferences);
       setNewWebsite("");
-      await savePreferencesToBackend(newPreferences);
+      setPendingChanges(newPreferences);
     }
   };
 
-  const removeWebsite = async (websiteToRemove: string) => {
+  const removeWebsite = (websiteToRemove: string) => {
     const newPreferences = {
       ...preferences,
       websites: preferences.websites.filter(
@@ -130,8 +138,7 @@ export const UserPreferences: React.FC = () => {
       ),
     };
 
-    setPreferences(newPreferences);
-    await savePreferencesToBackend(newPreferences);
+    setPendingChanges(newPreferences);
   };
 
   const handleTopicKeyPress = (e: React.KeyboardEvent) => {
@@ -148,7 +155,7 @@ export const UserPreferences: React.FC = () => {
     }
   };
 
-  const addSubstack = async () => {
+  const addSubstack = () => {
     if (
       newSubstack.trim() &&
       !preferences.substacks.includes(newSubstack.trim())
@@ -158,13 +165,12 @@ export const UserPreferences: React.FC = () => {
         substacks: [...preferences.substacks, newSubstack.trim()],
       };
 
-      setPreferences(newPreferences);
       setNewSubstack("");
-      await savePreferencesToBackend(newPreferences);
+      setPendingChanges(newPreferences);
     }
   };
 
-  const removeSubstack = async (substackToRemove: string) => {
+  const removeSubstack = (substackToRemove: string) => {
     const newPreferences = {
       ...preferences,
       substacks: preferences.substacks.filter(
@@ -172,8 +178,7 @@ export const UserPreferences: React.FC = () => {
       ),
     };
 
-    setPreferences(newPreferences);
-    await savePreferencesToBackend(newPreferences);
+    setPendingChanges(newPreferences);
   };
 
   const handleSubstackKeyPress = (e: React.KeyboardEvent) => {
@@ -384,6 +389,34 @@ export const UserPreferences: React.FC = () => {
             </p>
           )}
         </div>
+
+        {/* Save/Discard Buttons */}
+        {hasUnsavedChanges && (
+          <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+            <div className="flex-1">
+              <p className="text-sm text-amber-600 mb-2">
+                You have unsaved changes
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={discardChanges}
+                disabled={isSaving}
+                size="sm"
+              >
+                Discard Changes
+              </Button>
+              <Button
+                onClick={saveChanges}
+                disabled={isSaving}
+                size="sm"
+              >
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
     bucket = "promptly-terraform-state"
-    prefix = "terraform/state/gcp-functions/analyze-substack/production"
+    prefix = "terraform/state/gcp-functions/analyze/production"
   }
 } 

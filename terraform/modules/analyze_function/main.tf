@@ -31,7 +31,6 @@ provider "google-beta" {
 }
 
 
-
 # Storage bucket object for function source code
 resource "google_storage_bucket_object" "analyze_source" {
   name   = "analyze-${var.source_hash}.zip"
@@ -54,8 +53,8 @@ data "archive_file" "analyze_source" {
     "__pycache__/**",
     ".pytest_cache/**",
     "htmlcov/**",
-    "generate-suggestions/**",
-    "unified-post-scheduler/**",
+    "generate_suggestions/**",
+    "unified_post_scheduler/**",
     "analyze/venv/**",
     "analyze/__pycache__/**",
     "analyze/.pytest_cache/**",

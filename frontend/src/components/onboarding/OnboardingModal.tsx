@@ -9,34 +9,40 @@ import React, { useState } from "react";
 import { ChevronRight, ChevronLeft, SkipForward } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { useOnboarding } from "../../hooks/useOnboarding";
 import { SocialConnections } from "../profile/SocialConnections";
 import { UserPreferences } from "../preferences/UserPreferences";
 import { ContentScheduleSettings } from "../settings/ContentScheduleSettings";
+import { OnboardingProgress, OnboardingStep } from "@/types/onboarding";
 
 interface OnboardingModalProps {
+  progress: OnboardingProgress;
+  loading: boolean;
+  getStepsWithStatus: () => OnboardingStep[];
   isOpen: boolean;
   onClose: () => void;
   onSkip: () => void;
+  onComplete?: () => Promise<void>;
+  updateStep: (
+    step: number,
+    completed?: boolean
+  ) => Promise<OnboardingProgress>;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
+  progress,
+  loading,
+  getStepsWithStatus,
   isOpen,
   onClose,
   onSkip,
+  onComplete,
+  updateStep,
 }) => {
-  const {
-    progress,
-    loading,
-    getStepsWithStatus,
-    goToStep,
-    goToNextStep,
-    updateStep,
-  } = useOnboarding();
-
   const [currentViewStep, setCurrentViewStep] = useState(1);
   const steps = getStepsWithStatus();
   const currentStep = steps.find((s) => s.id === currentViewStep);
+
+  const totalSteps = 4;
 
   if (!isOpen || loading || !progress) return null;
 
@@ -53,15 +59,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
   };
 
-  const handleGoToStep = () => {
-    if (currentStep) {
-      goToStep(currentStep.id);
-      onClose();
-    }
-  };
-
   const handleNext = () => {
-    if (currentViewStep < 6) {
+    if (currentViewStep < totalSteps) {
       setCurrentViewStep(currentViewStep + 1);
     }
   };
@@ -79,7 +78,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-semibold text-gray-900">
-              Welcome to Promptly! 🎉
+             🎉 Welcome to Promptly!
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -99,16 +98,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="px-6 py-4 bg-gray-50">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">
-              Step {currentViewStep} of 6
+              Step {currentViewStep} of {totalSteps}
             </span>
             <span className="text-sm text-gray-500">
-              {Math.round((currentViewStep / 6) * 100)}% Complete
+              {Math.round((currentViewStep / totalSteps) * 100)}% Complete
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentViewStep / 6) * 100}%` }}
+              style={{ width: `${(currentViewStep / totalSteps) * 100}%` }}
             />
           </div>
         </div>
@@ -122,7 +121,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <h3 className="text-xl font-semibold text-gray-900">
                   {currentStep.title}
                 </h3>
-                <p className="text-gray-600">{currentStep.description}</p>
               </div>
               {currentStep.isCompleted && (
                 <Badge variant="default" className="ml-auto">
@@ -134,16 +132,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             {/* Step Highlights */}
             {currentStep.highlights && currentStep.highlights.length > 0 && (
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-blue-900 mb-2">
-                  What you'll do in this step:
-                </h4>
                 <ul className="space-y-1">
                   {currentStep.highlights.map((highlight, index) => (
                     <li
                       key={index}
                       className="text-blue-800 text-sm flex items-start gap-2"
                     >
-                      <span className="text-blue-600 mt-1">•</span>
+                      <span className="text-blue-600">•</span>
                       <span>{highlight}</span>
                     </li>
                   ))}
@@ -152,26 +147,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             )}
 
             {/* Special Notes */}
-            {currentStep.id === 1 && (
-              <SocialConnections />
-            )}
+            {currentStep.id === 1 && <SocialConnections />}
 
-            {currentStep.id === 2 &&(
-              <UserPreferences />
-            )}
+            {currentStep.id === 2 && <UserPreferences />}
 
-            {currentStep.id === 3 && (
-              <ContentScheduleSettings />
-            )}
-
-            {currentStep.id === 5 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-                <p className="text-orange-800 text-sm">
-                  <strong>Note:</strong> URLs to social media platforms are not
-                  supported yet.
-                </p>
-              </div>
-            )}
+            {currentStep.id === 3 && <ContentScheduleSettings />}
           </div>
         )}
 
@@ -188,13 +168,29 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </Button>
 
           <div className="flex items-center gap-2">
-            {currentViewStep < 6 ? (
-              <Button onClick={handleNext} className="flex items-center gap-2">
+            {currentViewStep < totalSteps ? (
+              <Button
+                onClick={async () => {
+                  handleStepComplete();
+                  handleNext();
+                }}
+                className="flex items-center gap-2"
+              >
                 Next
                 <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={onClose} className="flex items-center gap-2">
+              <Button
+                onClick={async () => {
+                  await handleStepComplete();
+                  if (onComplete) {
+                    await onComplete();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="flex items-center gap-2"
+              >
                 Finish Setup
               </Button>
             )}

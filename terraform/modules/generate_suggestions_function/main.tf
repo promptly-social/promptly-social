@@ -54,12 +54,12 @@ data "archive_file" "generate_suggestions_source" {
     ".pytest_cache/**",
     "htmlcov/**",
     "analyze/**",
-    "unified-post-scheduler/**",
-    "generate-suggestions/venv/**",
-    "generate-suggestions/__pycache__/**",
-    "generate-suggestions/.pytest_cache/**",
-    "generate-suggestions/htmlcov/**",
-    "generate-suggestions/test**"
+    "unified_post_scheduler/**",
+    "generate_suggestions/venv/**",
+    "generate_suggestions/__pycache__/**",
+    "generate_suggestions/.pytest_cache/**",
+    "generate_suggestions/htmlcov/**",
+    "generate_suggestions/test**"
   ]
 }
 

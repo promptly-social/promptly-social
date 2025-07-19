@@ -55,6 +55,15 @@ export const onboardingApi = {
   },
 
   /**
+   * Mark onboarding as completed
+   */
+  completeOnboarding: async (): Promise<OnboardingProgress> => {
+    return apiClient.request<OnboardingProgress>("/onboarding/complete", {
+      method: "POST",
+    });
+  },
+
+  /**
    * Reset onboarding progress to start over
    */
   resetOnboarding: async (): Promise<OnboardingProgress> => {

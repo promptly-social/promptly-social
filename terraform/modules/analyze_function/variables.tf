@@ -33,7 +33,7 @@ variable "app_name" {
 variable "function_name" {
   description = "The name of the Cloud Function."
   type        = string
-  default     = "analyze-substack"
+  default     = "analyze"
 }
 
 variable "max_posts_to_analyze" {

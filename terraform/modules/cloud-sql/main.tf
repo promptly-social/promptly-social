@@ -214,9 +214,9 @@ resource "google_secret_manager_secret" "db_name" {
 
 resource "google_secret_manager_secret_version" "db_name" {
   secret = google_secret_manager_secret.db_name.id
-  secret_data = google_sql_database_instance.main.connection_name
+  secret_data = google_sql_database.main_database.name
 
-  depends_on = [google_sql_database_instance.main]
+  depends_on = [google_sql_database.main_database]
 }
 
 

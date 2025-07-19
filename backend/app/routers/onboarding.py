@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_sync_db
 from app.dependencies import get_current_user_with_rls_sync as get_current_user
-from app.models.user import User
 from app.schemas.auth import UserResponse
 from app.schemas.onboarding import (
     OnboardingResponse,
@@ -183,6 +182,43 @@ def update_onboarding_progress(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update onboarding: {str(e)}",
+        )
+
+
+@router.post("/complete", response_model=OnboardingResponse)
+def complete_onboarding(
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_sync_db),
+):
+    """Mark onboarding as completed."""
+    try:
+        onboarding = OnboardingService.complete_onboarding(db, current_user.id)
+
+        progress_percentage = onboarding.get_progress_percentage()
+
+        return OnboardingResponse(
+            id=onboarding.id,
+            user_id=onboarding.user_id,
+            is_completed=onboarding.is_completed,
+            is_skipped=onboarding.is_skipped,
+            step_profile_completed=onboarding.step_profile_completed,
+            step_content_preferences_completed=onboarding.step_content_preferences_completed,
+            step_settings_completed=onboarding.step_settings_completed,
+            step_my_posts_completed=onboarding.step_my_posts_completed,
+            step_content_ideas_completed=onboarding.step_content_ideas_completed,
+            step_posting_schedule_completed=onboarding.step_posting_schedule_completed,
+            current_step=onboarding.current_step,
+            progress_percentage=progress_percentage,
+            notes=onboarding.notes,
+            created_at=onboarding.created_at,
+            updated_at=onboarding.updated_at,
+            completed_at=onboarding.completed_at,
+            skipped_at=onboarding.skipped_at,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to complete onboarding: {str(e)}",
         )
 
 

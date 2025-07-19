@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { profileApi, PlatformAnalysisResponse } from "@/lib/profile-api";
 import {
   BarChart3,
@@ -38,7 +39,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 export const WritingAnalysis: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [connections, setConnections] = useState<Record<string, boolean>>({});
+  const { socialConnections } = useProfile();
   const [selectedSource, setSelectedSource] = useState<string>("import");
   const [analysisData, setAnalysisData] =
     useState<PlatformAnalysisResponse | null>(null);
@@ -64,26 +65,16 @@ export const WritingAnalysis: React.FC = () => {
   const [analyzeModalOpen, setAnalyzeModalOpen] = useState(false);
   const [importText, setImportText] = useState("");
 
-  useEffect(() => {
-    if (user) {
-      fetchConnections();
-    }
-  }, [user]);
-
-  const fetchConnections = async () => {
-    try {
-      const data = await profileApi.getSocialConnections();
-      const active: Record<string, boolean> = {};
-      data.forEach((conn) => {
-        if (conn.is_active) {
-          active[conn.platform] = true;
-        }
-      });
-      setConnections(active);
-    } catch (error) {
-      console.error("Error fetching connections:", error);
-    }
-  };
+  // Create a connections lookup from socialConnections
+  const connections = React.useMemo(() => {
+    const active: Record<string, boolean> = {};
+    socialConnections.forEach((conn) => {
+      if (conn.is_active) {
+        active[conn.platform] = true;
+      }
+    });
+    return active;
+  }, [socialConnections]);
 
   const refetchAnalysis = async () => {
     await queryClient.invalidateQueries({ queryKey: ["writingAnalysis"] });

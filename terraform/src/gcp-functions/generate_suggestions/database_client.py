@@ -4,8 +4,8 @@ from typing import Any, Dict, List
 from datetime import datetime, timedelta
 
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
-from cloud_sql_client import get_cloud_sql_client
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from shared.cloud_sql_client import get_cloud_sql_client
 
 logger = logging.getLogger(__name__)
 

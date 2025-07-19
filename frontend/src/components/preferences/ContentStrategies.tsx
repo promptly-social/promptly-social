@@ -1,52 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { profileApi, ContentStrategy } from "@/lib/profile-api";
 import { useToast } from "@/hooks/use-toast";
 import { Target, Edit3, Check, X, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const ContentStrategies: React.FC = () => {
-  const { user } = useAuth();
+  const { userPreferences, loading: isLoading, refreshProfile } = useProfile();
   const { toast } = useToast();
-  const [strategies, setStrategies] = useState<ContentStrategy[]>([]);
+  const strategies = userPreferences?.content_strategies || [];
+
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(
     null
   );
   const [editingStrategy, setEditingStrategy] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAddingNew, setIsAddingNew] = useState(false);
 
   // Only supporting LinkedIn for now
   const LINKEDIN_PLATFORM = "linkedin";
-
-  useEffect(() => {
-    if (user) {
-      loadStrategies();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const loadStrategies = async () => {
-    setIsLoading(true);
-    try {
-      const data = await profileApi.getUserPreferences();
-      setStrategies(data.content_strategies || []);
-    } catch (error) {
-      console.error("Error loading content strategies:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load content strategies",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleEdit = (strategy: ContentStrategy) => {
     setEditingStrategyId(strategy.id);
@@ -77,19 +53,7 @@ export const ContentStrategies: React.FC = () => {
         },
       });
 
-      // Update local state
-      const updatedStrategies = strategies.filter(
-        (s) => s.platform !== LINKEDIN_PLATFORM
-      );
-      updatedStrategies.push({
-        id: `temp-${Date.now()}`,
-        user_id: user?.id || "",
-        platform: LINKEDIN_PLATFORM,
-        strategy: editingStrategy,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      setStrategies(updatedStrategies);
+      await refreshProfile();
 
       setEditingStrategyId(null);
       setEditingStrategy("");
@@ -121,11 +85,11 @@ export const ContentStrategies: React.FC = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl">
           <Target className="w-5 h-5" />
-          Content Style
+          Post Style
         </CardTitle>
         <p className="text-xs sm:text-sm text-gray-600">
-          Define your content style for LinkedIn to instruct the AI to create
-          more targeted and effective posts that sound like you.
+          Define your post style and format for LinkedIn to instruct the AI to
+          draft posts that sound like you.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

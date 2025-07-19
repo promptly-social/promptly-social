@@ -9,11 +9,14 @@ import traceback
 import functions_framework
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "shared"))
-from cloud_sql_client import get_cloud_sql_client
-from substack_analyzer import SubstackAnalyzer
-from linkedin_analyzer import LinkedInAnalyzer
-from import_sample_analyzer import ImportSampleAnalyzer
+# Add parent directory to path for absolute imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+# Use absolute imports from the package root
+from shared.cloud_sql_client import get_cloud_sql_client
+from analyze.substack_analyzer import SubstackAnalyzer
+from analyze.linkedin_analyzer import LinkedInAnalyzer
+from analyze.import_sample_analyzer import ImportSampleAnalyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
