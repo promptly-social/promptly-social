@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileVideo, Trash2, X, Copy, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { postsApi } from "@/lib/posts-api";
+import { PromptGenerationModal } from "./PromptGenerationModal";
 
 interface PostEditorFieldsProps {
   editor: UsePostEditorReturn;
@@ -48,6 +49,8 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [isGeneratingPrompt, setIsGeneratingPrompt] = React.useState(false);
+  const [prompt, setPrompt] = React.useState("");
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   // Tooltip open state ensures it only shows on explicit hover.
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
@@ -70,8 +73,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
   // Determine if post is posted and should have read-only restrictions
   const isPosted = postStatus === "posted" || isReadOnly;
 
-  // Function to generate and copy AI prompt
-  const generateAndCopyPrompt = async () => {
+  const generatePrompt = async () => {
     const trimmedContent = content.trim();
     if (!trimmedContent) {
       toast({
@@ -86,43 +88,27 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
 
     try {
       const response = await postsApi.generateImagePrompt(trimmedContent);
-      console.log("API Response:", response);
-
-      // Check if the response has the expected structure
       if (!response.imagePrompt) {
         throw new Error("Invalid response format: missing imagePrompt");
       }
-
-      // Copy the generated prompt to clipboard
-      await navigator.clipboard.writeText(response.imagePrompt);
-
-      toast({
-        title: "Prompt generated and copied!",
-        description:
-          "AI image generation prompt has been copied to your clipboard.",
-      });
+      setPrompt(response.imagePrompt);
+      setIsModalOpen(true);
     } catch (err) {
       console.error("Failed to generate image prompt:", err);
-      
-      // More specific error handling
-      let errorMessage = "Unable to generate image prompt. Please try again.";
-      
-      if (err instanceof Error) {
-        if (err.message.includes("clipboard")) {
-          errorMessage = "Failed to copy to clipboard. Please try again.";
-        } else if (err.message.includes("Invalid response")) {
-          errorMessage = "Received invalid response from server.";
-        }
-      }
-      
       toast({
         title: "Failed to generate prompt",
-        description: errorMessage,
+        description: "Unable to generate image prompt. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsGeneratingPrompt(false);
     }
+  };
+
+  const handleCopyPrompt = (promptToCopy: string) => {
+    // The modal already copies to clipboard and shows a toast.
+    // This function is mainly for any additional logic needed in the parent.
+    console.log("Prompt copied:", promptToCopy);
   };
 
   return (
@@ -274,7 +260,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={generateAndCopyPrompt}
+              onClick={generatePrompt}
               disabled={isGeneratingPrompt || isPosted}
               className="flex items-center gap-2"
             >
@@ -283,11 +269,22 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
               ) : (
                 <Copy className="w-4 h-4" />
               )}
-              {isPosted ? "Disabled for Posted Posts" : isGeneratingPrompt ? "Generating..." : "Generate Prompt"}
+              {isPosted
+                ? "Disabled for Posted Posts"
+                : isGeneratingPrompt
+                ? "Generating..."
+                : "Generate Prompt"}
             </Button>
           </div>
         </div>
       </div>
+      <PromptGenerationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCopy={handleCopyPrompt}
+        onRegenerate={generatePrompt}
+        prompt={prompt}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="topics-input">Categories:</Label>
