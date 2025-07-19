@@ -205,6 +205,7 @@ def generate_suggestions(request):
                 for i, article in enumerate(filtered_articles):
                     generated_post = generated_post_results[i].model_dump()
                     generated_post["idea_bank_id"] = article.get("id")
+                    generated_post["article_url"] = article.get("url")
                     generated_posts.append(generated_post)
 
             # Add the post_id to the generated posts
