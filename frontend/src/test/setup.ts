@@ -1,3 +1,9 @@
+import { JSDOM } from 'jsdom';
+
+const dom = new JSDOM();
+global.document = dom.window.document;
+global.window = dom.window;
+
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
