@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock } from "lucide-react";
-import { Post } from "@/types/posts";
+import { Clock, Link as LinkIcon } from "lucide-react";
+import { Post, PostMedia } from "@/types/posts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatTime, formatDate } from "@/utils/datetime";
+import { postsApi } from "@/lib/posts-api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DraggablePostCardProps {
   post: Post;
@@ -30,6 +32,26 @@ export const ListViewPostCard: React.FC<DraggablePostCardProps> = ({
   enableDroppable = true,
 }) => {
   const isMobile = useIsMobile();
+  const [signedMedia, setSignedMedia] = useState<PostMedia[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+
+  useEffect(() => {
+    const fetchSignedMedia = async () => {
+      if (post.media && post.media.length > 0) {
+        setLoadingMedia(true);
+        try {
+          const media = await postsApi.getPostMedia(post.id);
+          setSignedMedia(media);
+        } catch (error) {
+          console.error("Failed to load media", error);
+        } finally {
+          setLoadingMedia(false);
+        }
+      }
+    };
+
+    fetchSignedMedia();
+  }, [post.id, post.media]);
 
   const {
     attributes,
@@ -183,13 +205,40 @@ export const ListViewPostCard: React.FC<DraggablePostCardProps> = ({
       {...(showDragHandle ? { ...attributes, ...listeners } : {})}
     >
       <CardContent className="p-3">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
+          {loadingMedia ? (
+            <Skeleton className="w-24 h-24 rounded-lg" />
+          ) : (
+            signedMedia.length > 0 && (
+              <div className="w-24 h-24 flex-shrink-0">
+                <img
+                  src={signedMedia[0].url}
+                  alt="Post media"
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              </div>
+            )
+          )}
           <div className="flex-1 min-w-0">
             <div className="bg-gray-50 p-2 rounded-lg mb-2">
               <p className="text-sm text-gray-800 leading-relaxed line-clamp-2">
                 {post.content}
               </p>
             </div>
+
+            {post.article_url && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 mb-2 truncate">
+                <LinkIcon className="w-3 h-3" />
+                <a
+                  href={post.article_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate"
+                >
+                  {post.article_url}
+                </a>
+              </div>
+            )}
 
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className="flex items-center gap-1">
