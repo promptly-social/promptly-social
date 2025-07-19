@@ -13,6 +13,7 @@ interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  cancelButtonText?: string;
   title: string;
   description: string;
   isLoading?: boolean;
@@ -22,6 +23,7 @@ export const ConfirmationModal = ({
   isOpen,
   onClose,
   onConfirm,
+  cancelButtonText = "Cancel",
   title,
   description,
   isLoading = false,
@@ -36,7 +38,7 @@ export const ConfirmationModal = ({
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
+            {cancelButtonText}
           </Button>
           <Button onClick={onConfirm} disabled={isLoading}>
             {isLoading ? (

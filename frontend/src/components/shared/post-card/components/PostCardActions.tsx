@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Calendar, X, Bookmark, Send } from "lucide-react";
+import { RefreshCw, Calendar, X, Bookmark, Send, Edit3 } from "lucide-react";
 import { Post } from "@/types/posts";
 
 interface PostCardActionsProps {
@@ -14,6 +14,7 @@ interface PostCardActionsProps {
   onSaveForLater?: (post: Post) => void;
   onDismissPost?: (post: Post) => void;
   onPostNow?: (post: Post) => void;
+  onEdit?: () => void;
 }
 
 export const PostCardActions: React.FC<PostCardActionsProps> = ({
@@ -27,6 +28,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
   onSaveForLater,
   onDismissPost,
   onPostNow,
+  onEdit,
 }) => {
   if (post.status === "posted") {
     return null;
@@ -37,8 +39,16 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
       {post.status === "scheduled" ? (
         <>
           <Button
-            onClick={() => onPostNow?.(post)}
+            onClick={() => onReschedulePost?.(post.id)}
             className="bg-blue-600 hover:bg-blue-700 flex-1"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            Reschedule
+          </Button>
+          <Button
+            onClick={() => onPostNow?.(post)}
+            variant="outline"
+            className="flex-1"
             disabled={postingPostId === post.id}
           >
             {postingPostId === post.id ? (
@@ -61,20 +71,20 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
             <X className="w-4 h-4 mr-2" />
             Remove from Schedule
           </Button>
-          <Button
-            onClick={() => onReschedulePost?.(post.id)}
-            variant="outline"
-            className="flex-1"
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Reschedule
-          </Button>
         </>
       ) : (
         <>
           <Button
-            onClick={() => onPostNow?.(post)}
+            onClick={() => onSchedulePost?.(post.id)}
             className="bg-blue-600 hover:bg-blue-700 flex-1"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            Schedule Post
+          </Button>
+          <Button
+            onClick={() => onPostNow?.(post)}
+            variant="outline"
+            className="flex-1"
             disabled={postingPostId === post.id}
           >
             {postingPostId === post.id ? (
@@ -89,17 +99,17 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
               </>
             )}
           </Button>
-          <Button
-            onClick={() => onSchedulePost?.(post.id)}
-            variant="outline"
-            className="flex-1"
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Schedule Post
-          </Button>
         </>
       )}
 
+      <Button
+        onClick={onEdit}
+        variant="outline"
+        className="flex-1"
+      >
+        <Edit3 className="w-4 h-4 mr-2" />
+        Edit
+      </Button>
       <Button
         variant="outline"
         className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"

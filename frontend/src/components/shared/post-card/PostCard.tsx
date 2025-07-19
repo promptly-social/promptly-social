@@ -352,19 +352,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
           <div className="flex-grow">
             <PostCardHeader />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleStartEditing}>
-                <Edit3 className="w-4 h-4 mr-2" />
-                Edit Post
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         <CardContent className="space-y-4 flex-grow flex flex-col pt-0">
@@ -426,6 +413,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
                   setConfirmationModal({ isOpen: true, action: "dismiss" })
                 }
                 onPostNow={handlePostNow}
+                onEdit={handleStartEditing}
               />
             </>
           )}

@@ -46,7 +46,7 @@ export const NegativeFeedbackModal: React.FC<NegativeFeedbackModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Provide Feedback</DialogTitle>
+          <DialogTitle>Provide Feedback (Optional)</DialogTitle>
         </DialogHeader>
         <Textarea
           value={feedback}

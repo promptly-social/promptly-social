@@ -135,6 +135,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       <ConfirmationModal
         isOpen={showScheduleConfirmation}
         onClose={handleScheduleDecline}
+        cancelButtonText="No"
         onConfirm={handleScheduleConfirmation}
         title="Schedule this post?"
         description="Would you like to schedule this post for publication?"
