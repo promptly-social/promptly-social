@@ -1,19 +1,25 @@
-import React from "react";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PromptGenerationModal } from "../PromptGenerationModal";
-import { useToast } from "@/hooks/use-toast";
 
 // Mock the useToast hook
-jest.mock("@/hooks/use-toast", () => ({
+vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({
-    toast: jest.fn(),
+    toast: vi.fn(),
   }),
 }));
 
+// Mock the clipboard API
+Object.assign(navigator, {
+  clipboard: {
+    writeText: vi.fn(),
+  },
+});
+
 describe("PromptGenerationModal", () => {
-  const mockOnClose = jest.fn();
-  const mockOnCopy = jest.fn();
-  const mockOnRegenerate = jest.fn();
+  const mockOnClose = vi.fn();
+  const mockOnCopy = vi.fn();
+  const mockOnRegenerate = vi.fn();
 
   const initialProps = {
     isOpen: true,
@@ -32,14 +38,18 @@ describe("PromptGenerationModal", () => {
   it("allows editing the prompt", () => {
     render(<PromptGenerationModal {...initialProps} />);
     const textarea = screen.getByRole("textbox");
-    fireEvent.change(textarea, { target: { value: "This is an edited prompt" } });
+    fireEvent.change(textarea, {
+      target: { value: "This is an edited prompt" },
+    });
     expect(textarea).toHaveValue("This is an edited prompt");
   });
 
   it('calls onCopy and onClose with the edited prompt when "Copy" is clicked', () => {
     render(<PromptGenerationModal {...initialProps} />);
     const textarea = screen.getByRole("textbox");
-    fireEvent.change(textarea, { target: { value: "This is an edited prompt" } });
+    fireEvent.change(textarea, {
+      target: { value: "This is an edited prompt" },
+    });
 
     const copyButton = screen.getByText("Copy");
     fireEvent.click(copyButton);
@@ -48,12 +58,11 @@ describe("PromptGenerationModal", () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('calls onRegenerate and onClose when "Regenerate" is clicked', () => {
+  it('calls onClose when "Close" is clicked', () => {
     render(<PromptGenerationModal {...initialProps} />);
-    const regenerateButton = screen.getByText("Regenerate");
-    fireEvent.click(regenerateButton);
+    const closeButton = screen.getAllByText("Close")[0];
+    fireEvent.click(closeButton);
 
-    expect(mockOnRegenerate).toHaveBeenCalled();
     expect(mockOnClose).toHaveBeenCalled();
   });
 });

@@ -42,8 +42,7 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
     onClose();
   };
 
-  const handleRegenerate = () => {
-    onRegenerate();
+  const handleClose = () => {
     onClose();
   };
 
@@ -59,8 +58,8 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
           className="min-h-[150px] resize-y"
         />
         <DialogFooter>
-          <Button variant="outline" onClick={handleRegenerate}>
-            Regenerate
+          <Button variant="outline" onClick={handleClose}>
+            Close
           </Button>
           <Button onClick={handleCopy}>Copy</Button>
         </DialogFooter>

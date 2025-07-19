@@ -1,12 +1,6 @@
 name: Terraform Deploy Infrastructure
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "terraform/environments/infrastructure/**"
-      - ".github/workflows/terraform-infrastructure.yml"
   workflow_dispatch:
     inputs:
       environment:
