@@ -165,7 +165,8 @@ resource "google_project_iam_member" "app_sa_runtime_permissions" {
     "roles/cloudtrace.agent",
     "roles/run.developer",
     "roles/artifactregistry.reader",
-    "roles/cloudscheduler.admin"
+    "roles/cloudscheduler.admin",
+    "roles/iam.serviceAccountTokenCreator"  # Required for GCS signed URL generation via IAM API
   ])
 
   project = var.project_id
