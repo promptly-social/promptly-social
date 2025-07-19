@@ -22,7 +22,7 @@ jobs:
   build-and-deploy-frontend:
     name: Build and Deploy Frontend
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     permissions:
       contents: "read"
       id-token: "write"
@@ -30,7 +30,7 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
-      ENV_NAME: ${{ github.event.inputs.environment }}
+      ENV_NAME: ${{ github.event.inputs.environment || 'staging' }}
       GCP_TERRAFORM_SA_EMAIL: ${{ secrets.GCP_TERRAFORM_SA_EMAIL }}
       BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
       VITE_API_URL: ${{ secrets.VITE_API_URL }}
