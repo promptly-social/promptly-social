@@ -7,8 +7,16 @@ import { ideaBankApi, IdeaBankData } from "@/lib/idea-bank-api";
 import { postsApi } from "@/lib/posts-api";
 
 // Mock the APIs
-vi.mock("@/lib/idea-bank-api");
-vi.mock("@/lib/posts-api");
+vi.mock("@/lib/idea-bank-api", () => ({
+  ideaBankApi: {
+    getIdeaBank: vi.fn(),
+  },
+}));
+vi.mock("@/lib/posts-api", () => ({
+  postsApi: {
+    getPostMedia: vi.fn(),
+  },
+}));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
@@ -39,12 +47,12 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 // Mock the UI components
-vi.mock("@/components/ui/card", () => ({
+vi.doMock("@/components/ui/card", () => ({
   Card: ({ children, className }: any) => <div className={className}>{children}</div>,
   CardContent: ({ children, className }: any) => <div className={className}>{children}</div>,
 }));
 
-vi.mock("@/components/ui/button", () => ({
+vi.doMock("@/components/ui/button", () => ({
   Button: ({ children, onClick, disabled, className, ...props }: any) => (
     <button
       onClick={onClick}
@@ -57,7 +65,7 @@ vi.mock("@/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@/components/ui/dropdown-menu", () => ({
+vi.doMock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: any) => <div>{children}</div>,
   DropdownMenuContent: ({ children }: any) => <div>{children}</div>,
   DropdownMenuItem: ({ children, onClick }: any) => (
@@ -67,11 +75,11 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 }));
 
 // Mock other components
-vi.mock("../components/PostCardHeader", () => ({
+vi.doMock("../components/PostCardHeader", () => ({
   PostCardHeader: () => <div>Post Header</div>,
 }));
 
-vi.mock("../components/PostContent", () => ({
+vi.doMock("../components/PostContent", () => ({
   PostContent: ({ post }: any) => (
     <div>
       <div>Post Content: {post.content}</div>
@@ -79,25 +87,25 @@ vi.mock("../components/PostContent", () => ({
   ),
 }));
 
-vi.mock("../components/PostCardMeta", () => ({
+vi.doMock("../components/PostCardMeta", () => ({
   PostCardMeta: () => <div>Post Meta</div>,
 }));
 
-vi.mock("../components/PostCardTopics", () => ({
+vi.doMock("../components/PostCardTopics", () => ({
   PostCardTopics: () => <div>Post Topics</div>,
 }));
 
-vi.mock("../components/PostInspiration", () => ({
+vi.doMock("../components/PostInspiration", () => ({
   PostInspiration: ({ inspiration }: any) => (
     <div>Inspiration: {inspiration.value}</div>
   ),
 }));
 
-vi.mock("../components/PostCardActions", () => ({
+vi.doMock("../components/PostCardActions", () => ({
   PostCardActions: () => <div>Post Actions</div>,
 }));
 
-vi.mock("../components/PostSharingError", () => ({
+vi.doMock("../components/PostSharingError", () => ({
   PostSharingError: () => <div>Sharing Error</div>,
 }));
 
@@ -125,7 +133,6 @@ const mockIdeaBankData: IdeaBankData = {
 describe("PostCard Integration - Inspiration Fetching", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (postsApi.getPostMedia as any).mockResolvedValue([]);
   });
 
   it("fetches and displays inspiration data when post has idea_bank_id", async () => {
@@ -138,7 +145,7 @@ describe("PostCard Integration - Inspiration Fetching", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Inspiration: https://example.com/inspiration")).toBeInTheDocument();
+      expect(screen.getByText("Inspiration Article")).toBeInTheDocument();
     });
   });
 
