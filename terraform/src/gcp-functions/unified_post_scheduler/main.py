@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 from typing import Dict, Any, List, Optional
 import traceback
+from uuid import UUID
 
 import functions_framework
 import httpx
@@ -14,6 +15,15 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from shared.cloud_sql_client import get_cloud_sql_client, CloudSQLClient
+
+class UUIDEncoder(json.JSONEncoder):
+    """Custom JSON encoder that converts UUID objects to strings."""
+    def default(self, obj):
+        if isinstance(obj, UUID):
+            return str(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -124,7 +134,8 @@ def process_scheduled_posts(request):
                     "failed_posts": failed_posts,
                     "execution_time_seconds": execution_time,
                     "results": results,
-                }
+                },
+                cls=UUIDEncoder
             ),
             200,
             headers,

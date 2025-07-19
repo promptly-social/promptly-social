@@ -4,6 +4,7 @@ import os
 import traceback
 import asyncio
 from datetime import datetime
+from uuid import UUID
 import sys
 
 # Add parent directory to path for absolute imports
@@ -23,6 +24,8 @@ class DateTimeEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, datetime):
             return o.isoformat()
+        if isinstance(o, UUID):
+            return str(o)
         return super(DateTimeEncoder, self).default(o)
 
 
