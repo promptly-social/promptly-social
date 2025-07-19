@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a2db5c6cc8b4'
-down_revision: Union[str, None] = 'h8c9d0e1f2g3'
+revision: str = "a2db5c6cc8b4"
+down_revision: Union[str, None] = "h8c9d0e1f2g3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -21,30 +21,26 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Drop the existing check constraint
     op.drop_constraint(
-        "writing_style_analysis_platform_check",
-        "writing_style_analysis",
-        type_="check"
+        "writing_style_analysis_platform_check", "writing_style_analysis", type_="check"
     )
-    
+
     # Create new check constraint with 'import' included
     op.create_check_constraint(
         "writing_style_analysis_platform_check",
         "writing_style_analysis",
-        "platform IN ('substack', 'linkedin', 'import')"
+        "platform IN ('substack', 'linkedin', 'import')",
     )
 
 
 def downgrade() -> None:
     # Drop the updated check constraint
     op.drop_constraint(
-        "writing_style_analysis_platform_check",
-        "writing_style_analysis",
-        type_="check"
+        "writing_style_analysis_platform_check", "writing_style_analysis", type_="check"
     )
-    
+
     # Restore original check constraint without 'import'
     op.create_check_constraint(
         "writing_style_analysis_platform_check",
         "writing_style_analysis",
-        "platform IN ('substack', 'linkedin')"
+        "platform IN ('substack', 'linkedin')",
     )
