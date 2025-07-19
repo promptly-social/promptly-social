@@ -9,7 +9,7 @@ import { MonthViewPostCard } from "../MonthViewPostCard";
 import { Post } from "@/types/posts";
 
 // Mock the useIsMobile hook
-vi.mock("@/hooks/use-mobile", () => ({
+vi.doMock("@/hooks/use-mobile", () => ({
   useIsMobile: () => false,
 }));
 

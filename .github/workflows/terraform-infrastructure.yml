@@ -1,6 +1,12 @@
 name: Terraform Deploy Infrastructure
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/environments/infrastructure/**"
+      - ".github/workflows/terraform-infrastructure.yml"
   workflow_dispatch:
     inputs:
       environment:
@@ -14,7 +20,7 @@ on:
       action:
         description: "Terraform action"
         required: true
-        default: "plan"
+        default: "apply"
         type: choice
         options:
           - plan
@@ -23,7 +29,7 @@ on:
       auto_approve:
         description: "Auto approve terraform apply"
         required: false
-        default: false
+        default: true
         type: boolean
 
 env:
