@@ -205,14 +205,14 @@ def generate_suggestions(request):
                 for i, article in enumerate(filtered_articles):
                     generated_post = generated_post_results[i].model_dump()
                     generated_post["idea_bank_id"] = article.get("id")
-                    generated_post["article_url"] = article.get("url")
                     generated_posts.append(generated_post)
 
-            # Add the post_id to the generated posts
+            # Add the post_id and article_url to the generated posts
             for post in generated_posts:
                 for candidate_post in candidate_posts:
                     if candidate_post.get("url") == post.get("post_url"):
                         post["post_id"] = candidate_post.get("id").__str__()
+                        post["article_url"] = candidate_post.get("url")
                         break
 
             # save the generated posts to the contents table
