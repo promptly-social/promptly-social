@@ -147,12 +147,12 @@ def generate_suggestions(request):
                 websites = user_preferences.get("websites", [])
 
                 fetch_tasks = []
-                # if substacks:
-                #     fetch_tasks.append(
-                #         article_fetcher.fetch_candidate_articles(
-                #             substacks, topics_of_interest, bio, 10, True
-                #         )
-                #     )
+                if substacks:
+                    fetch_tasks.append(
+                        article_fetcher.fetch_candidate_articles(
+                            substacks, topics_of_interest, bio, 10, True
+                        )
+                    )
                 if websites:
                     fetch_tasks.append(
                         article_fetcher.fetch_candidate_articles(
