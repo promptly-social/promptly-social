@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 from datetime import datetime, timedelta
 
 import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from shared.cloud_sql_client import get_cloud_sql_client
 
@@ -31,7 +32,7 @@ class CloudSQLClient:
                 FROM user_preferences 
                 WHERE user_id = :user_id
             """
-            
+
             results = self.client.execute_query(query, {"user_id": user_id})
 
             if not results:
@@ -70,9 +71,9 @@ class CloudSQLClient:
                 WHERE user_id = :user_id
                 LIMIT 1
             """
-            
+
             results = self.client.execute_query(query, {"user_id": user_id})
-            
+
             if results:
                 return results[0].get("analysis_data", "") or ""
             else:
@@ -88,8 +89,8 @@ class CloudSQLClient:
         Get the user's ideas that either don't have a post yet or the post was generated more than a week ago.
         """
         try:
-            one_week_ago = (datetime.now() - timedelta(days=7)).isoformat()
-            
+            one_week_ago = datetime.now() - timedelta(days=7)
+
             # Get ideas with no posts or posts older than a week
             query = """
                 SELECT DISTINCT ib.id, ib.data, ib.created_at
@@ -100,11 +101,10 @@ class CloudSQLClient:
                   AND (p.id IS NULL OR p.created_at < :one_week_ago)
                 ORDER BY ib.created_at DESC
             """
-            
-            results = self.client.execute_query(query, {
-                "user_id": user_id,
-                "one_week_ago": one_week_ago
-            })
+
+            results = self.client.execute_query(
+                query, {"user_id": user_id, "one_week_ago": one_week_ago}
+            )
 
             return results or []
         except Exception as e:
@@ -125,7 +125,7 @@ class CloudSQLClient:
         """
         try:
             # Calculate 12 hours ago
-            twelve_hours_ago = (datetime.now() - timedelta(hours=12)).isoformat()
+            twelve_hours_ago = datetime.now() - timedelta(hours=12)
 
             query = """
                 SELECT ib.id, ib.data, ib.created_at
@@ -137,12 +137,11 @@ class CloudSQLClient:
                   AND p.id IS NULL
                 ORDER BY ib.created_at DESC
             """
-            
-            results = self.client.execute_query(query, {
-                "user_id": user_id,
-                "twelve_hours_ago": twelve_hours_ago
-            })
-            
+
+            results = self.client.execute_query(
+                query, {"user_id": user_id, "twelve_hours_ago": twelve_hours_ago}
+            )
+
             if results:
                 logger.info(
                     f"Found {len(results)} idea bank posts from last 12 hours for user {user_id}"
@@ -192,11 +191,10 @@ class CloudSQLClient:
                 SELECT id FROM idea_banks 
                 WHERE user_id = :user_id AND data->>'value' = :post_url
             """
-            
-            existing_results = self.client.execute_query(existing_query, {
-                "user_id": user_id,
-                "post_url": post_url
-            })
+
+            existing_results = self.client.execute_query(
+                existing_query, {"user_id": user_id, "post_url": post_url}
+            )
 
             if existing_results:
                 # URL already exists, use the existing ID
@@ -209,6 +207,7 @@ class CloudSQLClient:
             else:
                 # URL doesn't exist, create new entry
                 import json
+
                 data = {
                     "value": post_url,
                     "title": post["title"],
@@ -217,24 +216,23 @@ class CloudSQLClient:
                     "post_date": post["post_date"],
                     "ai_suggested": True,
                 }
-                
+
                 insert_query = """
                     INSERT INTO idea_banks (user_id, data)
                     VALUES (:user_id, :data)
                     RETURNING id
                 """
-                
-                insert_results = self.client.execute_query(insert_query, {
-                    "user_id": user_id,
-                    "data": json.dumps(data)
-                })
+
+                insert_results = self.client.execute_query(
+                    insert_query, {"user_id": user_id, "data": json.dumps(data)}
+                )
 
                 if not insert_results:
                     logger.error(
                         "No data returned when saving candidate post to idea banks"
                     )
                     raise Exception("No data returned from idea banks insert")
-                
+
                 logger.info(
                     f"Saved new candidate post to idea banks for user {user_id}: {insert_results}"
                 )
@@ -251,21 +249,25 @@ class CloudSQLClient:
         for i, post in enumerate(suggested_posts):
             try:
                 import json
+
                 insert_query = """
                     INSERT INTO posts (user_id, title, content, platform, topics, status, idea_bank_id)
                     VALUES (:user_id, :title, :content, :platform, :topics, :status, :idea_bank_id)
                     RETURNING id
                 """
-                
-                results = self.client.execute_query(insert_query, {
-                    "user_id": user_id,
-                    "title": post.get("title"),
-                    "content": post.get("linkedin_post", ""),
-                    "platform": post.get("platform", "linkedin"),
-                    "topics": json.dumps(post.get("topics", [])),
-                    "status": "suggested",
-                    "idea_bank_id": post.get("idea_bank_id")
-                })
+
+                results = self.client.execute_query(
+                    insert_query,
+                    {
+                        "user_id": user_id,
+                        "title": post.get("title"),
+                        "content": post.get("linkedin_post", ""),
+                        "platform": post.get("platform", "linkedin"),
+                        "topics": json.dumps(post.get("topics", [])),
+                        "status": "suggested",
+                        "idea_bank_id": post.get("idea_bank_id"),
+                    },
+                )
 
                 if results:
                     logger.info(
@@ -290,9 +292,9 @@ class CloudSQLClient:
                 WHERE user_id = :user_id AND platform = 'linkedin'
                 LIMIT 1
             """
-            
+
             results = self.client.execute_query(query, {"user_id": user_id})
-            
+
             if results:
                 return results[0].get("strategy", "") or ""
             else:
@@ -354,12 +356,11 @@ INSTEAD, use high-effort questions like:
                 VALUES (:user_id, :platform, :strategy)
                 RETURNING strategy
             """
-            
-            results = self.client.execute_query(insert_query, {
-                "user_id": user_id,
-                "platform": "linkedin",
-                "strategy": STRATEGY
-            })
+
+            results = self.client.execute_query(
+                insert_query,
+                {"user_id": user_id, "platform": "linkedin", "strategy": STRATEGY},
+            )
 
             if results:
                 logger.info(f"Created content strategy for user {user_id}")
@@ -382,7 +383,7 @@ INSTEAD, use high-effort questions like:
                 WHERE user_id = :user_id
                 LIMIT 1
             """
-            
+
             results = self.client.execute_query(check_query, {"user_id": user_id})
 
             if not results:
@@ -397,8 +398,10 @@ INSTEAD, use high-effort questions like:
                 SET last_run_at = NOW(), updated_at = NOW()
                 WHERE user_id = :user_id
             """
-            
-            rows_affected = self.client.execute_update(update_query, {"user_id": user_id})
+
+            rows_affected = self.client.execute_update(
+                update_query, {"user_id": user_id}
+            )
 
             if rows_affected == 0:
                 logger.error(

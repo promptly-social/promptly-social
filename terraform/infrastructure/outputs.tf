@@ -82,11 +82,6 @@ output "dns_zone_name" {
   value       = var.manage_frontend_infra && local.is_production ? google_dns_managed_zone.frontend_zone[0].name : "n/a"
 }
 
-output "cloud_run_service_url" {
-  description = "The URL of the Cloud Run service"
-  value       = var.manage_cloud_run_service && length(module.cloud_run_service) > 0 ? module.cloud_run_service[0].service_url : "n/a"
-}
-
 # Cloud SQL Outputs
 output "cloud_sql_instance_name" {
   description = "The name of the Cloud SQL instance"

@@ -213,7 +213,7 @@ async def mark_analysis_failed(
         updated_connection_data = {
             **connection_data,
             "analysis_error": error_message,
-            "analysis_failed_at": datetime.now(timezone.utc).isoformat(),
+            "analysis_failed_at": datetime.now(timezone.utc),
             "analysis_status": "error",
         }
 

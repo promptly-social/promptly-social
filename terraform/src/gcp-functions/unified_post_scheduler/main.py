@@ -163,8 +163,8 @@ async def get_posts_to_publish(client: CloudSQLClient) -> List[Dict[str, Any]]:
         
         posts = await client.execute_query_async(query, {
             "status": "scheduled",
-            "ten_minutes_ago": ten_minutes_ago.isoformat(),
-            "now": now.isoformat()
+            "ten_minutes_ago": ten_minutes_ago,
+            "now": now
         })
 
         logger.info(f"Found {len(posts)} posts ready for publishing")
