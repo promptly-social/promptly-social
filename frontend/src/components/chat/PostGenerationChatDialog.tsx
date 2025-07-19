@@ -20,13 +20,13 @@ import { Post } from "@/types/posts";
 import { PostScheduleModal } from "../schedule-modal/PostScheduleModal";
 import { CreatePostModal } from "../post-modal/CreatePostModal";
 import { useToast } from "../ui/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmationModal } from "../shared/modals/ConfirmationModal";
 import { Button } from "../ui/button";
 import { archiveConversation } from "@/lib/chat-api";
 
 type PostSchedulingContextType = {
-  onSchedule: (content: string, topics?: string[]) => void;
+  onSchedule: (content: string, topics?: string[], ideaBankId?: string) => void;
+  ideaBankId?: string;
 };
 
 const PostSchedulingContext = createContext<PostSchedulingContextType | null>(
@@ -63,6 +63,7 @@ const ChatDialogContent = ({
   onClose: () => void;
 }) => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [ideaBankId, setIdeaBankId] = useState<string | undefined>(undefined);
   const [initialMessages, setInitialMessages] = useState<ThreadMessage[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
 
@@ -74,12 +75,16 @@ const ChatDialogContent = ({
   const [draftContent, setDraftContent] = useState("");
   const [draftTopics, setDraftTopics] = useState<string[]>([]);
   const { toast } = useToast();
-  const { user } = useAuth();
 
-  const handleOpenCreateModal = (content: string, topics?: string[]) => {
+  const handleOpenCreateModal = (
+    content: string,
+    topics?: string[],
+    ideaBankId?: string
+  ) => {
     setDraftContent(content);
     setDraftTopics(topics || []);
     setShowCreateModal(true);
+    setIdeaBankId(ideaBankId);
   };
 
   const handleScheduleRequest = (post: Post) => {
@@ -168,6 +173,12 @@ const ChatDialogContent = ({
     );
   }, [idea, conversationType]);
 
+  useEffect(() => {
+    if (idea?.idea_bank.id) {
+      setIdeaBankId(idea.idea_bank.id);
+    }
+  }, [idea]);
+
   if (!conversation) {
     return (
       <DialogContent>
@@ -183,7 +194,7 @@ const ChatDialogContent = ({
 
   return (
     <PostSchedulingContext.Provider
-      value={{ onSchedule: handleOpenCreateModal }}
+      value={{ onSchedule: handleOpenCreateModal, ideaBankId }}
     >
       <ChatThreadRuntime
         key={conversation.id}
@@ -203,6 +214,7 @@ const ChatDialogContent = ({
         onScheduleRequest={handleScheduleRequest}
         initialContent={draftContent}
         initialTopics={draftTopics}
+        ideaBankId={ideaBankId}
       />
 
       <PostScheduleModal

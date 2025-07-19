@@ -32,7 +32,9 @@ describe("PostsAPI", () => {
       const error = new Error("API Error");
       (apiClient.request as any).mockRejectedValue(error);
 
-      await expect(postsApi.generateImagePrompt("Test content")).rejects.toThrow("API Error");
+      await expect(
+        postsApi.generateImagePrompt("Test content")
+      ).rejects.toThrow("API Error");
     });
   });
 
@@ -134,7 +136,9 @@ describe("PostsAPI", () => {
       const error = new Error("Publishing failed");
       (apiClient.request as any).mockRejectedValue(error);
 
-      await expect(postsApi.postNow("post-1")).rejects.toThrow("Publishing failed");
+      await expect(postsApi.postNow("post-1")).rejects.toThrow(
+        "Publishing failed"
+      );
     });
   });
 
@@ -194,6 +198,86 @@ describe("PostsAPI", () => {
         "/posts/?platform=linkedin&status=draft&status=scheduled&page=2&size=10"
       );
       expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe("getPostsForCalendar", () => {
+    it("fetches calendar posts for date range", async () => {
+      const mockPosts = [
+        {
+          id: "1",
+          content: "Scheduled post",
+          status: "scheduled",
+          scheduled_at: "2024-01-15T10:00:00Z",
+          posted_at: null,
+        },
+        {
+          id: "2",
+          content: "Posted post",
+          status: "posted",
+          scheduled_at: null,
+          posted_at: "2024-01-20T14:00:00Z",
+        },
+      ];
+      const mockResponse = {
+        items: mockPosts,
+        total: 2,
+        page: 1,
+        size: 50,
+        total_pages: 1,
+      };
+      (apiClient.request as any).mockResolvedValue(mockResponse);
+
+      const result = await postsApi.getPostsForCalendar(
+        "2024-01-01",
+        "2024-01-31"
+      );
+
+      expect(apiClient.request).toHaveBeenCalledWith(
+        "/posts/?status=scheduled&status=posted&after_date=2024-01-01&before_date=2024-01-31&size=50&order_by=scheduled_at%2Cposted_at&order_direction=asc"
+      );
+      expect(result).toEqual(mockPosts);
+    });
+
+    it("returns empty array on API error", async () => {
+      const error = new Error("API Error");
+      (apiClient.request as any).mockRejectedValue(error);
+
+      // Mock console.error to avoid test output noise
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await postsApi.getPostsForCalendar(
+        "2024-01-01",
+        "2024-01-31"
+      );
+
+      expect(result).toEqual([]);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to fetch calendar posts:",
+        error
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it("handles empty response gracefully", async () => {
+      const mockResponse = {
+        items: [],
+        total: 0,
+        page: 1,
+        size: 1000,
+        total_pages: 0,
+      };
+      (apiClient.request as unknown).mockResolvedValue(mockResponse);
+
+      const result = await postsApi.getPostsForCalendar(
+        "2024-01-01",
+        "2024-01-31"
+      );
+
+      expect(result).toEqual([]);
     });
   });
 });

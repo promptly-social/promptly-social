@@ -42,7 +42,7 @@ export const Thread: FC<{ placeholder?: string; initialText?: string }> = ({
   return (
     <ThreadPrimitive.Root
       className="bg-background box-border flex h-full flex-col overflow-hidden"
-      scroll-lock
+      scroll-lock={true}
       style={{
         ["--thread-max-width" as string]: "42rem",
       }}
@@ -205,7 +205,7 @@ const EditComposer: FC = () => {
  */
 const AssistantMessage: FC = () => {
   const message = useMessage();
-  const { onSchedule } = usePostScheduling();
+  const { onSchedule, ideaBankId } = usePostScheduling();
   const cardRef = useRef<HTMLDivElement>(null);
 
   const isToolOutput = useMemo(
@@ -270,7 +270,8 @@ const AssistantMessage: FC = () => {
                     if (generatedPost?.linkedin_post) {
                       onSchedule(
                         generatedPost.linkedin_post,
-                        generatedPost.topics
+                        generatedPost.topics,
+                        ideaBankId
                       );
                     }
                   }}
@@ -293,7 +294,7 @@ const AssistantMessage: FC = () => {
                 <Button
                   onClick={() => {
                     if (toolCallContent.result) {
-                      onSchedule(toolCallContent.result);
+                      onSchedule(toolCallContent.result, [], ideaBankId);
                     }
                   }}
                 >

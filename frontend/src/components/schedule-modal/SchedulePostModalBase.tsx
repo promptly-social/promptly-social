@@ -23,9 +23,6 @@ import { Post } from "@/types/posts";
 import { postsApi } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
-import { PushPostsDialog } from "@/components/schedule-modal/PushPostsDialog";
-import { MobileScheduleView } from "@/components/schedule-modal/MobileScheduleView";
-import { DesktopScheduleView } from "@/components/schedule-modal/DesktopScheduleView";
 import { useProfile } from "@/contexts/ProfileContext";
 import { toDate, format, toZonedTime } from "date-fns-tz";
 import {
