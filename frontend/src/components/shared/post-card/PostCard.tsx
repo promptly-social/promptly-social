@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit3, Check, MoreHorizontal } from "lucide-react";
+import { Edit3, Check, Link, MoreHorizontal } from "lucide-react";
 import { Post, PostMedia, PostUpdate } from "@/types/posts";
 import { PostCardHeader } from "./components/PostCardHeader";
 import { PostContent } from "./components/PostContent";
@@ -380,7 +380,21 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
             <>
               <div className="flex items-center justify-between">
                 <PostCardMeta post={post} />
-                <PostSharingError hasError={!!post.sharing_error} />
+                <div className="flex items-center">
+                  {post.status === "posted" && post.linkedin_article_url && (
+                    <a
+                      href={post.linkedin_article_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mr-2"
+                    >
+                      <Button variant="outline" size="icon">
+                        <Link className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  )}
+                  <PostSharingError hasError={!!post.sharing_error} />
+                </div>
               </div>
               <PostCardTopics topics={post.topics} />
 

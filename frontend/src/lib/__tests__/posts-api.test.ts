@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { postsApi } from "../posts-api";
 import { apiClient } from "../auth-api";
-import { vi } from "vitest";
 
 // Mock the API client
 vi.mock("../auth-api", () => ({
