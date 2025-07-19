@@ -60,24 +60,10 @@ def get_cloud_sql_db():
     return get_cloud_sql_client()
 
 
-@functions_framework.http
-def process_scheduled_posts(request):
+async def _process_scheduled_posts_async(request):
     """
-    Process all posts scheduled for publishing in the last 5 minutes.
-
-    This function is triggered by Cloud Scheduler every 5 minutes.
-    No request payload required.
+    Async implementation of process_scheduled_posts.
     """
-    # Handle CORS
-    if request.method == "OPTIONS":
-        headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600",
-        }
-        return ("", 204, headers)
-
     headers = {"Access-Control-Allow-Origin": "*"}
 
     try:
@@ -88,9 +74,7 @@ def process_scheduled_posts(request):
         db_client = get_cloud_sql_db()
 
         # Get posts scheduled for publishing
-        posts_to_publish = asyncio.run(
-            retry_with_exponential_backoff(get_posts_to_publish, db_client)
-        )
+        posts_to_publish = await retry_with_exponential_backoff(get_posts_to_publish, db_client)
 
         if not posts_to_publish:
             logger.info("No posts found for publishing")
@@ -112,7 +96,7 @@ def process_scheduled_posts(request):
         logger.info(f"Found {len(posts_to_publish)} posts to publish")
 
         # Process each post
-        results = asyncio.run(process_posts_batch(db_client, posts_to_publish))
+        results = await process_posts_batch(db_client, posts_to_publish)
 
         # Calculate summary statistics
         successful_posts = sum(1 for r in results if r["success"])
@@ -143,11 +127,77 @@ def process_scheduled_posts(request):
 
     except Exception as e:
         logger.error(f"Error in unified post scheduler: {e}")
-        logger.error(traceback.format_exc())
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return (
-            json.dumps({"success": False, "error": str(e), "posts_processed": 0}),
+            json.dumps(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                }
+            ),
             500,
             headers,
+        )
+
+
+@functions_framework.http
+def process_scheduled_posts(request):
+    """
+    Process all posts scheduled for publishing in the last 5 minutes.
+
+    This function is triggered by Cloud Scheduler every 5 minutes.
+    No request payload required.
+    """
+    # Handle CORS
+    if request.method == "OPTIONS":
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "3600",
+        }
+        return ("", 204, headers)
+
+    # Use asyncio.run() in a safe way for Cloud Functions
+    try:
+        # Check if there's already an event loop running
+        try:
+            asyncio.get_running_loop()
+            # If we get here, there's already a loop running
+            # We need to run in a new thread or use a different approach
+            import concurrent.futures
+            
+            def run_in_thread():
+                # Create a new event loop in this thread
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(_process_scheduled_posts_async(request))
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+                
+        except RuntimeError:
+            # No event loop running, safe to use asyncio.run()
+            return asyncio.run(_process_scheduled_posts_async(request))
+            
+    except Exception as e:
+        logger.error(f"Error in process_scheduled_posts wrapper: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return (
+            json.dumps(
+                {
+                    "success": False,
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                }
+            ),
+            500,
+            {"Access-Control-Allow-Origin": "*"},
         )
 
 
