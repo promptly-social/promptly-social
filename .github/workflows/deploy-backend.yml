@@ -25,8 +25,9 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
-  SERVICE_NAME: promptly-backend-${{ github.event.inputs.environment }}
-  APP_SA_EMAIL: promptly-app-sa-${{ github.event.inputs.environment }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'staging' }}
+  SERVICE_NAME: promptly-backend-${{ github.event.inputs.environment || 'staging' }}
+  APP_SA_EMAIL: promptly-app-sa-${{ github.event.inputs.environment || 'staging' }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
 
 jobs:
   test:
@@ -70,7 +71,7 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     needs: test
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     permissions:
       contents: "read"
       id-token: "write"
@@ -105,7 +106,7 @@ jobs:
           CLOUD_SQL_DATABASE_NAME: ${{ secrets.CLOUD_SQL_DATABASE_NAME }}
           CLOUD_SQL_USER: ${{ secrets.CLOUD_SQL_USER }}
           CLOUD_SQL_PASSWORD: ${{ secrets.CLOUD_SQL_PASSWORD }}
-          ENVIRONMENT: ${{ github.event.inputs.environment }}
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'staging' }}
           AUTO_APPLY_MIGRATIONS: true
         run: |
           echo "Running database migrations for ${{ github.event.inputs.environment }}..."
@@ -131,7 +132,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: [test, migrate]
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     permissions:
       contents: "read"
       id-token: "write"
@@ -181,6 +182,6 @@ jobs:
       id-token: "write"
     uses: ./.github/workflows/terraform-cloud-run.yml
     with:
-      environment: ${{ github.event.inputs.environment }}
+      environment: ${{ github.event.inputs.environment || 'staging' }}
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
     secrets: inherit
