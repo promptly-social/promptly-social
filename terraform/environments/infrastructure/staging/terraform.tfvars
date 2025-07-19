@@ -39,7 +39,24 @@ github_repo = "promptly-social/promptly-social"
 # API Domain Name
 api_domain_name = "api.staging.promptly.social"
 
-# Frontend Domain Name
-frontend_domain_name = "staging.promptly.social" 
+# Frontend Configuration
+manage_frontend_infra = true
+frontend_domain_name  = "staging.promptly.social"
+
+# Cloud SQL Configuration - Staging (cost-optimized)
+cloud_sql_tier                    = "db-f1-micro"
+cloud_sql_disk_size              = 20
+cloud_sql_disk_autoresize_limit  = 50
+cloud_sql_availability_type      = "ZONAL"
+cloud_sql_deletion_protection    = false  # Allow easier cleanup in staging
+cloud_sql_backup_retention_count = 3      # Shorter retention for staging
+cloud_sql_transaction_log_retention_days = 3  # Match backup retention
+cloud_sql_authorized_networks    = []     # Use private IP only
+
+# Cloud Function service accounts that need database access
+# All Cloud Functions use the same App Service Account
+cloud_function_sa_emails = [
+  "promptly-app-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
+] 
 
 terraform_service_account_email = "promptly-tf-sa-staging@promptly-social-staging.iam.gserviceaccount.com"

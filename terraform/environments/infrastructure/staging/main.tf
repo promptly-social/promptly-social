@@ -65,6 +65,18 @@ module "infrastructure" {
   cloud_run_memory        = var.cloud_run_memory
   cloud_run_cpu          = var.cloud_run_cpu
 
+  # Cloud SQL configuration
+  cloud_sql_tier                    = var.cloud_sql_tier
+  cloud_sql_disk_size              = var.cloud_sql_disk_size
+  cloud_sql_disk_autoresize_limit  = var.cloud_sql_disk_autoresize_limit
+  cloud_sql_availability_type      = var.cloud_sql_availability_type
+  cloud_sql_deletion_protection    = var.cloud_sql_deletion_protection
+  cloud_sql_backup_retention_count = var.cloud_sql_backup_retention_count
+  cloud_sql_transaction_log_retention_days = var.cloud_sql_transaction_log_retention_days
+  cloud_sql_authorized_networks    = var.cloud_sql_authorized_networks
+  cloud_function_sa_emails         = var.cloud_function_sa_emails
+  vpc_network                      = var.vpc_network
+
   # Other configuration
   production_project_id       = var.production_project_id
   image_tag                  = var.image_tag

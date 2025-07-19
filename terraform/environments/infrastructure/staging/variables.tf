@@ -137,3 +137,67 @@ variable "manage_dns_zone" {
   type        = bool
   default     = false
 }
+
+# Cloud SQL Configuration Variables
+variable "cloud_sql_tier" {
+  description = "The machine type for the Cloud SQL instance"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "cloud_sql_disk_size" {
+  description = "The disk size in GB for the Cloud SQL instance"
+  type        = number
+  default     = 20
+}
+
+variable "cloud_sql_disk_autoresize_limit" {
+  description = "Maximum disk size in GB for autoresize"
+  type        = number
+  default     = 100
+}
+
+variable "cloud_sql_availability_type" {
+  description = "Availability type for Cloud SQL (ZONAL or REGIONAL)"
+  type        = string
+  default     = "ZONAL"
+}
+
+variable "cloud_sql_deletion_protection" {
+  description = "Enable deletion protection for Cloud SQL instance"
+  type        = bool
+  default     = true
+}
+
+variable "cloud_sql_backup_retention_count" {
+  description = "Number of backups to retain for Cloud SQL"
+  type        = number
+  default     = 7
+}
+
+variable "vpc_network" {
+  description = "VPC network for private IP configuration"
+  type        = string
+  default     = null
+}
+
+variable "cloud_sql_transaction_log_retention_days" {
+  description = "Number of days to retain transaction logs"
+  type        = number
+  default     = 7
+}
+
+variable "cloud_sql_authorized_networks" {
+  description = "List of authorized networks for Cloud SQL"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
+
+variable "cloud_function_sa_emails" {
+  description = "List of Cloud Function service account emails that need database access"
+  type        = list(string)
+  default     = []
+}

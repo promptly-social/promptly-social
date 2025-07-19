@@ -5,7 +5,7 @@ Content Strategies model for storing user content strategies.
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -22,7 +22,9 @@ class ContentStrategy(Base):
         primary_key=True,
         default=uuid4,
     )
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     platform: Mapped[str] = mapped_column(String(50), nullable=False)
     strategy: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

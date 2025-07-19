@@ -23,8 +23,12 @@ class Post(Base):
         primary_key=True,
         default=uuid4,
     )
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
-    idea_bank_id: Mapped[Optional[UUID]] = mapped_column(UUIDType(), nullable=True)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    idea_bank_id: Mapped[Optional[UUID]] = mapped_column(
+        UUIDType(), ForeignKey("idea_banks.id", ondelete="SET NULL"), nullable=True
+    )
     title: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     platform: Mapped[str] = mapped_column(
@@ -73,9 +77,11 @@ class PostMedia(Base):
     __tablename__ = "post_media"
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
-    post_id: Mapped[UUID] = mapped_column(ForeignKey("posts.id"), nullable=False)
+    post_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("posts.id", ondelete="CASCADE"), nullable=False
+    )
     user_id: Mapped[UUID] = mapped_column(
-        UUIDType(), nullable=False
+        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )  # For easier access control
     media_type: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True

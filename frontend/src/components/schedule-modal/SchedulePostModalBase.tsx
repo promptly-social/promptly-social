@@ -23,10 +23,19 @@ import { Post } from "@/types/posts";
 import { postsApi } from "@/lib/posts-api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduledPostDetails } from "@/components/schedule-modal/ScheduledPostDetails";
-import { useAuth } from "@/contexts/AuthContext";
+import { PushPostsDialog } from "@/components/schedule-modal/PushPostsDialog";
+import { MobileScheduleView } from "@/components/schedule-modal/MobileScheduleView";
+import { DesktopScheduleView } from "@/components/schedule-modal/DesktopScheduleView";
 import { useProfile } from "@/contexts/ProfileContext";
 import { toDate, format, toZonedTime } from "date-fns-tz";
-import { addDays, endOfMonth, startOfMonth, subDays } from "date-fns";
+import {
+  addDays,
+  endOfMonth,
+  startOfMonth,
+  subDays,
+  isSameDay,
+} from "date-fns";
+import { toast } from "@/hooks/use-toast";
 
 interface SchedulePostModalBaseProps {
   mode: "schedule" | "reschedule";
@@ -56,6 +65,9 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const [selectedScheduledPost, setSelectedScheduledPost] =
     useState<Post | null>(null);
+  const [showPushDialog, setShowPushDialog] = useState(false);
+  const [postsOnSelectedDay, setPostsOnSelectedDay] = useState<Post[]>([]);
+  const [isPushing, setIsPushing] = useState(false);
   const { userPreferences: contextPrefs } = useProfile();
 
   const userPreferences = useMemo(() => {
@@ -71,7 +83,6 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
 
   const [selectedTimezone, setSelectedTimezone] = useState<string>("");
   const [timezones, setTimezones] = useState<string[]>([]);
-  const { user } = useAuth();
 
   const isMobile = useIsMobile();
 
@@ -96,12 +107,8 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
     ? "Confirm & Schedule Post"
     : "Confirm & Reschedule Post";
   const submittingText = isScheduleMode ? "Scheduling..." : "Rescheduling...";
-  const conflictTitle = isScheduleMode
-    ? "Scheduling Conflict"
-    : "Rescheduling Conflict";
-  const conflictSubmitText = isScheduleMode
-    ? "Schedule Anyway"
-    : "Reschedule Anyway";
+  const conflictTitle = "Scheduling Conflict";
+  const conflictSubmitText = "Schedule Anyway";
 
   const fetchScheduledPosts = useCallback(async (month: Date) => {
     setIsLoadingScheduledPosts(true);
@@ -140,11 +147,6 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
     setTimezones(Intl.supportedValuesOf("timeZone"));
   }, []);
 
-  // Removed extra API call; preferences come from ProfileContext
-
-  // Initialise the modal defaults once – when it opens – but don't overwrite the
-  // user's subsequent interactions (e.g. when userPreferences arrive slightly
-  // later from context).
   useEffect(() => {
     if (!isOpen) {
       initializedRef.current = false; // reset for next open
@@ -158,9 +160,8 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
       setSelectedTimezone(targetTimezone);
 
       if (isScheduleMode) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        setSelectedDate(tomorrow);
+        const today = new Date();
+        setSelectedDate(today);
 
         const defaultTime = userPreferences.preferred_posting_time;
         if (defaultTime) {
@@ -178,9 +179,8 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
           setSelectedHour(format(zonedDate, "HH"));
           setSelectedMinute(format(zonedDate, "mm"));
         } else {
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          setSelectedDate(tomorrow);
+          const today = new Date();
+          setSelectedDate(today);
           setSelectedHour("09");
           setSelectedMinute("00");
         }
@@ -219,17 +219,189 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
     return utcDate.toISOString();
   };
 
-  const checkForConflicts = (date: Date, hour: string, minute: string) => {
-    const scheduledAt = formatDateTime(date, hour, minute);
-    const scheduledTime = new Date(scheduledAt);
+  const formatTime = (dateString: string) => {
+    const timezone =
+      selectedTimezone ||
+      userPreferences.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const zonedDate = toZonedTime(dateString, timezone);
+    return format(zonedDate, "h:mm a");
+  };
 
-    const conflicts = scheduledPosts.filter((p) => {
-      if (!p.scheduled_at || p.id === post?.id) return false;
-      const postTime = new Date(p.scheduled_at);
-      return postTime.getTime() === scheduledTime.getTime();
+  const getCurrentTimeInTimezone = () => {
+    const timezone =
+      selectedTimezone ||
+      userPreferences.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return toZonedTime(new Date(), timezone);
+  };
+
+  const isValidTimeForToday = (hour: string, minute: string) => {
+    const now = getCurrentTimeInTimezone();
+    const selectedTime = new Date(now);
+    selectedTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
+
+    return selectedTime.getTime() > now.getTime() + 1 * 60 * 1000;
+  };
+
+  const isDateDisabled = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    const isDisabled = checkDate < today;
+
+    return isDisabled;
+  };
+
+  const allMinutes = Array.from({ length: 60 }, (_, i) =>
+    i.toString().padStart(2, "0")
+  ).filter((_, i) => i % 5 === 0);
+
+  const getAvailableHours = () => {
+    const allHours = Array.from({ length: 24 }, (_, i) =>
+      i.toString().padStart(2, "0")
+    );
+
+    const isToday = isSameDay(selectedDate, getCurrentTimeInTimezone());
+
+    if (!isToday) {
+      return allHours;
+    }
+
+    const now = getCurrentTimeInTimezone();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    const availableHours = allHours.filter((hour) => {
+      const hourNum = parseInt(hour);
+      if (hourNum > currentHour) return true;
+      if (hourNum === currentHour) {
+        // Check if any minute in this hour would be valid
+        const hasValidMinutes = allMinutes.some((minute) => {
+          const minuteNum = parseInt(minute);
+          return minuteNum > currentMinute + 1; // At least 1 minute buffer
+        });
+        return hasValidMinutes;
+      }
+      return false;
     });
 
+    return availableHours;
+  };
+
+  const getAvailableMinutes = () => {
+    const isToday = isSameDay(selectedDate, getCurrentTimeInTimezone());
+
+    if (!isToday) {
+      return allMinutes;
+    }
+
+    const now = getCurrentTimeInTimezone();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const selectedHourNum = parseInt(selectedHour);
+
+    if (selectedHourNum > currentHour) {
+      return allMinutes;
+    }
+
+    if (selectedHourNum === currentHour) {
+      const availableMinutes = allMinutes.filter((minute) => {
+        const minuteNum = parseInt(minute);
+        return minuteNum > currentMinute + 1; // At least 1 minute buffer
+      });
+      return availableMinutes;
+    }
+
+    return [];
+  };
+
+  const handlePushPosts = async (targetDate: Date) => {
+    const targetDateOnly = new Date(targetDate);
+    targetDateOnly.setHours(0, 0, 0, 0);
+
+    const subsequentPosts = scheduledPosts
+      .filter((p) => {
+        if (!p.scheduled_at) return false;
+        const postDate = new Date(p.scheduled_at);
+        postDate.setHours(0, 0, 0, 0);
+        return postDate.getTime() >= targetDateOnly.getTime();
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.scheduled_at!).getTime() -
+          new Date(b.scheduled_at!).getTime()
+      );
+
+    if (subsequentPosts.length === 0) {
+      return;
+    }
+
+    const postsToShift = [];
+    let lastPushedDate = new Date(subsequentPosts[0].scheduled_at!);
+    lastPushedDate.setHours(0, 0, 0, 0);
+
+    postsToShift.push(subsequentPosts[0]);
+
+    for (let i = 1; i < subsequentPosts.length; i++) {
+      const currentPostDate = new Date(subsequentPosts[i].scheduled_at!);
+      currentPostDate.setHours(0, 0, 0, 0);
+
+      const expectedNextDate = new Date(lastPushedDate);
+      expectedNextDate.setDate(expectedNextDate.getDate() + 1);
+
+      if (currentPostDate.getTime() === expectedNextDate.getTime()) {
+        postsToShift.push(subsequentPosts[i]);
+        lastPushedDate = currentPostDate;
+      } else {
+        break;
+      }
+    }
+
+    const updatedPosts = postsToShift.map((post) => {
+      const newDate = new Date(post.scheduled_at!);
+      newDate.setDate(newDate.getDate() + 1);
+      return {
+        ...post,
+        id: post.id,
+        scheduled_at: newDate.toISOString(),
+      };
+    });
+
+    try {
+      await postsApi.batchUpdatePosts({ posts: updatedPosts });
+
+      await fetchScheduledPosts(selectedDate);
+
+      toast({
+        title: "Posts Pushed",
+        description: `${postsToShift.length} post${
+          postsToShift.length !== 1 ? "s" : ""
+        } pushed to the next available day.`,
+      });
+    } catch (error) {
+      console.error("Failed to push posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to push posts. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const checkForConflicts = (date: Date, hour: string, minute: string) => {
+    // Check for same-day conflicts (any posts on the selected day)
+    const conflicts = scheduledPosts.filter((p) => {
+      if (!p.scheduled_at || p.id === post?.id) return false;
+      const postDate = new Date(p.scheduled_at);
+      return isSameDay(postDate, date);
+    });
+
+    // Set both conflicting posts and posts on selected day to the same value
+    // since we're treating same-day as conflict now
     setConflictingPosts(conflicts);
+    setPostsOnSelectedDay(conflicts);
   };
 
   useEffect(() => {
@@ -243,8 +415,22 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
     if (submitting) return; // guard against double click
     if (!post) return;
 
+    if (
+      isSameDay(selectedDate, getCurrentTimeInTimezone()) &&
+      !isValidTimeForToday(selectedHour, selectedMinute)
+    ) {
+      toast({
+        title: "Invalid Time",
+        description:
+          "Please select a time that is at least 1 minute in the future.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for same-day conflicts (now the primary conflict type)
     if (conflictingPosts.length > 0) {
-      setShowConflictDialog(true);
+      setShowPushDialog(true);
       return;
     }
 
@@ -281,20 +467,45 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
     return Array.from(datesWithPosts).map((dateString) => new Date(dateString));
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+  const hours = getAvailableHours();
+  const minutes = getAvailableMinutes();
+
+  const handleScheduleAnyway = (post: Post) => {
+    const scheduledAt = formatDateTime(
+      selectedDate,
+      selectedHour,
+      selectedMinute
+    );
+    setLocalSubmitting(true);
+    onSubmit(post!.id, scheduledAt);
+    setShowPushDialog(false);
   };
 
-  const hours = Array.from({ length: 24 }, (_, i) =>
-    i.toString().padStart(2, "0")
-  );
-  const minutes = Array.from({ length: 60 }, (_, i) =>
-    i.toString().padStart(2, "0")
-  ).filter((_, i) => i % 15 === 0);
+  const handlePushAndSchedule = async (post: Post) => {
+    {
+      try {
+        setIsPushing(true);
+        await handlePushPosts(selectedDate);
+        const scheduledAt = formatDateTime(
+          selectedDate,
+          selectedHour,
+          selectedMinute
+        );
+        setLocalSubmitting(true);
+        onSubmit(post!.id, scheduledAt);
+        setShowPushDialog(false);
+      } catch (error) {
+        console.error("Failed to push posts:", error);
+        toast({
+          title: "Error",
+          description: "Failed to push posts. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsPushing(false);
+      }
+    }
+  };
 
   if (!post) return null;
 
@@ -340,13 +551,9 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                     <span className="text-xs font-medium">
                       {conflictingPosts.length} post
                       {conflictingPosts.length !== 1 ? "s" : ""} already
-                      scheduled at this time
+                      scheduled on this day
                     </span>
                   </div>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    You can still schedule this post, but it will be published
-                    at the same time.
-                  </p>
                 </div>
               )}
             </div>
@@ -367,7 +574,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                           mode="single"
                           selected={selectedDate}
                           onSelect={(date) => date && setSelectedDate(date)}
-                          disabled={(date) => date < new Date()}
+                          disabled={isDateDisabled}
                           modifiers={{
                             hasScheduledPost: datesWithScheduledPosts,
                           }}
@@ -417,6 +624,11 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                                   :{minute}
                                 </SelectItem>
                               ))}
+                              {minutes.length === 0 && (
+                                <SelectItem value="" disabled>
+                                  No valid times available
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -478,17 +690,10 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                                   <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs text-gray-500">
                                       {scheduledPost.scheduled_at &&
-                                        new Date(
-                                          scheduledPost.scheduled_at
-                                        ).toLocaleString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })}
+                                        formatTime(scheduledPost.scheduled_at)}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-gray-800 line-clamp-2 leading-relaxed">
+                                  <p className="text-xs text-gray-800 line-clamp-2">
                                     {scheduledPost.content}
                                   </p>
                                   {scheduledPost.topics.length > 0 && (
@@ -537,7 +742,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                             mode="single"
                             selected={selectedDate}
                             onSelect={(date) => date && setSelectedDate(date)}
-                            disabled={(date) => date < new Date()}
+                            disabled={isDateDisabled}
                             modifiers={{
                               hasScheduledPost: datesWithScheduledPosts,
                             }}
@@ -582,7 +787,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {minutes.map((minute) => (
+                                {allMinutes.map((minute) => (
                                   <SelectItem key={minute} value={minute}>
                                     :{minute}
                                   </SelectItem>
@@ -780,6 +985,124 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
                   <>
                     <CalendarIcon className="w-4 h-4 mr-2" />
                     {conflictSubmitText}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showPushDialog} onOpenChange={setShowPushDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-blue-600" />
+                Posts Already Scheduled
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                You have {postsOnSelectedDay.length} post
+                {postsOnSelectedDay.length !== 1 ? "s" : ""} already scheduled
+                on {format(selectedDate, "MMMM d, yyyy")}:
+              </p>
+
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {postsOnSelectedDay.map((dayPost) => (
+                  <div key={dayPost.id} className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-500">
+                        {dayPost.scheduled_at &&
+                          formatTime(dayPost.scheduled_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-800 line-clamp-2">
+                      {dayPost.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-sm text-gray-600">
+                Would you like to push the existing posts to the next available
+                day and schedule this post on {format(selectedDate, "MMMM d")}?
+              </p>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPushDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const scheduledAt = formatDateTime(
+                    selectedDate,
+                    selectedHour,
+                    selectedMinute
+                  );
+                  setLocalSubmitting(true);
+                  onSubmit(post!.id, scheduledAt);
+                  setShowPushDialog(false);
+                }}
+                disabled={submitting}
+                variant="outline"
+              >
+                {submitting ? (
+                  <>
+                    <Clock className="w-4 h-4 mr-2 animate-spin" />
+                    {submittingText}
+                  </>
+                ) : (
+                  <>
+                    <CalendarIcon className="w-4 h-4 mr-2" />
+                    Schedule Anyway
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    setIsPushing(true);
+                    await handlePushPosts(selectedDate);
+                    const scheduledAt = formatDateTime(
+                      selectedDate,
+                      selectedHour,
+                      selectedMinute
+                    );
+                    setLocalSubmitting(true);
+                    onSubmit(post!.id, scheduledAt);
+                    setShowPushDialog(false);
+                  } catch (error) {
+                    console.error("Failed to push posts:", error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to push posts. Please try again.",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setIsPushing(false);
+                  }
+                }}
+                disabled={submitting || isPushing}
+              >
+                {isPushing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Pushing Posts...
+                  </>
+                ) : submitting ? (
+                  <>
+                    <Clock className="w-4 h-4 mr-2 animate-spin" />
+                    {submittingText}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Push & Schedule
                   </>
                 )}
               </Button>

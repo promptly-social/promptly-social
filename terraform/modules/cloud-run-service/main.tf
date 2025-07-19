@@ -69,36 +69,6 @@ resource "google_cloud_run_service" "backend" {
         }
 
         env {
-          name = "SUPABASE_URL"
-          value_from {
-            secret_key_ref {
-              name = var.supabase_url_name
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "SUPABASE_KEY"
-          value_from {
-            secret_key_ref {
-              name = var.supabase_key_name
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "SUPABASE_SERVICE_KEY"
-          value_from {
-            secret_key_ref {
-              name = var.supabase_service_key_name
-              key  = "latest"
-            }
-          }
-        }
-
-        env {
           name = "GOOGLE_CLIENT_ID"
           value_from {
             secret_key_ref {
@@ -186,10 +156,40 @@ resource "google_cloud_run_service" "backend" {
         }
 
         env {
-          name = "DATABASE_URL"
+          name = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
           value_from {
             secret_key_ref {
-              name = var.database_url_name
+              name = var.cloud_sql_instance_connection_name_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "CLOUD_SQL_DATABASE_NAME"
+          value_from {
+            secret_key_ref {
+              name = var.cloud_sql_database_name_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "CLOUD_SQL_USER"
+          value_from {
+            secret_key_ref {
+              name = var.cloud_sql_user_name
+              key  = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "CLOUD_SQL_PASSWORD"
+          value_from {
+            secret_key_ref {
+              name = var.cloud_sql_password_name
               key  = "latest"
             }
           }

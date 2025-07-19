@@ -35,6 +35,26 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(default="sqlite:///./app.db")
+    use_local_db: bool = Field(
+        default=False
+    )  # Set to True to use local DB instead of Cloud SQL
+
+    # Cloud SQL specific settings
+    cloud_sql_instance_connection_name: Optional[str] = Field(default=None)
+    cloud_sql_database_name: Optional[str] = Field(default=None)
+    cloud_sql_user: Optional[str] = Field(default=None)
+    cloud_sql_password: Optional[str] = Field(default=None)
+
+    # Connection pooling settings
+    db_pool_size: int = Field(default=10)
+    db_max_overflow: int = Field(default=20)
+    db_pool_timeout: int = Field(default=30)
+    db_pool_recycle: int = Field(default=3600)
+
+    # Migration settings
+    auto_apply_migrations: bool = Field(default=True)
+    migration_timeout: int = Field(default=300)
+    migration_lock_timeout: int = Field(default=60)
 
     # Supabase
     supabase_url: str = Field(default="https://test.supabase.co")
@@ -104,6 +124,50 @@ class Settings(BaseSettings):
             origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
         ]
 
+    def get_cloud_sql_database_url(self) -> str:
+        """
+        Build Cloud SQL connection string from individual components.
+
+        Returns:
+            str: Cloud SQL PostgreSQL connection URL
+        """
+        if all(
+            [
+                self.cloud_sql_instance_connection_name,
+                self.cloud_sql_database_name,
+                self.cloud_sql_user,
+                self.cloud_sql_password,
+            ]
+        ):
+            # Build Cloud SQL connection string
+            return (
+                f"postgresql://{self.cloud_sql_user}:{self.cloud_sql_password}"
+                f"@/{self.cloud_sql_database_name}"
+                f"?host=/cloudsql/{self.cloud_sql_instance_connection_name}"
+            )
+        return None
+
+    def get_database_url(self) -> str:
+        """
+        Get the appropriate database URL based on configuration.
+
+        Returns:
+            str: Database URL (respects test environment and local development settings)
+        """
+        # In test environment, always use the database_url (usually SQLite)
+        if self.environment in ["test", "testing"]:
+            return self.database_url
+
+        # If use_local_db is True, use local database instead of Cloud SQL
+        if self.use_local_db:
+            return self.database_url
+
+        # Otherwise, use Cloud SQL if configured
+        cloud_sql_url = self.get_cloud_sql_database_url()
+        if cloud_sql_url:
+            return cloud_sql_url
+        return self.database_url
+
     def get_async_database_url(self) -> str:
         """
         Convert the base database URL to async version.
@@ -111,26 +175,26 @@ class Settings(BaseSettings):
         Returns:
             str: Async database URL with appropriate driver
         """
-        if self.database_url.startswith("postgresql://"):
-            async_url = self.database_url.replace(
-                "postgresql://", "postgresql+asyncpg://"
-            )
+        base_url = self.get_database_url()
+
+        if base_url.startswith("postgresql://"):
+            async_url = base_url.replace("postgresql://", "postgresql+asyncpg://")
             return async_url
-        elif self.database_url.startswith("postgresql+asyncpg://"):
+        elif base_url.startswith("postgresql+asyncpg://"):
             # Already async PostgreSQL URL
-            return self.database_url
-        elif self.database_url.startswith("sqlite://"):
-            async_url = self.database_url.replace("sqlite://", "sqlite+aiosqlite://")
+            return base_url
+        elif base_url.startswith("sqlite://"):
+            async_url = base_url.replace("sqlite://", "sqlite+aiosqlite://")
             return async_url
-        elif self.database_url.startswith("sqlite:///"):
-            async_url = self.database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+        elif base_url.startswith("sqlite:///"):
+            async_url = base_url.replace("sqlite:///", "sqlite+aiosqlite:///")
             return async_url
-        elif self.database_url.startswith("sqlite+aiosqlite://"):
+        elif base_url.startswith("sqlite+aiosqlite://"):
             # Already async SQLite URL
-            return self.database_url
+            return base_url
         else:
             # For other databases, assume they already have the correct driver
-            return self.database_url
+            return base_url
 
 
 # Global settings instance

@@ -1,45 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { profileApi } from "@/lib/profile-api";
 import { useToast } from "@/hooks/use-toast";
 import { User, Edit3, Check, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const UserBio: React.FC = () => {
-  const { user } = useAuth();
+  const { userPreferences, loading: isLoading, refreshProfile } = useProfile();
   const { toast } = useToast();
-  const [bio, setBio] = useState("");
+  const bio = userPreferences?.bio || "";
+  
   const [editingBio, setEditingBio] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      loadBio();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const loadBio = async () => {
-    setIsLoading(true);
-    try {
-      const data = await profileApi.getUserPreferences();
-      setBio(data.bio || "");
-    } catch (error) {
-      console.error("Error loading bio:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load bio",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleEdit = () => {
     setEditingBio(bio);
@@ -58,7 +34,7 @@ export const UserBio: React.FC = () => {
         bio: editingBio,
       });
 
-      setBio(editingBio);
+      await refreshProfile();
       setIsEditing(false);
       setEditingBio("");
 

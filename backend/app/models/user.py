@@ -38,6 +38,11 @@ class User(Base):
         nullable=False,
     )
 
+    # Supabase integration field for migration compatibility
+    supabase_user_id: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, index=True, nullable=True
+    )
+
     # Authentication fields
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False

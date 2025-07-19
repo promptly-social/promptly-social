@@ -1,53 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
   profileApi,
   type SocialConnection as ApiSocialConnection,
 } from "@/lib/profile-api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { Link2, Users } from "lucide-react";
 import { PlatformConnectionCard } from "./PlatformConnectionCard";
 
 type SocialConnection = ApiSocialConnection;
 
 export const LinkedInConnection: React.FC = () => {
-  const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { linkedinConnection: connection, refreshProfile } = useProfile();
 
   const platformKey = "linkedin";
   const platformName = "LinkedIn";
-
-  const fetchConnection = async () => {
-    setIsLoading(true);
-    try {
-      const connections = await profileApi.getSocialConnections();
-      const linkedinConnection = connections?.find(
-        (conn) => conn.platform === platformKey
-      );
-      setConnection(linkedinConnection || null);
-    } catch (error) {
-      console.error(`Error fetching ${platformName} connection:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to fetch ${platformName} connection`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchConnection();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   const handleSave = async (username: string) => {
     setIsLoading(true);
@@ -60,7 +32,7 @@ export const LinkedInConnection: React.FC = () => {
         title: "Saved",
         description: `${platformName} username saved successfully`,
       });
-      await fetchConnection();
+      await refreshProfile();
     } catch (error) {
       console.error(`Error saving ${platformName} username:`, error);
       toast({
@@ -84,7 +56,7 @@ export const LinkedInConnection: React.FC = () => {
         title: "Disconnected",
         description: `${platformName} has been disconnected.`,
       });
-      await fetchConnection();
+      await refreshProfile();
     } catch (error) {
       console.error(`Error disconnecting ${platformName}:`, error);
       toast({
@@ -124,7 +96,7 @@ export const LinkedInConnection: React.FC = () => {
           description: `Your ${platformName} analysis is ready!`,
         });
       }
-      await fetchConnection();
+      await refreshProfile();
     } catch (error) {
       console.error(`Error analyzing ${platformName}:`, error);
       const apiError = error as { response?: { data?: { detail?: string } } };

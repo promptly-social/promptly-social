@@ -8,7 +8,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { OnboardingModal } from './OnboardingModal';
-import { OnboardingProgress } from './OnboardingProgress';
 import type { OnboardingProgress as OnboardingProgressType } from '../../types/onboarding';
 
 interface OnboardingContextType {
@@ -21,6 +20,7 @@ interface OnboardingContextType {
   setShowModal: (show: boolean) => void;
   setShowProgress: (show: boolean) => void;
   skipOnboarding: () => Promise<void>;
+  completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
   updateStep: (step: number, completed?: boolean) => Promise<void>;
 }
@@ -52,8 +52,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     error,
     updateStep,
     skipOnboarding: skipOnboardingHook,
+    completeOnboarding: completeOnboardingHook,
     resetOnboarding: resetOnboardingHook,
-    shouldShowOnboarding
+    shouldShowOnboarding,
+    getStepsWithStatus
   } = useOnboarding();
 
   const [showModal, setShowModal] = useState(false);
@@ -67,9 +69,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       !loading &&
       !hasShownInitialModal &&
       shouldShowOnboarding() &&
-      progress &&
-      progress.current_step === 1 &&
-      !progress.step_profile_completed
+      progress
     ) {
       setShowModal(true);
       setHasShownInitialModal(true);
@@ -82,6 +82,15 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
       setShowModal(false);
     } catch (error) {
       console.error('Failed to skip onboarding:', error);
+    }
+  };
+
+  const handleCompleteOnboarding = async () => {
+    try {
+      await completeOnboardingHook();
+      setShowModal(false);
+    } catch (error) {
+      console.error('Failed to complete onboarding:', error);
     }
   };
 
@@ -112,6 +121,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
     setShowModal,
     setShowProgress,
     skipOnboarding: handleSkipOnboarding,
+    completeOnboarding: handleCompleteOnboarding,
     resetOnboarding: handleResetOnboarding,
     updateStep: handleUpdateStep
   };
@@ -125,17 +135,13 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSkip={handleSkipOnboarding}
+        onComplete={handleCompleteOnboarding}
+        progress={progress}
+        loading={loading}
+        getStepsWithStatus={getStepsWithStatus}
+        updateStep={updateStep}
       />
       
-      {/* Progress Indicator */}
-      {showProgress && shouldShowOnboarding() && (
-        <div className="fixed bottom-4 right-4 z-40">
-          <OnboardingProgress
-            compact={true}
-            className="bg-white shadow-lg border"
-          />
-        </div>
-      )}
     </OnboardingContext.Provider>
   );
 };

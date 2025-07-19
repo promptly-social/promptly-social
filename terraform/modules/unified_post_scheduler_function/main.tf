@@ -6,8 +6,26 @@ resource "google_storage_bucket_object" "unified_post_scheduler_source" {
 
 data "archive_file" "unified_post_scheduler_source" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/gcp-functions/unified-post-scheduler"
+  source_dir  = "${path.module}/../../src/gcp-functions"
   output_path = "/tmp/unified-post-scheduler-${var.source_hash}.zip"
+  excludes = [
+    "terraform/**",
+    "README.md",
+    "env.example",
+    "test**",
+    "test-output.json",
+    "venv/**",
+    "__pycache__/**",
+    ".pytest_cache/**",
+    "htmlcov/**",
+    "analyze/**",
+    "generate_suggestions/**",
+    "unified_post_scheduler/venv/**",
+    "unified_post_scheduler/__pycache__/**",
+    "unified_post_scheduler/.pytest_cache/**",
+    "unified_post_scheduler/htmlcov/**",
+    "unified_post_scheduler/test**"
+  ]
 }
 
 resource "google_cloudfunctions2_function" "unified_post_scheduler" {
@@ -17,7 +35,7 @@ resource "google_cloudfunctions2_function" "unified_post_scheduler" {
   description = "Unified post scheduler that processes scheduled posts every 5 minutes"
 
   build_config {
-    runtime     = "python311"
+    runtime     = "python313"
     entry_point = "process_scheduled_posts"
     source {
       storage_source {
@@ -39,16 +57,30 @@ resource "google_cloudfunctions2_function" "unified_post_scheduler" {
     }
 
     secret_environment_variables {
-      key        = "SUPABASE_URL"
+      key        = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
       project_id = var.project_id
-      secret     = "SUPABASE_URL"
+      secret     = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
       version    = "latest"
     }
 
     secret_environment_variables {
-      key        = "SUPABASE_SERVICE_KEY"
+      key        = "CLOUD_SQL_DATABASE_NAME"
       project_id = var.project_id
-      secret     = "SUPABASE_SERVICE_KEY"
+      secret     = "CLOUD_SQL_DATABASE_NAME"
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "CLOUD_SQL_USER"
+      project_id = var.project_id
+      secret     = "CLOUD_SQL_USER"
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "CLOUD_SQL_PASSWORD"
+      project_id = var.project_id
+      secret     = "CLOUD_SQL_PASSWORD"
       version    = "latest"
     }
 
@@ -73,8 +105,10 @@ resource "google_cloudfunctions2_function" "unified_post_scheduler" {
 
   depends_on = [
     google_storage_bucket_object.unified_post_scheduler_source,
-    google_secret_manager_secret_iam_member.secret_access_supabase_url,
-    google_secret_manager_secret_iam_member.secret_access_supabase_key,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_instance_connection_name,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_database_name,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_user,
+    google_secret_manager_secret_iam_member.secret_access_cloud_sql_password,
     google_secret_manager_secret_iam_member.secret_access_linkedin_client_id,
     google_secret_manager_secret_iam_member.secret_access_linkedin_client_secret,
   ]
@@ -126,14 +160,24 @@ resource "google_cloudfunctions2_function_iam_binding" "unified_post_scheduler_i
 }
 
 # Data sources for existing secrets
-data "google_secret_manager_secret" "supabase_url" {
+data "google_secret_manager_secret" "cloud_sql_instance_connection_name" {
   project   = var.project_id
-  secret_id = "SUPABASE_URL"
+  secret_id = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
 }
 
-data "google_secret_manager_secret" "supabase_service_key" {
+data "google_secret_manager_secret" "cloud_sql_database_name" {
   project   = var.project_id
-  secret_id = "SUPABASE_SERVICE_KEY"
+  secret_id = "CLOUD_SQL_DATABASE_NAME"
+}
+
+data "google_secret_manager_secret" "cloud_sql_user" {
+  project   = var.project_id
+  secret_id = "CLOUD_SQL_USER"
+}
+
+data "google_secret_manager_secret" "cloud_sql_password" {
+  project   = var.project_id
+  secret_id = "CLOUD_SQL_PASSWORD"
 }
 
 data "google_secret_manager_secret" "linkedin_client_id" {
@@ -147,16 +191,30 @@ data "google_secret_manager_secret" "linkedin_client_secret" {
 }
 
 # Grant the function's service account access to the secrets
-resource "google_secret_manager_secret_iam_member" "secret_access_supabase_url" {
-  project   = data.google_secret_manager_secret.supabase_url.project
-  secret_id = data.google_secret_manager_secret.supabase_url.secret_id
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_instance_connection_name" {
+  project   = data.google_secret_manager_secret.cloud_sql_instance_connection_name.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_instance_connection_name.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_account_email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "secret_access_supabase_key" {
-  project   = data.google_secret_manager_secret.supabase_service_key.project
-  secret_id = data.google_secret_manager_secret.supabase_service_key.secret_id
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_database_name" {
+  project   = data.google_secret_manager_secret.cloud_sql_database_name.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_database_name.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_user" {
+  project   = data.google_secret_manager_secret.cloud_sql_user.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_user.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_password" {
+  project   = data.google_secret_manager_secret.cloud_sql_password.project
+  secret_id = data.google_secret_manager_secret.cloud_sql_password.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_account_email}"
 }

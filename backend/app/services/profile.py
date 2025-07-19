@@ -742,7 +742,7 @@ Avoid using hashtags."""
             query = select(WritingStyleAnalysis).where(
                 and_(
                     WritingStyleAnalysis.user_id == user_id,
-                    WritingStyleAnalysis.source == source,
+                    WritingStyleAnalysis.platform == source,
                 )
             )
             result = await self.db.execute(query)
@@ -781,7 +781,7 @@ Avoid using hashtags."""
             else:
                 analysis = WritingStyleAnalysis(
                     user_id=user_id,
-                    source=source,
+                    platform=source,
                     analysis_data=analysis_data,
                 )
                 self.db.add(analysis)

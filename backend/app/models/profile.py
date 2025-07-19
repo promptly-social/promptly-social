@@ -6,7 +6,7 @@ from datetime import datetime, time
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, String, Time, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Time, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -19,7 +19,12 @@ class UserPreferences(Base):
     __tablename__ = "user_preferences"
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False, unique=True)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
     topics_of_interest: Mapped[List[str]] = mapped_column(StringArray(), default=list)
     websites: Mapped[List[str]] = mapped_column(StringArray(), default=list)
     substacks: Mapped[List[str]] = mapped_column(StringArray(), default=list)
@@ -42,10 +47,14 @@ class WritingStyleAnalysis(Base):
     __tablename__ = "writing_style_analysis"
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
-    # Source of the writing sample (e.g. "import", "substack", "linkedin")
-    source: Mapped[str] = mapped_column(String, nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    # Platform field to match migration schema (e.g. "substack", "linkedin")
+    platform: Mapped[str] = mapped_column(String, nullable=False)
     analysis_data: Mapped[str] = mapped_column(String, nullable=False)
+    # Additional fields from migration
+    content_count: Mapped[int] = mapped_column(nullable=False, default=0)
     last_analyzed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -63,7 +72,9 @@ class SocialConnection(Base):
     __tablename__ = "social_connections"
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(UUIDType(), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     platform: Mapped[str] = mapped_column(String, nullable=False)
     platform_username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # All authentication data is now stored in connection_data JSON field

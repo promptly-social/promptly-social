@@ -77,21 +77,6 @@ variable "jwt_secret_name" {
   type        = string
 }
 
-variable "supabase_url_name" {
-  description = "The name of the Secret Manager secret for the Supabase URL."
-  type        = string
-}
-
-variable "supabase_key_name" {
-  description = "The name of the Secret Manager secret for the Supabase key."
-  type        = string
-}
-
-variable "supabase_service_key_name" {
-  description = "The name of the Secret Manager secret for the Supabase service key."
-  type        = string
-}
-
 variable "google_client_id_name" {
   description = "The name of the Secret Manager secret for the Google Client ID."
   type        = string
@@ -155,8 +140,23 @@ variable "linkedin_client_secret_name" {
   type        = string
 }
 
-variable "database_url_name" {
-  description = "The name of the Secret Manager secret for the database URL."
+variable "cloud_sql_instance_connection_name_name" {
+  description = "The name of the Secret Manager secret for the Cloud SQL instance connection name."
+  type        = string
+}
+
+variable "cloud_sql_database_name_name" {
+  description = "The name of the Secret Manager secret for the Cloud SQL database name."
+  type        = string
+}
+
+variable "cloud_sql_user_name" {
+  description = "The name of the Secret Manager secret for the Cloud SQL user."
+  type        = string
+}
+
+variable "cloud_sql_password_name" {
+  description = "The name of the Secret Manager secret for the Cloud SQL password."
   type        = string
 }
 

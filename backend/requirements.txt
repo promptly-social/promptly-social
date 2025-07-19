@@ -22,7 +22,7 @@ bcrypt==4.3.0
     # via passlib
 cachetools==5.5.2
     # via google-auth
-certifi==2025.6.15
+certifi==2025.7.14
     # via
     #   httpcore
     #   httpx
@@ -55,6 +55,8 @@ google-auth==2.29.0
     # via -r requirements.in
 google-cloud-scheduler==2.16.1  # for Cloud Scheduler API integration
 google-cloud-storage
+cloud-sql-python-connector[pg8000]==1.18.3  # for Cloud SQL connections
+cloud-sql-python-connector[asyncpg]==1.18.3
 gotrue==2.12.2
     # via supabase
 greenlet==3.1.1
@@ -119,6 +121,7 @@ packaging==25.0
     #   pytest
 passlib[bcrypt]==1.7.4
     # via -r requirements.in
+pg8000==1.31.2
 pluggy==1.6.0
     # via pytest
 postgrest==0.17.2

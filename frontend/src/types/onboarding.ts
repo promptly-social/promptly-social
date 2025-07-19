@@ -45,8 +45,6 @@ export interface OnboardingUpdate {
 export interface OnboardingStep {
   id: number;
   title: string;
-  description: string;
-  route: string;
   icon: string;
   isCompleted: boolean;
   isActive: boolean;
@@ -60,70 +58,35 @@ export const ONBOARDING_STEPS: Omit<
   {
     id: 1,
     title: "Set Up Your Profile",
-    description: "Connect your LinkedIn and set up your professional profile",
-    route: "/profile",
     icon: "👤",
     highlights: [
       "Add your LinkedIn handle (required)",
-      "Connect Substack if available",
-      "Click Analyze to analyze your writing style (takes up to 5 minutes)",
-      "About Me, Writing Style, and Topics of Interest will be analyzed",
-      "You can also provide your own writing sample for analysis",
+      "Add your Substack handle (optional)",
+      "Click Analyze to analyze your bio, writing style, and preferences (takes about 5 minutes)"
     ],
   },
   {
     id: 2,
     title: "Content Preferences",
-    description: "Tell us what you like to write about and your sources",
-    route: "/content-preferences",
     icon: "📝",
     highlights: [
       "Enter topics you like to write about",
       "Add news websites you follow",
-      "Add Substack blogs you follow",
-      "Review content style",
     ],
   },
   {
     id: 3,
     title: "Settings",
-    description: "Configure your daily suggestion preferences",
-    route: "/settings",
     icon: "⚙️",
-    highlights: ["Set your daily suggestion time"],
+    highlights: ["Set when you want to see daily suggested drafts"],
   },
   {
     id: 4,
     title: "My Posts",
-    description: "Learn how to create and brainstorm posts",
-    route: "/my-posts",
     icon: "📄",
     highlights: [
       "Use 'New Post' button to create posts manually",
       "Use 'Brain Storm' button to brainstorm drafts with AI",
-    ],
-  },
-  {
-    id: 5,
-    title: "Content Ideas",
-    description: "Manage your content ideas and inspiration",
-    route: "/content-ideas",
-    icon: "💡",
-    highlights: [
-      "Add notes about topics you want to write about later",
-      "Brainstorm drafts using your saved ideas",
-      "Note: URLs to social media platforms are not supported yet",
-    ],
-  },
-  {
-    id: 6,
-    title: "Posting Schedule",
-    description: "Review and manage your scheduled posts",
-    route: "/posting-schedule",
-    icon: "📅",
-    highlights: [
-      "Review your list of scheduled posts",
-      "Manage your posting calendar",
     ],
   },
 ];

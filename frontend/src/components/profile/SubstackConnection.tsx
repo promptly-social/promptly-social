@@ -1,54 +1,31 @@
 // frontend/src/components/profile/SubstackConnection.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   profileApi,
   type SocialConnection as ApiSocialConnection,
 } from "@/lib/profile-api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { FileText } from "lucide-react";
 import { PlatformConnectionCard } from "./PlatformConnectionCard";
 
 type SocialConnection = ApiSocialConnection;
 
 export const SubstackConnection: React.FC = () => {
-  const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { socialConnections, refreshProfile } = useProfile();
 
   const platformKey = "substack";
   const platformName = "Substack";
 
-  const fetchConnection = async () => {
-    setIsLoading(true);
-    try {
-      const connections = await profileApi.getSocialConnections();
-      const substackConnection = connections?.find(
-        (conn) => conn.platform === platformKey
-      );
-      setConnection(substackConnection || null);
-    } catch (error) {
-      console.error("Error fetching Substack connection:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch Substack connection",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchConnection();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const connection = useMemo(
+    () => socialConnections.find((conn) => conn.platform === platformKey) || null,
+    [socialConnections]
+  );
 
   const handleSave = async (handle: string) => {
     setIsLoading(true);
@@ -61,7 +38,7 @@ export const SubstackConnection: React.FC = () => {
         title: "Saved",
         description: `${platformName} handle saved successfully`,
       });
-      await fetchConnection();
+      await refreshProfile();
     } catch (error) {
       console.error(`Error saving ${platformName} handle:`, error);
       toast({
@@ -85,7 +62,7 @@ export const SubstackConnection: React.FC = () => {
         title: "Deleted",
         description: `${platformName} handle removed successfully`,
       });
-      await fetchConnection();
+      await refreshProfile();
     } catch (error) {
       console.error(`Error deleting ${platformName} handle:`, error);
       toast({
@@ -125,7 +102,7 @@ export const SubstackConnection: React.FC = () => {
           description: `Your ${platformName} analysis is ready!`,
         });
       }
-      await fetchConnection();
+      await refreshProfile();
     } catch (error) {
       console.error(`Error analyzing ${platformName}:`, error);
       const apiError = error as { response?: { data?: { detail?: string } } };

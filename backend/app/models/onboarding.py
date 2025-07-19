@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -38,6 +38,7 @@ class UserOnboarding(Base):
     # Foreign key to user
     user_id: Mapped[str] = mapped_column(
         UUIDType(),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True,

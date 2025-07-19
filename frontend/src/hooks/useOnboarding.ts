@@ -3,7 +3,6 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { onboardingApi } from "../lib/api/onboarding-api";
 import type { OnboardingProgress, OnboardingStep } from "../types/onboarding";
 import { ONBOARDING_STEPS } from "../types/onboarding";
@@ -13,7 +12,6 @@ export const useOnboarding = () => {
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
   // Fetch onboarding progress
@@ -73,6 +71,22 @@ export const useOnboarding = () => {
     }
   }, []);
 
+
+  // Complete onboarding
+  const completeOnboarding = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await onboardingApi.completeOnboarding();
+      setProgress(data);
+      return data;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to complete onboarding";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }, []);
+
   // Reset onboarding
   const resetOnboarding = useCallback(async () => {
     try {
@@ -87,29 +101,6 @@ export const useOnboarding = () => {
       throw new Error(errorMessage);
     }
   }, []);
-
-  // Navigate to next step
-  const goToNextStep = useCallback(() => {
-    if (!progress) return;
-
-    const nextStep = Math.min(progress.current_step + 1, 6);
-    const stepConfig = ONBOARDING_STEPS.find((s) => s.id === nextStep);
-
-    if (stepConfig) {
-      navigate(stepConfig.route);
-    }
-  }, [progress, navigate]);
-
-  // Navigate to specific step
-  const goToStep = useCallback(
-    (stepNumber: number) => {
-      const stepConfig = ONBOARDING_STEPS.find((s) => s.id === stepNumber);
-      if (stepConfig) {
-        navigate(stepConfig.route);
-      }
-    },
-    [navigate]
-  );
 
   // Get enriched steps with completion status
   const getStepsWithStatus = useCallback((): OnboardingStep[] => {
@@ -180,9 +171,8 @@ export const useOnboarding = () => {
     error,
     updateStep,
     skipOnboarding,
+    completeOnboarding,
     resetOnboarding,
-    goToNextStep,
-    goToStep,
     getStepsWithStatus,
     shouldShowOnboarding,
     getCurrentStep,
