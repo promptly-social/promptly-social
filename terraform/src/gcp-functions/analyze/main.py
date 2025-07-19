@@ -361,7 +361,7 @@ def analyze(request):
         )
 
         user_writing_style = db_client.execute_query(
-            "SELECT analysis_data FROM writing_style_analysis WHERE user_id = :user_id",
+            "SELECT analysis_data FROM writing_style_analysis WHERE user_id = :user_id ORDER BY last_analyzed_at DESC, updated_at DESC LIMIT 1",
             {"user_id": user_id},
         )
 

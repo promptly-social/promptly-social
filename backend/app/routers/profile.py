@@ -495,7 +495,7 @@ async def update_latest_writing_style_analysis(
         )
 
         # Fallback source if there is no previous record
-        source = existing.source if existing else "import"
+        source = existing.platform if existing else "import"
 
         if update_data.analysis_data is None:
             raise HTTPException(
