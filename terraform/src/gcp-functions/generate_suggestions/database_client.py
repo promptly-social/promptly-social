@@ -233,7 +233,7 @@ class CloudSQLClient:
                     )
                     raise Exception("No data returned from idea banks insert")
 
-                logger.info(
+                print(
                     f"Saved new candidate post to idea banks for user {user_id}: {insert_results}"
                 )
                 updated_post["id"] = insert_results[0]["id"]
@@ -248,10 +248,9 @@ class CloudSQLClient:
         """
         for i, post in enumerate(suggested_posts):
             try:
-
                 insert_query = """
-                    INSERT INTO posts (user_id, title, content, platform, topics, status, idea_bank_id)
-                    VALUES (:user_id, :title, :content, :platform, :topics, :status, :idea_bank_id)
+                    INSERT INTO posts (user_id, title, content, platform, topics, status, idea_bank_id, article_url)
+                    VALUES (:user_id, :title, :content, :platform, :topics, :status, :idea_bank_id, :article_url)
                     RETURNING id
                 """
 
@@ -262,9 +261,12 @@ class CloudSQLClient:
                         "title": post.get("title"),
                         "content": post.get("linkedin_post", ""),
                         "platform": post.get("platform", "linkedin"),
-                        "topics": post.get("topics", []),  # Pass as Python list for PostgreSQL array
+                        "topics": post.get(
+                            "topics", []
+                        ),  # Pass as Python list for PostgreSQL array
                         "status": "suggested",
                         "idea_bank_id": post.get("idea_bank_id"),
+                        "article_url": post.get("post_url"),
                     },
                 )
 
