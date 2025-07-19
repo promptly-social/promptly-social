@@ -54,10 +54,10 @@ def setup_environment():
         print("Please set these variables in your .env file or environment.")
         return False
 
-    # Set default for optional variables
+    # Set default for optional variables1
     if not os.getenv("NUMBER_OF_POSTS_TO_GENERATE"):
-        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "5"
-        print("ℹ️  Set NUMBER_OF_POSTS_TO_GENERATE to default value: 5")
+        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "1"
+        print("ℹ️  Set NUMBER_OF_POSTS_TO_GENERATE to default value: 1")
 
     print("✅ All required environment variables are set")
     return True

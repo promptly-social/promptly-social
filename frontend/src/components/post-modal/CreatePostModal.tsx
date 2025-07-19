@@ -22,6 +22,16 @@ interface CreatePostModalProps {
   initialContent?: string;
   initialTopics?: string[];
   ideaBankId?: string;
+  ideaBankValue?: string;
+}
+
+function isUrl(url: string): boolean {
+  try {
+    new URL(url.trim());
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({
@@ -32,6 +42,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   initialContent,
   initialTopics,
   ideaBankId,
+  ideaBankValue,
 }) => {
   const editor = usePostEditor();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,9 +55,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       // Reset editor with initial values if provided, otherwise reset to clean state
+
+      let articleUrl = undefined;
+      if (ideaBankValue && isUrl(ideaBankValue)) {
+        articleUrl = ideaBankValue;
+      }
+
       editor.reset({
         content: initialContent || "",
         topics: initialTopics || [],
+        articleUrl,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,6 +73,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+
     try {
       // Create post first
       const newPost = await postsApi.createPost({

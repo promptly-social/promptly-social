@@ -6,6 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { OnboardingModal } from './OnboardingModal';
 import type { OnboardingProgress as OnboardingProgressType } from '../../types/onboarding';
@@ -46,6 +47,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
   autoShowModal = true,
   showProgressIndicator = true
 }) => {
+  const location = useLocation();
   const {
     progress,
     loading,
@@ -62,19 +64,22 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({
   const [showProgress, setShowProgress] = useState(showProgressIndicator);
   const [hasShownInitialModal, setHasShownInitialModal] = useState(false);
 
-  // Auto-show modal for new users
+  // Auto-show modal for new users (only on protected routes where onboarding is needed)
   useEffect(() => {
+    const allowedPaths = ['/my-posts', '/content-ideas', '/posting-schedule', '/profile', '/content-preferences', '/settings'];
+    
     if (
       autoShowModal &&
       !loading &&
       !hasShownInitialModal &&
       shouldShowOnboarding() &&
-      progress
+      progress &&
+      allowedPaths.includes(location.pathname)
     ) {
       setShowModal(true);
       setHasShownInitialModal(true);
     }
-  }, [autoShowModal, loading, hasShownInitialModal, shouldShowOnboarding, progress]);
+  }, [autoShowModal, loading, hasShownInitialModal, shouldShowOnboarding, progress, location.pathname]);
 
   const handleSkipOnboarding = async () => {
     try {

@@ -27,35 +27,4 @@
     <priority>0.8</priority>
   </url>
 
-
-  <!-- Blog/Content Marketing Pages (if applicable) -->
-  <!-- <url>
-    <loc>https://promptly.com/blog</loc>
-    <lastmod>2025-01-25</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url> -->
-
-  <!-- LinkedIn-specific landing pages for SEO -->
-  <!-- <url>
-    <loc>https://promptly.social/linkedin-content-generator</loc>
-    <lastmod>2025-01-25</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url> -->
-
-  <!-- <url>
-    <loc>https://promptly.com/linkedin-post-scheduler</loc>
-    <lastmod>2025-01-25</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://promptly.com/ai-linkedin-writing-assistant</loc>
-    <lastmod>2025-01-25</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url> -->
-
 </urlset> 
