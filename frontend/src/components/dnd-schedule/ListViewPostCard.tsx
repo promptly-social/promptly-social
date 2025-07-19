@@ -212,7 +212,7 @@ export const ListViewPostCard: React.FC<DraggablePostCardProps> = ({
             signedMedia.length > 0 && (
               <div className="w-24 h-24 flex-shrink-0">
                 <img
-                  src={signedMedia[0].url}
+                  src={signedMedia[0].gcs_url}
                   alt="Post media"
                   className="w-full h-full object-cover rounded-lg"
                 />

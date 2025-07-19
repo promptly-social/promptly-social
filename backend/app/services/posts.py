@@ -3,6 +3,7 @@ Posts service for business logic.
 """
 
 import math
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 from uuid import UUID
@@ -13,6 +14,8 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from google.cloud import storage
+from google.oauth2 import service_account
+from google.auth import default
 import asyncio
 
 from app.core.config import settings
@@ -32,9 +35,18 @@ class PostsService:
         # Google Application Default Credentials look-ups during unit tests.
         self.storage_client = None
         self.bucket = None
+        self.signing_credentials = None
+        self._signed_url_cache = {}  # Cache for signed URLs
+
         if settings.environment != "test":
             try:
-                self.storage_client = storage.Client()
+                # Initialize credentials for signing
+                self._initialize_credentials()
+
+                # Initialize storage client
+                self.storage_client = storage.Client(
+                    credentials=self.signing_credentials
+                )
                 if settings.post_media_bucket_name:
                     self.bucket = self.storage_client.bucket(
                         settings.post_media_bucket_name
@@ -83,6 +95,119 @@ class PostsService:
             created_media.append(post_media)
 
         return created_media
+
+    def _initialize_credentials(self):
+        """Initialize service account credentials for GCS signing."""
+        try:
+            # Try to use service account key file if provided
+            if settings.gcp_service_account_key_path and os.path.exists(
+                settings.gcp_service_account_key_path
+            ):
+                logger.info(
+                    f"Using service account key file: {settings.gcp_service_account_key_path}"
+                )
+                self.signing_credentials = (
+                    service_account.Credentials.from_service_account_file(
+                        settings.gcp_service_account_key_path
+                    )
+                )
+            else:
+                # Try to get default credentials and check if they have a private key
+                credentials, project = default()
+
+                # Check if we're running on GCP with service account credentials
+                if hasattr(credentials, "service_account_email") and hasattr(
+                    credentials, "_private_key"
+                ):
+                    logger.info(
+                        "Using GCP service account credentials with private key"
+                    )
+                    self.signing_credentials = credentials
+                elif os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                    # Try to load from the credentials file
+                    cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+                    logger.info(
+                        f"Using credentials from GOOGLE_APPLICATION_CREDENTIALS: {cred_path}"
+                    )
+                    self.signing_credentials = (
+                        service_account.Credentials.from_service_account_file(cred_path)
+                    )
+                else:
+                    # Fallback: try to use default credentials anyway (might work in some GCP environments)
+                    logger.warning(
+                        "No service account key found. Signed URLs may not work with current credentials."
+                    )
+                    self.signing_credentials = credentials
+
+        except Exception as e:
+            logger.error(f"Failed to initialize signing credentials: {e}")
+            # Use default credentials as fallback
+            try:
+                credentials, project = default()
+                self.signing_credentials = credentials
+            except Exception as fallback_e:
+                logger.error(f"Failed to get default credentials: {fallback_e}")
+                self.signing_credentials = None
+
+    def _get_cache_key(self, storage_path: str, expiration_hours: int = 1) -> str:
+        """Generate cache key for signed URL."""
+        return f"signed_url:{storage_path}:{expiration_hours}"
+
+    def _is_url_expired(self, cached_data: Dict) -> bool:
+        """Check if cached signed URL is expired or will expire soon (within 5 minutes)."""
+        if "expires_at" not in cached_data:
+            return True
+
+        expires_at = datetime.fromisoformat(cached_data["expires_at"])
+        # Consider expired if it expires within 5 minutes
+        buffer_time = timedelta(minutes=5)
+        return datetime.now(timezone.utc) + buffer_time >= expires_at
+
+    def _generate_signed_url(
+        self, storage_path: str, expiration_hours: int = 1
+    ) -> Optional[str]:
+        """Generate a signed URL for a GCS object with caching."""
+        if not self.bucket or not storage_path:
+            return None
+
+        cache_key = self._get_cache_key(storage_path, expiration_hours)
+
+        # Check cache first
+        if cache_key in self._signed_url_cache:
+            cached_data = self._signed_url_cache[cache_key]
+            if not self._is_url_expired(cached_data):
+                logger.debug(f"Using cached signed URL for {storage_path}")
+                return cached_data["url"]
+            else:
+                # Remove expired entry
+                del self._signed_url_cache[cache_key]
+
+        try:
+            blob = self.bucket.blob(storage_path)
+            expiration = timedelta(hours=expiration_hours)
+
+            # Generate signed URL
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=expiration,
+                method="GET",
+                credentials=self.signing_credentials,
+            )
+
+            # Cache the signed URL
+            expires_at = datetime.now(timezone.utc) + expiration
+            self._signed_url_cache[cache_key] = {
+                "url": signed_url,
+                "expires_at": expires_at.isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            logger.debug(f"Generated and cached signed URL for {storage_path}")
+            return signed_url
+
+        except Exception as e:
+            logger.error(f"Error generating signed URL for {storage_path}: {e}")
+            return None
 
     async def delete_media_for_post(self, user_id: UUID, post_id: UUID, media_id: UUID):
         """Deletes a media file from GCS and the database."""
@@ -594,21 +719,18 @@ class PostsService:
         media_items: List[PostMedia] = []
         for media in post.media:
             if media.storage_path:
-                try:
-                    blob = self.bucket.blob(media.storage_path)
-                    # Generate a signed URL valid for 1 hour
-                    signed_url = blob.generate_signed_url(
-                        version="v4", expiration=timedelta(hours=1), method="GET"
-                    )
+                # Generate signed URL with caching
+                signed_url = self._generate_signed_url(
+                    media.storage_path, expiration_hours=1
+                )
+                if signed_url:
                     # Do not persist to DB; modify in-memory only
                     media.gcs_url = signed_url  # type: ignore
-                    # Only append media with valid signed URL
                     media_items.append(media)
-                except Exception as e:
-                    logger.error(
-                        f"Error generating signed URL for {media.storage_path}: {e}"
+                else:
+                    logger.warning(
+                        f"Failed to generate signed URL for {media.storage_path}, skipping media item"
                     )
-                    # Skip this media item if URL generation fails
             elif media.gcs_url:
                 # If media already has a valid GCS URL, include it
                 media_items.append(media)

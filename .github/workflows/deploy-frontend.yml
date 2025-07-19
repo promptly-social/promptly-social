@@ -1,6 +1,12 @@
 name: Deploy Frontend to GCS
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
     inputs:
       environment:
