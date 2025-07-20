@@ -170,8 +170,30 @@ class CloudSQLClient:
             self._engine.dispose()
             self._engine = None
         if self._async_engine:
-            asyncio.create_task(self._async_engine.dispose())
-            self._async_engine = None
+            # Handle async engine disposal safely
+            try:
+                # Try to get the current event loop
+                asyncio.get_running_loop()
+                # If we have a running loop, create a task
+                asyncio.create_task(self._async_engine.dispose())
+            except RuntimeError:
+                # No event loop running, we need to handle this differently
+                try:
+                    # Try to run the disposal in a new event loop
+                    asyncio.run(self._async_engine.dispose())
+                except Exception as e:
+                    logger.warning(f"Could not properly dispose async engine: {e}")
+                    # As a last resort, try synchronous disposal if available
+                    try:
+                        # Some engines support sync disposal
+                        if hasattr(self._async_engine, 'sync_engine'):
+                            self._async_engine.sync_engine.dispose()
+                    except Exception as sync_error:
+                        logger.warning(f"Could not dispose sync engine either: {sync_error}")
+            except Exception as e:
+                logger.warning(f"Error during async engine disposal: {e}")
+            finally:
+                self._async_engine = None
 
 
 # Global client instance
