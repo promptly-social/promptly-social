@@ -191,7 +191,7 @@ const ChatDialogContent = ({
   }
 
   const ideaText = idea?.idea_bank.data.value;
-  const prefillText = `Help me draft a LinkedIn post and here is the idea: "${ideaText}"`;
+  const prefillText = `Help me draft a LinkedIn post using this idea`;
 
   return (
     <PostSchedulingContext.Provider
