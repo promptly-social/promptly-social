@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import { usePostScheduling } from "../chat/PostGenerationChatDialog";
 import { Badge } from "@/components/ui/badge";
 
@@ -34,6 +34,45 @@ interface GeneratedPost {
   linkedin_post: string;
   topics: string[];
 }
+
+const LOADING_TEXTS = [
+  "I'm manifesting...",
+  "Channeling my inner Shakespeare...",
+  "Consulting the LinkedIn gods...",
+  "Brewing some viral content...",
+  "Summoning the engagement spirits...",
+  "Crafting digital magic...",
+  "Thinking really, really hard...",
+  "Downloading inspiration from the cloud...",
+  "Polishing my crystal ball...",
+  "Asking ChatGPT for advice...",
+  "Counting to infinity and beyond...",
+  "Searching for the perfect words...",
+  "Calibrating my creativity sensors...",
+  "Mixing metaphors and hashtags...",
+  "Consulting my network of influencers...",
+  "Generating synergy...",
+  "Optimizing for maximum impact...",
+  "Leveraging AI superpowers...",
+  "Creating thought leadership...",
+  "Disrupting the status quo...",
+];
+
+const LoadingText: FC = () => {
+  const [currentIndex, setCurrentIndex] = useState(() => 
+    Math.floor(Math.random() * LOADING_TEXTS.length)
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % LOADING_TEXTS.length);
+    }, 5000); // Change text every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return <span>{LOADING_TEXTS[currentIndex]}</span>;
+};
 
 export const Thread: FC<{ placeholder?: string; initialText?: string }> = ({
   placeholder = "Write a message...",
@@ -213,6 +252,8 @@ const AssistantMessage: FC = () => {
     [message.content]
   );
 
+  const isMessageEmpty = message.content.length === 0;
+
   const toolCallContent =
     isToolOutput && message.content[0].type === "tool-call"
       ? (message.content[0] as ToolCallContentPart & { result?: string })
@@ -305,7 +346,13 @@ const AssistantMessage: FC = () => {
           )
         ) : (
           <>
-            <MessagePrimitive.Content components={{ Text: MarkdownText }} />
+            {isMessageEmpty ? (
+              <div className="text-muted-foreground italic">
+                <LoadingText />
+              </div>
+            ) : (
+              <MessagePrimitive.Content components={{ Text: MarkdownText }} />
+            )}
             <MessageError />
           </>
         )}
