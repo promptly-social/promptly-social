@@ -43,7 +43,7 @@ variable "docker_registry_location" {
 variable "cloud_run_min_instances" {
   description = "The minimum number of container instances for the Cloud Run service"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "terraform_state_reader_service_accounts" {

@@ -125,7 +125,7 @@ variable "terraform_service_account_email" {
 variable "cloud_sql_tier" {
   description = "The machine type for the Cloud SQL instance"
   type        = string
-  default     = "db-custom-2-7680"
+  default     = "db-custom-1-3840"
 }
 
 variable "cloud_sql_disk_size" {

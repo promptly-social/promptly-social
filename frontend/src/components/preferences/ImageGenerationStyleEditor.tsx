@@ -19,12 +19,9 @@ interface ImageGenerationStyleEditorProps {
   showActions?: boolean;
 }
 
-export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProps> = ({
-  variant = "card",
-  onSave,
-  onCancel,
-  showActions,
-}) => {
+export const ImageGenerationStyleEditor: React.FC<
+  ImageGenerationStyleEditorProps
+> = ({ variant = "card", onSave, onCancel, showActions }) => {
   const { userPreferences, loading: isLoading } = useProfile();
   const { toast } = useToast();
   const updatePreferencesMutation = useUpdateUserPreferences();
@@ -34,7 +31,7 @@ export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProp
   const [isSaving, setIsSaving] = useState(false);
 
   const currentStyle = userPreferences?.image_generation_style || "";
-  const shouldShowActions = showActions ?? (variant === "card");
+  const shouldShowActions = showActions ?? variant === "card";
 
   const startEditing = useCallback(() => {
     setPendingStyle(currentStyle);
@@ -51,14 +48,14 @@ export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProp
     setIsSaving(true);
     try {
       const styleToSave = pendingStyle.trim() || null;
-      
+
       await updatePreferencesMutation.mutateAsync({
         image_generation_style: styleToSave,
       });
 
       setIsEditing(false);
       setPendingStyle("");
-      
+
       toast({
         title: "Saved",
         description: "Image generation style updated successfully",
@@ -88,8 +85,9 @@ export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProp
         </div>
 
         <p className="text-xs sm:text-sm text-gray-600">
-          Customize how AI generates images for your posts. Describe your preferred visual style, 
-          color palette, composition, or artistic approach. This will override default style options.
+          Customize how AI generates image prompts for your posts. Describe your
+          preferred visual style, color palette, composition, or artistic
+          approach. This will override default style options.
         </p>
 
         {isLoading ? (
@@ -103,7 +101,7 @@ export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProp
               className="min-h-24 text-sm sm:text-base resize-none"
               disabled={isSaving}
             />
-            
+
             {shouldShowActions && (
               <div className="flex gap-2">
                 <Button
@@ -115,11 +113,7 @@ export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProp
                   <X className="w-4 h-4 mr-1" />
                   Cancel
                 </Button>
-                <Button
-                  onClick={saveStyle}
-                  disabled={isSaving}
-                  size="sm"
-                >
+                <Button onClick={saveStyle} disabled={isSaving} size="sm">
                   <Save className="w-4 h-4 mr-1" />
                   {isSaving ? "Saving..." : "Save Style"}
                 </Button>
@@ -129,19 +123,20 @@ export const ImageGenerationStyleEditor: React.FC<ImageGenerationStyleEditorProp
         ) : (
           <div className="space-y-3">
             {currentStyle ? (
-              <div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-                <p className="text-sm text-purple-800 whitespace-pre-wrap">
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">
                   {currentStyle}
                 </p>
               </div>
             ) : (
               <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
                 <p className="text-sm text-gray-500 italic">
-                  No custom image style set. Default AI style options will be used.
+                  No custom image style set. Default AI style options will be
+                  used.
                 </p>
               </div>
             )}
-            
+
             {shouldShowActions && (
               <Button
                 variant="outline"
