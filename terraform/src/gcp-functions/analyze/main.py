@@ -154,12 +154,11 @@ async def update_analysis_results(
             # Store writing style analysis (one record per user, regardless of platform)
             upsert_query = """
                 INSERT INTO writing_style_analysis 
-                (user_id, analysis_data, content_count, last_analyzed_at)
-                VALUES (:user_id, :analysis_data, :content_count, NOW())
+                (user_id, analysis_data, last_analyzed_at)
+                VALUES (:user_id, :analysis_data, NOW())
                 ON CONFLICT (user_id) 
                 DO UPDATE SET 
                     analysis_data = EXCLUDED.analysis_data,
-                    content_count = EXCLUDED.content_count,
                     last_analyzed_at = NOW(),
                     updated_at = NOW()
             """
@@ -169,7 +168,6 @@ async def update_analysis_results(
                 {
                     "user_id": user_id,
                     "analysis_data": analysis_result["writing_style"],
-                    "content_count": len(analysis_result.get("content_analyzed", [])),
                 },
             )
 
