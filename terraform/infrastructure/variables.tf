@@ -42,7 +42,7 @@ variable "cloud_run_min_instances" {
 variable "cloud_run_max_instances" {
   description = "Maximum number of Cloud Run instances"
   type        = number
-  default     = 100
+  default     = 20
 }
 
 variable "cloud_run_memory" {

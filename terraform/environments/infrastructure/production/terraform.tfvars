@@ -40,7 +40,7 @@ manage_frontend_infra = true
 terraform_service_account_email = "promptly-tf-sa-production@promptly-social.iam.gserviceaccount.com"
 
 # Cloud SQL Configuration - Production (high-availability)
-cloud_sql_tier                    = "db-custom-2-7680"
+cloud_sql_tier                    = "db-custom-1-3840"
 cloud_sql_disk_size              = 100
 cloud_sql_disk_autoresize_limit  = 500
 cloud_sql_availability_type      = "REGIONAL"
