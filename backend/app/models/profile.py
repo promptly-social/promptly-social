@@ -51,8 +51,7 @@ class WritingStyleAnalysis(Base):
     user_id: Mapped[UUID] = mapped_column(
         UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    # Platform field to match migration schema (e.g. "substack", "linkedin")
-    platform: Mapped[str] = mapped_column(String, nullable=False)
+
     analysis_data: Mapped[str] = mapped_column(String, nullable=False)
     # Additional fields from migration
     content_count: Mapped[int] = mapped_column(nullable=False, default=0)

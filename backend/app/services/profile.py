@@ -9,7 +9,7 @@ import urllib.parse
 import traceback
 import httpx
 from loguru import logger
-from sqlalchemy import and_, select, desc
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -759,66 +759,52 @@ INSTEAD, use high-effort questions like:
 
     # Writing Style Analysis Operations
     async def get_writing_style_analysis(
-        self, user_id: UUID, source: str
+        self, user_id: UUID
     ) -> Optional[WritingStyleAnalysis]:
-        """Get writing style analysis for a specific source (import, substack, linkedin)."""
+        """Get writing style analysis for a user."""
         try:
             query = select(WritingStyleAnalysis).where(
-                and_(
-                    WritingStyleAnalysis.user_id == user_id,
-                    WritingStyleAnalysis.platform == source,
-                )
+                WritingStyleAnalysis.user_id == user_id
             )
             result = await self.db.execute(query)
             return result.scalar_one_or_none()
         except Exception as e:
-            logger.error(
-                f"Error getting writing style analysis {source} for {user_id}: {e}"
-            )
+            logger.error(f"Error getting writing style analysis for {user_id}: {e}")
             raise
 
     async def upsert_writing_style_analysis(
-        self, user_id: UUID, source: str, analysis_data: str
+        self, user_id: UUID, analysis_data: str
     ) -> WritingStyleAnalysis:
-        """Create or update writing style analysis for a specific source."""
+        """Create or update writing style analysis for a user."""
         try:
             # Check if analysis exists
-            existing = await self.get_writing_style_analysis(user_id, source)
+            existing = await self.get_writing_style_analysis(user_id)
 
             if existing:
                 # Update existing analysis
-                update_dict = {"analysis_data": analysis_data}
-                update_dict["updated_at"] = datetime.now(timezone.utc)
-                if (
-                    "last_analyzed_at" not in update_dict
-                    or update_dict["last_analyzed_at"] is None
-                ):
-                    update_dict["last_analyzed_at"] = datetime.now(timezone.utc)
-
-                for key, value in update_dict.items():
-                    setattr(existing, key, value)
+                existing.analysis_data = analysis_data
+                existing.updated_at = datetime.now(timezone.utc)
+                existing.last_analyzed_at = datetime.now(timezone.utc)
 
                 await self.db.commit()
                 await self.db.refresh(existing)
-                logger.info(f"Updated writing style analysis {source} for {user_id}")
+                logger.info(f"Updated writing style analysis for {user_id}")
                 return existing
             else:
                 analysis = WritingStyleAnalysis(
                     user_id=user_id,
-                    platform=source,
                     analysis_data=analysis_data,
+                    last_analyzed_at=datetime.now(timezone.utc),
                 )
                 self.db.add(analysis)
                 await self.db.commit()
                 await self.db.refresh(analysis)
-                logger.info(f"Created writing style analysis {source} for {user_id}")
+                logger.info(f"Created writing style analysis for {user_id}")
                 return analysis
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(
-                f"Error upserting writing style analysis {source} for {user_id}: {e}"
-            )
+            logger.error(f"Error upserting writing style analysis for {user_id}: {e}")
             raise
 
     # ------------------------------------------------------------------
@@ -828,21 +814,9 @@ INSTEAD, use high-effort questions like:
     async def get_latest_writing_style_analysis(
         self, user_id: UUID
     ) -> Optional[WritingStyleAnalysis]:
-        """Return the most recently analyzed writing style record for a user, irrespective of source."""
+        """Return the writing style analysis for a user."""
         try:
-            query = (
-                select(WritingStyleAnalysis)
-                .where(WritingStyleAnalysis.user_id == user_id)
-                .order_by(
-                    desc(WritingStyleAnalysis.last_analyzed_at),
-                    desc(WritingStyleAnalysis.updated_at),
-                )
-                .limit(1)
-            )
-            result = await self.db.execute(query)
-            return result.scalar_one_or_none()
+            return await self.get_writing_style_analysis(user_id)
         except Exception as e:
-            logger.error(
-                f"Error getting latest writing style analysis for {user_id}: {e}"
-            )
+            logger.error(f"Error getting writing style analysis for {user_id}: {e}")
             raise
