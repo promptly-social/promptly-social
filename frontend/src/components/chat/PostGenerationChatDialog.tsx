@@ -24,6 +24,38 @@ import { ConfirmationModal } from "../shared/modals/ConfirmationModal";
 import { Button } from "../ui/button";
 import { archiveConversation } from "@/lib/chat-api";
 import { streamChatMessages, type ChatMessage } from "@/lib/chat-streaming-api";
+import { FC, useState, useEffect } from "react";
+
+const funnyLoadingTexts = [
+  "Manifesting your post...",
+  "Summoning creative juices...",
+  "Consulting the content gods...",
+  "Making magic happen...",
+  "Warming up the AI hamsters...",
+  "Reticulating splines...",
+  "Asking the magic 8-ball for advice...",
+];
+
+const FunnyLoading: FC = () => {
+  const [funnyText, setFunnyText] = useState(funnyLoadingTexts[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFunnyText(
+        funnyLoadingTexts[Math.floor(Math.random() * funnyLoadingTexts.length)]
+      );
+    }, 2000); // Change text every 2 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center space-x-2">
+      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gray-900 dark:border-gray-100"></div>
+      <span>{funnyText}</span>
+    </div>
+  );
+};
 
 type PostSchedulingContextType = {
   onSchedule: (content: string, topics?: string[], ideaBankId?: string) => void;
@@ -252,11 +284,20 @@ const ChatThreadRuntime = ({
   initialText?: string;
   onStartNewConversation: () => void;
 }) => {
+  const [isAssistantResponding, setIsAssistantResponding] = useState(false);
+  const [showFunnyLoading, setShowFunnyLoading] = useState(false);
+
   const modelAdapter: ChatModelAdapter = {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     async *run({ messages, getThread }) {
       if (!conversation) return;
+
+      setIsAssistantResponding(true);
+      setShowFunnyLoading(false);
+      const loadingTimer = setTimeout(() => {
+        setShowFunnyLoading(true);
+      }, 3000);
 
       // Transform assistant-ui messages to API format
       const apiMessages: ChatMessage[] = messages.flatMap((m: ThreadMessage) => {
@@ -286,9 +327,13 @@ const ChatThreadRuntime = ({
         });
 
         for await (const response of streamGenerator) {
+          clearTimeout(loadingTimer);
+          setShowFunnyLoading(false);
           yield response;
         }
       } catch (error) {
+        clearTimeout(loadingTimer);
+        setShowFunnyLoading(false);
         console.error("Chat streaming error:", error);
         yield {
           content: [
@@ -298,6 +343,10 @@ const ChatThreadRuntime = ({
             },
           ],
         };
+      } finally {
+        clearTimeout(loadingTimer);
+        setShowFunnyLoading(false);
+        setIsAssistantResponding(false);
       }
     },
   };
@@ -317,6 +366,11 @@ const ChatThreadRuntime = ({
         </DialogHeader>
         <div className="flex-grow overflow-y-auto">
           <Thread placeholder={placeholder} initialText={initialText} />
+          {showFunnyLoading && (
+            <div className="flex justify-center p-4">
+              <FunnyLoading />
+            </div>
+          )}
         </div>
       </DialogContent>
     </AssistantRuntimeProvider>
