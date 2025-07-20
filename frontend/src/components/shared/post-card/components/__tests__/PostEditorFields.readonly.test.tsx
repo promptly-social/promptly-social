@@ -4,6 +4,9 @@ import { describe, it, expect, vi } from "vitest";
 import { PostEditorFields } from "../PostEditorFields";
 import { UsePostEditorReturn } from "@/hooks/usePostEditor";
 import { PostMedia } from "@/types/posts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProfileProvider } from "@/contexts/ProfileContext";
 
 // Mock the UI components
 vi.mock("@/components/ui/textarea", () => ({
@@ -59,6 +62,84 @@ vi.mock("@/lib/posts-api", () => ({
   },
 }));
 
+// Mock the hooks
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+  }),
+}));
+
+vi.mock("@/hooks/useUpdateUserPreferences", () => ({
+  useUpdateUserPreferences: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+// Mock the profile queries that ProfileProvider depends on
+vi.mock("@/lib/profile-queries", () => ({
+  useUserPreferences: () => ({
+    data: {
+      id: "test-pref-id",
+      user_id: "test-user-id",
+      topics_of_interest: [],
+      websites: [],
+      substacks: [],
+      bio: "Test bio",
+      preferred_posting_time: null,
+      timezone: null,
+      image_generation_style: "Test style",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    },
+    isLoading: false,
+  }),
+  useSocialConnections: () => ({
+    data: [],
+    isLoading: false,
+  }),
+  profileKeys: {
+    preferences: ["profile", "preferences"],
+    connections: ["profile", "connections"],
+  },
+}));
+
+// Mock the AuthContext
+vi.mock("@/contexts/AuthContext", () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: {
+      id: "test-user-id",
+      email: "test@example.com",
+      firstName: "Test",
+      lastName: "User",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    },
+    loading: false,
+  }),
+}));
+
+// Create a test wrapper with all necessary providers
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ProfileProvider>
+          {children}
+        </ProfileProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
+
 const mockEditor: UsePostEditorReturn = {
   content: "Test content",
   setContent: vi.fn(),
@@ -81,10 +162,12 @@ const mockEditor: UsePostEditorReturn = {
 describe("PostEditorFields - Read-only behavior", () => {
   it("renders content textarea as read-only for posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="posted"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="posted"
+        />
+      </TestWrapper>
     );
 
     const textarea = screen.getByTestId("content-textarea");
@@ -95,10 +178,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("renders content textarea as editable for non-posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="draft"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="draft"
+        />
+      </TestWrapper>
     );
 
     const textarea = screen.getByTestId("content-textarea");
@@ -109,10 +194,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("renders article URL input as read-only for posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="posted"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="posted"
+        />
+      </TestWrapper>
     );
 
     const input = screen.getByTestId("article-url");
@@ -123,10 +210,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("renders article URL input as editable for non-posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="draft"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="draft"
+        />
+      </TestWrapper>
     );
 
     const input = screen.getByTestId("article-url");
@@ -137,10 +226,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("disables media upload button for posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="posted"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="posted"
+        />
+      </TestWrapper>
     );
 
     const uploadButton = screen.getByText("Media Upload Disabled");
@@ -150,10 +241,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("enables media upload button for non-posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="draft"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="draft"
+        />
+      </TestWrapper>
     );
 
     const uploadButton = screen.getByText("Choose Image");
@@ -162,10 +255,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("disables AI prompt generation for posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="posted"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="posted"
+        />
+      </TestWrapper>
     );
 
     const promptButton = screen.getByText("Disabled for Posted Posts");
@@ -174,10 +269,12 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("enables AI prompt generation for non-posted posts", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="draft"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="draft"
+        />
+      </TestWrapper>
     );
 
     const promptButton = screen.getByText("Generate Prompt");
@@ -205,10 +302,12 @@ describe("PostEditorFields - Read-only behavior", () => {
     };
 
     render(
-      <PostEditorFields
-        editor={editorWithMedia}
-        postStatus="posted"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={editorWithMedia}
+          postStatus="posted"
+        />
+      </TestWrapper>
     );
 
     // Media removal buttons should not be present for posted posts
@@ -236,10 +335,12 @@ describe("PostEditorFields - Read-only behavior", () => {
     };
 
     render(
-      <PostEditorFields
-        editor={editorWithMedia}
-        postStatus="draft"
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={editorWithMedia}
+          postStatus="draft"
+        />
+      </TestWrapper>
     );
 
     // Media removal buttons should be present for non-posted posts
@@ -248,11 +349,13 @@ describe("PostEditorFields - Read-only behavior", () => {
 
   it("respects explicit isReadOnly prop regardless of post status", () => {
     render(
-      <PostEditorFields
-        editor={mockEditor}
-        postStatus="draft"
-        isReadOnly={true}
-      />
+      <TestWrapper>
+        <PostEditorFields
+          editor={mockEditor}
+          postStatus="draft"
+          isReadOnly={true}
+        />
+      </TestWrapper>
     );
 
     const textarea = screen.getByTestId("content-textarea");

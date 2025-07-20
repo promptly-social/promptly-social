@@ -15,6 +15,7 @@ class UserPreferencesBase(BaseModel):
     bio: str = Field(default="")
     preferred_posting_time: Optional[time] = None
     timezone: Optional[str] = None
+    image_generation_style: Optional[str] = None
 
 
 class UserPreferencesCreate(UserPreferencesBase):
@@ -32,6 +33,7 @@ class UserPreferencesUpdate(BaseModel):
     bio: Optional[str] = None
     preferred_posting_time: Optional[time] = None
     timezone: Optional[str] = None
+    image_generation_style: Optional[str] = None
     content_strategies: Optional[Dict[str, str]] = None
 
 

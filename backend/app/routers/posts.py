@@ -542,7 +542,9 @@ async def generate_image_prompt(
     """Generate an image prompt for a post."""
     try:
         service = ImageGenService()
-        result = await service.generate_image_prompt(postContent.postContent)
+        result = await service.generate_image_prompt(
+            postContent.postContent, current_user.id, db
+        )
         return ImagePromptResponse(imagePrompt=result.output)
     except Exception as e:
         logger.error(
