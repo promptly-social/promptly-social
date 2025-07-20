@@ -485,17 +485,9 @@ async def update_latest_writing_style_analysis(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Update the most recent writing style analysis for the user. If none exists, one is created using a default 'import' source."""
+    """Update the writing style analysis for the user."""
     try:
         profile_service = ProfileService(db)
-
-        # Find the current analysis (if any) to determine source
-        existing = await profile_service.get_latest_writing_style_analysis(
-            current_user.id
-        )
-
-        # Fallback source if there is no previous record
-        source = existing.platform if existing else "import"
 
         if update_data.analysis_data is None:
             raise HTTPException(
@@ -504,7 +496,7 @@ async def update_latest_writing_style_analysis(
             )
 
         analysis = await profile_service.upsert_writing_style_analysis(
-            current_user.id, source, update_data.analysis_data
+            current_user.id, update_data.analysis_data
         )
 
         return PlatformAnalysisResponse(
@@ -516,9 +508,7 @@ async def update_latest_writing_style_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"Error updating consolidated writing style analysis for user: {e}"
-        )
+        logger.error(f"Error updating writing style analysis for user: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update writing style analysis",

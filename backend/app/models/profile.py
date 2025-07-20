@@ -49,13 +49,13 @@ class WritingStyleAnalysis(Base):
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(
-        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        UUIDType(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
-    # Platform field to match migration schema (e.g. "substack", "linkedin")
-    platform: Mapped[str] = mapped_column(String, nullable=False)
+
     analysis_data: Mapped[str] = mapped_column(String, nullable=False)
-    # Additional fields from migration
-    content_count: Mapped[int] = mapped_column(nullable=False, default=0)
     last_analyzed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

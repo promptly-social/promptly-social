@@ -170,16 +170,13 @@ class TestProfileService:
         # Create analysis - updated to match service signature
         analysis_data_str = "this is the writing style analysis data"
         analysis = await profile_service.upsert_writing_style_analysis(
-            test_user.id, "linkedin", analysis_data_str
+            test_user.id, analysis_data_str
         )
 
-        assert analysis.platform == "linkedin"
         assert analysis.analysis_data == "this is the writing style analysis data"
 
         # Get analysis
-        retrieved = await profile_service.get_writing_style_analysis(
-            test_user.id, "linkedin"
-        )
+        retrieved = await profile_service.get_writing_style_analysis(test_user.id)
         assert retrieved.id == analysis.id
 
 
