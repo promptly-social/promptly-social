@@ -63,6 +63,38 @@ class MigrationManager:
 
         return get_sync_engine()
 
+    def _is_revision_applied(
+        self, revision: str, current_rev: str, script: ScriptDirectory
+    ) -> bool:
+        """
+        Check if a revision is applied (compatible with different Alembic versions).
+
+        Args:
+            revision: The revision to check
+            current_rev: The current revision in the database
+            script: The script directory
+
+        Returns:
+            bool: True if the revision is applied
+        """
+        if revision == current_rev:
+            return True
+
+        try:
+            # Try using walk_revisions to check if revision is applied
+            if hasattr(script, "get_revision"):
+                # Check if revision is an ancestor using walk_revisions
+                for rev in script.walk_revisions(current_rev, revision):
+                    if rev.revision == revision:
+                        return True
+                return False
+        except Exception:
+            # Fallback: simple approach - if we can't determine, assume not applied
+            # unless it's the current revision
+            pass
+
+        return False
+
     def _acquire_migration_lock(self, timeout: int = 60) -> bool:
         """
         Acquire a migration lock to prevent concurrent migrations.
@@ -331,13 +363,17 @@ class MigrationManager:
                 current_rev = context.get_current_revision()
 
                 history = []
+                found_current = False
+
                 for rev in script.walk_revisions():
                     is_applied = False
                     if current_rev:
-                        # Check if this revision is applied
-                        is_applied = rev.revision == current_rev or rev.is_ancestor_of(
-                            current_rev, script
-                        )
+                        # Simple approach: if we haven't found current yet, it's applied
+                        if rev.revision == current_rev:
+                            found_current = True
+                            is_applied = True
+                        elif not found_current:
+                            is_applied = True
 
                     history.append(
                         {
@@ -373,14 +409,15 @@ class MigrationManager:
                 all_revisions = list(script.walk_revisions())
                 total_migrations = len(all_revisions)
 
-                # Count applied migrations
+                # Simplified approach - just count based on current revision position
                 applied_count = 0
                 if current_rev:
-                    for rev in all_revisions:
-                        if rev.revision == current_rev or rev.is_ancestor_of(
-                            current_rev, script
-                        ):
-                            applied_count += 1
+                    # Find the position of current revision in the list
+                    for i, rev in enumerate(all_revisions):
+                        if rev.revision == current_rev:
+                            # All revisions from this point onwards are applied
+                            applied_count = len(all_revisions) - i
+                            break
 
                 pending = self.check_pending_migrations()
 
