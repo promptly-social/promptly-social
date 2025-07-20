@@ -26,10 +26,40 @@ import {
 } from "@/components/ui/card";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import { usePostScheduling } from "../chat/PostGenerationChatDialog";
 import { Badge } from "@/components/ui/badge";
 
+const funnyLoadingTexts = [
+  "Manifesting your post...",
+  "Summoning creative juices...",
+  "Consulting the content gods...",
+  "Making magic happen...",
+  "Warming up the AI hamsters...",
+  "Reticulating splines...",
+  "Asking the magic 8-ball for advice...",
+];
+
+const ToolLoading: FC = () => {
+  const [funnyText, setFunnyText] = useState(funnyLoadingTexts[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFunnyText(
+        funnyLoadingTexts[Math.floor(Math.random() * funnyLoadingTexts.length)]
+      );
+    }, 2000); // Change text every 2 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center space-x-2">
+      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gray-900 dark:border-gray-100"></div>
+      <span>{funnyText}</span>
+    </div>
+  );
+};
 interface GeneratedPost {
   linkedin_post: string;
   topics: string[];
@@ -218,6 +248,8 @@ const AssistantMessage: FC = () => {
       ? (message.content[0] as ToolCallContentPart & { result?: string })
       : null;
 
+  const isToolRunning = isToolOutput && message.status === "running";
+
   let generatedPost: GeneratedPost | null = null;
   if (toolCallContent?.result) {
     try {
@@ -246,7 +278,9 @@ const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5">
-        {toolCallContent ? (
+        {isToolRunning ? (
+          <ToolLoading />
+        ) : toolCallContent ? (
           generatedPost ? (
             <Card ref={cardRef}>
               <CardHeader>
