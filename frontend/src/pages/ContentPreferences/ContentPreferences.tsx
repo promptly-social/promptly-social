@@ -11,7 +11,7 @@ const ContentPreferences: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
           <div className="text-center mb-6 sm:mb-8">
             <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto px-4">
-              Define your content strategy and preferences to create more
+              Define your content preferences and post style to create more
               targeted and personalized content
             </p>
           </div>
