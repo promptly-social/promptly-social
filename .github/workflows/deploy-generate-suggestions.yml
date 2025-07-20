@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "terraform/src/gcp-functions/generate_suggestions/**"
+      - "terraform/src/gcp-functions/shared/**"
+      - "terraform/src/gcp-functions/main.py"
       - "terraform/modules/generate_suggestions_function/**"
       - "terraform/environments/generate_suggestions/**"
       - ".github/workflows/deploy-generate-suggestions.yml"

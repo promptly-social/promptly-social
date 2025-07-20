@@ -16,14 +16,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from shared.cloud_sql_client import get_cloud_sql_client, CloudSQLClient
 
+
 class UUIDEncoder(json.JSONEncoder):
     """Custom JSON encoder that converts UUID objects to strings."""
+
     def default(self, obj):
         if isinstance(obj, UUID):
             return str(obj)
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -65,6 +68,7 @@ async def _process_scheduled_posts_async(request):
     Async implementation of process_scheduled_posts.
     """
     headers = {"Access-Control-Allow-Origin": "*"}
+    db_client = None
 
     try:
         logger.info("Starting unified post scheduler execution")
@@ -74,7 +78,9 @@ async def _process_scheduled_posts_async(request):
         db_client = get_cloud_sql_db()
 
         # Get posts scheduled for publishing
-        posts_to_publish = await retry_with_exponential_backoff(get_posts_to_publish, db_client)
+        posts_to_publish = await retry_with_exponential_backoff(
+            get_posts_to_publish, db_client
+        )
 
         if not posts_to_publish:
             logger.info("No posts found for publishing")
@@ -119,7 +125,7 @@ async def _process_scheduled_posts_async(request):
                     "execution_time_seconds": execution_time,
                     "results": results,
                 },
-                cls=UUIDEncoder
+                cls=UUIDEncoder,
             ),
             200,
             headers,
@@ -139,6 +145,21 @@ async def _process_scheduled_posts_async(request):
             500,
             headers,
         )
+    finally:
+        # Ensure Cloud SQL client is properly closed to prevent event loop issues
+        if db_client:
+            try:
+                logger.info("Closing Cloud SQL client")
+                db_client.close()
+            except Exception as cleanup_error:
+                logger.warning(f"Error closing Cloud SQL client: {cleanup_error}")
+        
+        # Also close the global client if it exists
+        try:
+            from shared.cloud_sql_client import close_cloud_sql_client
+            close_cloud_sql_client()
+        except Exception as global_cleanup_error:
+            logger.warning(f"Error closing global Cloud SQL client: {global_cleanup_error}")
 
 
 @functions_framework.http
@@ -165,26 +186,43 @@ def process_scheduled_posts(request):
         try:
             asyncio.get_running_loop()
             # If we get here, there's already a loop running
-            # We need to run in a new thread or use a different approach
+            # We need to run in a new thread with proper cleanup
             import concurrent.futures
-            
+
             def run_in_thread():
                 # Create a new event loop in this thread
                 new_loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(new_loop)
                 try:
-                    return new_loop.run_until_complete(_process_scheduled_posts_async(request))
+                    return new_loop.run_until_complete(
+                        _process_scheduled_posts_async(request)
+                    )
                 finally:
-                    new_loop.close()
-            
+                    # Ensure all tasks are completed before closing
+                    try:
+                        # Cancel any remaining tasks
+                        pending = asyncio.all_tasks(new_loop)
+                        if pending:
+                            logger.info(f"Cancelling {len(pending)} pending tasks")
+                            for task in pending:
+                                task.cancel()
+                            # Wait for tasks to be cancelled
+                            new_loop.run_until_complete(
+                                asyncio.gather(*pending, return_exceptions=True)
+                            )
+                    except Exception as cleanup_error:
+                        logger.warning(f"Error during task cleanup: {cleanup_error}")
+                    finally:
+                        new_loop.close()
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(run_in_thread)
                 return future.result()
-                
+
         except RuntimeError:
             # No event loop running, safe to use asyncio.run()
             return asyncio.run(_process_scheduled_posts_async(request))
-            
+
     except Exception as e:
         logger.error(f"Error in process_scheduled_posts wrapper: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -206,25 +244,22 @@ async def get_posts_to_publish(client: CloudSQLClient) -> List[Dict[str, Any]]:
     Query database for posts scheduled in the last 10 minutes that haven't been published.
     """
     try:
-        # Calculate time window: 10 minutes ago to now
         now = datetime.now(timezone.utc)
-        ten_minutes_ago = now - timedelta(minutes=10)
 
-        logger.info(f"Querying for posts scheduled between {ten_minutes_ago} and {now}")
+        logger.info(f"Querying for posts scheduled before {now}")
 
         # Query for scheduled posts in the time window
         query = """
             SELECT * FROM posts 
             WHERE status = :status 
             AND posted_at IS NULL 
-            AND scheduled_at >= :ten_minutes_ago 
             AND scheduled_at <= :now 
             ORDER BY scheduled_at ASC
         """
 
         posts = await client.execute_query_async(
             query,
-            {"status": "scheduled", "ten_minutes_ago": ten_minutes_ago, "now": now},
+            {"status": "scheduled", "now": now},
         )
 
         logger.info(f"Found {len(posts)} posts ready for publishing")
