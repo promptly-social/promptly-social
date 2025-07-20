@@ -49,7 +49,10 @@ class WritingStyleAnalysis(Base):
 
     id: Mapped[UUID] = mapped_column(UUIDType(), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(
-        UUIDType(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+        UUIDType(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
 
     analysis_data: Mapped[str] = mapped_column(String, nullable=False)

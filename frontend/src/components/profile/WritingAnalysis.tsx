@@ -112,41 +112,42 @@ export const WritingAnalysis: React.FC = () => {
     if (analyzing) return;
 
     setAnalyzing(true);
+
+    // Close modal immediately after triggering analysis
+    setAnalyzeModalOpen(false);
+
     try {
       if (selectedSource === "import") {
         if (!importText.trim()) return;
+        toast({
+          title: "Analysis Started",
+          description: "Your imported text is being analyzed...",
+        });
         await profileApi.runWritingStyleAnalysis("import", {
           text: importText.trim(),
         });
-        toast({
-          title: "Analysis Complete",
-          description: "Your imported text has been analyzed successfully.",
-        });
       } else {
         // For LinkedIn and Substack, call the writing style analysis endpoint
-        await profileApi.runWritingStyleAnalysis(selectedSource);
-
-        const platformName =
-          selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1);
         toast({
           title: "Analysis Started",
-          description: `Analyzing your ${platformName} writing style. This may take a few minutes.`,
+          description: `Analyzing your content...`,
         });
+        await profileApi.runWritingStyleAnalysis(selectedSource);
       }
 
-      setAnalyzeModalOpen(false);
+      // Reset form state
       setImportText("");
 
-      // Refresh analysis data
-      await refetchAnalysis();
+      // Note: We don't await refetchAnalysis here since the analysis runs asynchronously
+      // The user can manually refresh or the data will update when the analysis completes
     } catch (error) {
-      console.error("Error running analysis:", error);
+      console.error("Error analyzing content:", error);
       const apiError = error as { response?: { data?: { detail?: string } } };
       toast({
         title: "Analysis Error",
         description:
           apiError.response?.data?.detail ||
-          `Failed to start ${selectedSource} analysis. Please try again.`,
+          "Failed to start analysis. Please try again.",
         variant: "destructive",
       });
     } finally {
