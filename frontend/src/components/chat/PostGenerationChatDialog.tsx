@@ -23,6 +23,7 @@ import { useToast } from "../ui/use-toast";
 import { ConfirmationModal } from "../shared/modals/ConfirmationModal";
 import { Button } from "../ui/button";
 import { archiveConversation } from "@/lib/chat-api";
+import { streamChatMessages, type ChatMessage } from "@/lib/chat-streaming-api";
 
 type PostSchedulingContextType = {
   onSchedule: (content: string, topics?: string[], ideaBankId?: string) => void;
@@ -257,8 +258,9 @@ const ChatThreadRuntime = ({
     async *run({ messages, getThread }) {
       if (!conversation) return;
 
-      const apiMessages = messages.flatMap((m: ThreadMessage) => {
-        const parts: { role: string; content: string }[] = [];
+      // Transform assistant-ui messages to API format
+      const apiMessages: ChatMessage[] = messages.flatMap((m: ThreadMessage) => {
+        const parts: ChatMessage[] = [];
         let textContent = "";
 
         m.content.forEach((c) => {
@@ -276,74 +278,26 @@ const ChatThreadRuntime = ({
         return parts;
       });
 
-      const token = localStorage.getItem("access_token");
-
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      const response = await fetch(`${apiUrl}/api/v1/chat/stream`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      // Use the new streaming API
+      try {
+        const streamGenerator = streamChatMessages({
           conversation_id: conversation.id,
           messages: apiMessages,
-        }),
-      });
+        });
 
-      if (!response.body) return;
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedText = "";
-      let lastYieldedText = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const json = JSON.parse(line.substring(6));
-              if (json.type === "message" && json.content) {
-                accumulatedText += json.content;
-                if (accumulatedText !== lastYieldedText) {
-                  yield {
-                    content: [{ type: "text", text: accumulatedText }],
-                  };
-                  lastYieldedText = accumulatedText;
-                }
-              } else if (json.type === "tool_output") {
-                yield {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "tool-call",
-                      text: json.content,
-                      result: json.content,
-                    },
-                  ],
-                };
-              } else if (json.type === "error") {
-                console.error("Stream error:", json.error);
-                yield {
-                  content: [
-                    {
-                      type: "text",
-                      text: `An error occurred: ${json.error}`,
-                    },
-                  ],
-                };
-                return;
-              }
-            } catch (e) {
-              // ignore parsing errors
-            }
-          }
+        for await (const response of streamGenerator) {
+          yield response;
         }
+      } catch (error) {
+        console.error("Chat streaming error:", error);
+        yield {
+          content: [
+            {
+              type: "text",
+              text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            },
+          ],
+        };
       }
     },
   };
