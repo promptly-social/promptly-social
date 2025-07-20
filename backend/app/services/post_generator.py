@@ -3,14 +3,25 @@ This service uses Pydantic-AI to generate posts based on user context.
 """
 
 from typing import List, Optional
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
-from pydantic_ai.providers.openrouter import OpenRouterProvider
-from pydantic_ai.tools import RunContext
+from pydantic_ai import Agent, RunContext
 
-from app.core.config import settings
+from app.services.model_config import model_config
+
+
+@dataclass
+class PostGenerationContext:
+    """Context data for post generation tools."""
+
+    idea_content: str
+    bio: str
+    writing_style: str
+    linkedin_post_strategy: str
+    conversation_context: Optional[str] = None
+    previous_draft: Optional[str] = None
+    user_feedback: Optional[str] = None
 
 
 class GeneratedPost(BaseModel):
@@ -23,22 +34,35 @@ class GeneratedPost(BaseModel):
 
 
 class PostGeneratorService:
-    """Service to generate posts using an AI agent."""
+    """Service to generate posts using an AI agent with shared model configuration."""
 
     def __init__(self):
-        self.fallback_models = [
-            model.strip()
-            for model in settings.openrouter_large_models_fallback.split(",")
-            if model.strip()
-        ]
+        # Use shared model configuration for consistency
+        self.model = model_config.get_large_model()
+        self.model_settings = model_config.get_large_model_settings()
 
-        provider = OpenRouterProvider(
-            api_key=settings.openrouter_api_key,
+        # Create reusable agents following PydanticAI best practices
+        self._generation_agent = self._create_generation_agent()
+        self._revision_agent = self._create_revision_agent()
+
+    def _create_generation_agent(self) -> Agent:
+        """Create a reusable agent for post generation."""
+        return Agent(
+            self.model,
+            output_type=GeneratedPost,
+            model_settings=self.model_settings,
+            retries=1,  # Built-in retry mechanism
+            system_prompt="",
         )
 
-        self.model = OpenAIModel(
-            settings.openrouter_large_model_primary,
-            provider=provider,
+    def _create_revision_agent(self) -> Agent:
+        """Create a reusable agent for post revision."""
+        return Agent(
+            self.model,
+            output_type=GeneratedPost,
+            model_settings=self.model_settings,
+            retries=1,  # Built-in retry mechanism
+            system_prompt="",
         )
 
     async def generate_post(
@@ -52,23 +76,6 @@ class PostGeneratorService:
         """
         Generates a LinkedIn post using the AI agent.
         """
-
-        # Guard against overly long inputs that might exceed model context window
-        MAX_SECTION_LEN = 4000
-        if idea_content and len(idea_content) > MAX_SECTION_LEN:
-            idea_content = idea_content[:MAX_SECTION_LEN] + "... [truncated]"
-        if bio and len(bio) > MAX_SECTION_LEN:
-            bio = bio[:MAX_SECTION_LEN] + "... [truncated]"
-        if writing_style and len(writing_style) > MAX_SECTION_LEN:
-            writing_style = writing_style[:MAX_SECTION_LEN] + "... [truncated]"
-        if linkedin_post_strategy and len(linkedin_post_strategy) > MAX_SECTION_LEN:
-            linkedin_post_strategy = (
-                linkedin_post_strategy[:MAX_SECTION_LEN] + "... [truncated]"
-            )
-        if conversation_context and len(conversation_context) > MAX_SECTION_LEN:
-            conversation_context = (
-                conversation_context[:MAX_SECTION_LEN] + "... [truncated]"
-            )
 
         # Build the source material section
         source_material = idea_content or "No specific content idea provided."
@@ -124,18 +131,9 @@ class PostGeneratorService:
 Finally, return the generated post and the topics in the required JSON format.
 """
 
-        # Create a temporary agent for this generation
-        agent = Agent(
-            self.model,
-            output_type=GeneratedPost,
-            model_settings=OpenAIModelSettings(
-                temperature=settings.openrouter_large_model_temperature,
-                extra_body={"models": self.fallback_models},
-            ),
-            system_prompt="",
-        )
-
-        return await agent.run(prompt)
+        # Use the reusable agent instead of creating a new one
+        result = await self._generation_agent.run(prompt)
+        return result.output
 
     async def revise_post(
         self,
@@ -197,81 +195,61 @@ Finally, return the generated post and the topics in the required JSON format.
             Finally, return the generated post and the topic in the required JSON format.
             """
 
-        # Create a temporary agent for this revision
-        agent = Agent(
-            self.model,
-            output_type=GeneratedPost,
-            model_settings=OpenAIModelSettings(
-                temperature=settings.openrouter_large_model_temperature,
-                extra_body={"models": self.fallback_models},
-            ),
-            system_prompt="",
-        )
-
-        return await agent.run(prompt)
+        # Use the reusable agent instead of creating a new one
+        result = await self._revision_agent.run(prompt)
+        return result.output
 
 
 # Singleton instance used by the tool
 post_generator_service = PostGeneratorService()
 
 
+# Tool functions for PydanticAI agent - using context instead of LLM-parsed arguments
 async def generate_linkedin_post_tool(
-    ctx: RunContext[PostGeneratorService],
-    idea_content: str = Field(
-        description="The content of the post idea, this is the main topic of the post."
-    ),
-    bio: str = Field(description="The user's biography."),
-    writing_style: str = Field(description="The user's writing style."),
-    linkedin_post_strategy: str = Field(
-        description="The user's LinkedIn post strategy."
-    ),
-    conversation_context: Optional[str] = Field(
-        default=None, description="The conversation history for additional context."
-    ),
+    ctx: RunContext[PostGenerationContext],
 ) -> GeneratedPost:
-    """Tool wrapper for generating a LinkedIn post."""
+    """
+    Tool for generating a LinkedIn post using context data.
+    All required data is passed through the context, not as LLM-parsed arguments.
+    """
+    try:
+        # Get the service from the global instance
+        service = post_generator_service
 
-    post = await ctx.deps.generate_post(
-        idea_content=idea_content,
-        bio=bio,
-        writing_style=writing_style,
-        linkedin_post_strategy=linkedin_post_strategy,
-        conversation_context=conversation_context,
-    )
-
-    return post
+        post = await service.generate_post(
+            idea_content=ctx.deps.idea_content,
+            bio=ctx.deps.bio,
+            writing_style=ctx.deps.writing_style,
+            linkedin_post_strategy=ctx.deps.linkedin_post_strategy,
+            conversation_context=ctx.deps.conversation_context,
+        )
+        return post
+    except Exception as e:
+        print(f"Error in generate_linkedin_post_tool: {e}")
+        raise
 
 
 async def revise_linkedin_post_tool(
-    ctx: RunContext[PostGeneratorService],
-    idea_content: str = Field(
-        description="The content of the post idea, this is the main topic of the post."
-    ),
-    bio: str = Field(description="The user's biography."),
-    writing_style: str = Field(description="The user's writing style."),
-    linkedin_post_strategy: str = Field(
-        description="The user's LinkedIn post strategy."
-    ),
-    previous_draft: Optional[str] = Field(
-        default=None, description="The previous draft of the post to revise."
-    ),
-    user_feedback: Optional[str] = Field(
-        default=None, description="The user's feedback on the previous draft."
-    ),
-    conversation_context: Optional[str] = Field(
-        default=None, description="The conversation history for additional context."
-    ),
+    ctx: RunContext[PostGenerationContext],
 ) -> GeneratedPost:
-    """Tool wrapper for revising a LinkedIn post."""
+    """
+    Tool for revising a LinkedIn post using context data.
+    All required data is passed through the context, not as LLM-parsed arguments.
+    """
+    try:
+        # Get the service from the global instance
+        service = post_generator_service
 
-    post = await ctx.deps.revise_post(
-        idea_content=idea_content,
-        bio=bio,
-        writing_style=writing_style,
-        linkedin_post_strategy=linkedin_post_strategy,
-        previous_draft=previous_draft,
-        user_feedback=user_feedback,
-        conversation_context=conversation_context,
-    )
-
-    return post
+        post = await service.revise_post(
+            idea_content=ctx.deps.idea_content,
+            bio=ctx.deps.bio,
+            writing_style=ctx.deps.writing_style,
+            linkedin_post_strategy=ctx.deps.linkedin_post_strategy,
+            previous_draft=ctx.deps.previous_draft,
+            user_feedback=ctx.deps.user_feedback,
+            conversation_context=ctx.deps.conversation_context,
+        )
+        return post
+    except Exception as e:
+        print(f"Error in revise_linkedin_post_tool: {e}")
+        raise

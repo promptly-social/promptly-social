@@ -8,12 +8,10 @@ from uuid import UUID
 from loguru import logger
 from pydantic import BaseModel
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
-from pydantic_ai.providers.openrouter import OpenRouterProvider
+
 from pydantic_ai.messages import (
     TextPart,
     ModelMessage,
-    # Message history primitives
     ModelRequest,
     ModelResponse,
     UserPromptPart,
@@ -23,7 +21,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
 from app.models.chat import Conversation, Message
 from app.models.idea_bank import IdeaBank
 from app.models.profile import UserPreferences, WritingStyleAnalysis
@@ -37,8 +34,9 @@ from app.schemas.chat import (
 from app.services.post_generator import (
     generate_linkedin_post_tool,
     revise_linkedin_post_tool,
-    PostGeneratorService,
+    PostGenerationContext,
 )
+from app.services.model_config import model_config
 
 
 class ChatService:
@@ -47,37 +45,27 @@ class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+        # Use shared model configuration for consistency
+        self.model = model_config.get_chat_model()
+        self.model_settings = model_config.get_chat_model_settings()
+
     def _create_agent(self, system_prompt: str) -> Agent:
         """
-        Creates the Pydantic-AI agent.
-        It should use a smaller model for the chat and a larger model for the tool calls.
+        Creates a Pydantic-AI agent with proper fallback configuration.
+        Uses OpenRouter's native model fallback instead of manual handling.
         """
 
-        fallback_models = [
-            model.strip()
-            for model in settings.openrouter_models_fallback.split(",")
-            if model.strip()
-        ]
-
-        provider = OpenRouterProvider(
-            api_key=settings.openrouter_api_key,
-        )
-
-        model = OpenAIModel(
-            settings.openrouter_model_primary,
-            provider=provider,
-        )
-
-        return Agent[PostGeneratorService, str](
-            model,
+        # Create agent with tools and proper retry configuration
+        agent = Agent[PostGenerationContext, str](
+            self.model,
             tools=[generate_linkedin_post_tool, revise_linkedin_post_tool],
-            model_settings=OpenAIModelSettings(
-                temperature=settings.openrouter_model_temperature,
-                extra_body={"models": fallback_models},
-            ),
+            model_settings=self.model_settings,
             output_type=str,
             instructions=system_prompt,
+            retries=2,  # Built-in retry mechanism for agent failures
         )
+
+        return agent
 
     async def get_conversation(
         self, user_id: UUID, conversation_id: UUID
@@ -211,12 +199,13 @@ class ChatService:
         system_prompt: str,
         user_message_content: str,
         history: list[ModelMessage],
-        deps: PostGeneratorService,
-        fallback_callable,
+        deps: PostGenerationContext,
     ) -> AsyncGenerator[ChatStreamResponse, None]:
-        """Core streaming logic used by both generation and revision flows."""
+        """
+        Simplified streaming logic that relies on PydanticAI's native error handling.
+        OpenRouter's model fallback and agent retries handle failures automatically.
+        """
         agent = self._create_agent(system_prompt)
-        tool_called = False
 
         try:
             async with agent.run_stream(
@@ -226,6 +215,8 @@ class ChatService:
             ) as result:
                 full_response = ""
                 last_len = 0
+
+                # Stream text responses
                 async for text in result.stream_text():
                     if text is None:
                         continue
@@ -241,11 +232,10 @@ class ChatService:
                         conversation_id, "assistant", full_response
                     )
 
-                # Tool return parts
+                # Handle tool outputs
                 for msg in result.new_messages():
                     for p in msg.parts:
                         if isinstance(p, ToolReturnPart):
-                            tool_called = True
                             content = p.content
                             # Extract the actual result from wrapper if needed
                             if hasattr(content, "output"):
@@ -255,66 +245,53 @@ class ChatService:
                                 if isinstance(content, BaseModel)
                                 else str(content)
                             )
+                            # Persist tool output
+                            await self._add_message_to_db(
+                                conversation_id, "tool", tool_json
+                            )
                             yield ChatStreamResponse(
                                 type="tool_output", content=tool_json
                             )
 
-                # Fallback if tool not invoked and no assistant response
-                if (
-                    not tool_called
-                    and not full_response
-                    and fallback_callable is not None
-                ):
-                    try:
-                        fb_result = await fallback_callable()
-                        # Extract the actual result from AgentRunResult wrapper if needed
-                        if hasattr(fb_result, "output"):
-                            fb_result = fb_result.output
-                        tool_json = (
-                            fb_result.model_dump_json()
-                            if isinstance(fb_result, BaseModel)
-                            else str(fb_result)
-                        )
-                        # Send a placeholder assistant message so the UI has a parent message
-                        assistant_msg = "Here's the draft post I generated:"
-                        await self._add_message_to_db(
-                            conversation_id, "assistant", assistant_msg
-                        )
-                        yield ChatStreamResponse(type="message", content=assistant_msg)
-                        # Now send the tool output
-                        await self._add_message_to_db(
-                            conversation_id, "tool", tool_json
-                        )
-                        yield ChatStreamResponse(type="tool_output", content=tool_json)
-                    except Exception as e:
-                        logger.error(f"Fallback error: {e}")
-                        yield ChatStreamResponse(type="error", error=str(e))
         except Exception as e:
             logger.error(f"Error streaming chat response: {e}")
-            # Try fallback if available
-            if fallback_callable is not None:
-                try:
-                    fb_result = await fallback_callable()
-                    # Extract the actual result from AgentRunResult wrapper if needed
-                    if hasattr(fb_result, "output"):
-                        fb_result = fb_result.output
-                    tool_json = (
-                        fb_result.model_dump_json()
-                        if isinstance(fb_result, BaseModel)
-                        else str(fb_result)
-                    )
-                    assistant_msg = "Here's the draft post I generated:"
-                    await self._add_message_to_db(
-                        conversation_id, "assistant", assistant_msg
-                    )
-                    yield ChatStreamResponse(type="message", content=assistant_msg)
-                    await self._add_message_to_db(conversation_id, "tool", tool_json)
-                    yield ChatStreamResponse(type="tool_output", content=tool_json)
-                except Exception as inner_e:
-                    logger.error(f"Fallback after error failed: {inner_e}")
-                    yield ChatStreamResponse(type="error", error=str(inner_e))
-            else:
-                yield ChatStreamResponse(type="error", error=str(e))
+            logger.error(f"Error type: {type(e)}")
+            logger.error(f"Error details: {getattr(e, 'args', 'No args')}")
+
+            # Try to get more detailed error information
+            if hasattr(e, "response"):
+                logger.error(
+                    f"Response status: {getattr(e.response, 'status_code', 'Unknown')}"
+                )
+                logger.error(f"Response text: {getattr(e.response, 'text', 'Unknown')}")
+
+            if hasattr(e, "body"):
+                logger.error(f"Error body: {e.body}")
+
+            if hasattr(e, "message"):
+                logger.error(f"Error message: {e.message}")
+
+            # Check if it's a provider error
+            error_msg = str(e)
+            is_provider_error = "Provider returned error" in error_msg
+
+            if is_provider_error and hasattr(e, "body") and isinstance(e.body, dict):
+                # Extract provider information from error
+                metadata = e.body.get("metadata", {})
+                provider_name = metadata.get("provider_name", "Unknown")
+                raw_error = metadata.get("raw", "")
+
+                logger.error(f"Provider {provider_name} error: {raw_error}")
+
+                # Check if it's a temporary provider issue (5xx errors)
+                if "500" in raw_error or "502" in raw_error or "503" in raw_error:
+                    error_msg = f"Provider {provider_name} is experiencing temporary issues (server error). The fallback models should handle this automatically. If the issue persists, try again in a few minutes."
+                else:
+                    error_msg = f"Provider {provider_name} error. Check your model configuration and API key."
+            elif is_provider_error:
+                error_msg += " - This may be due to model configuration or temporary provider issues. The fallback models should handle this automatically."
+
+            yield ChatStreamResponse(type="error", error=error_msg)
         finally:
             # Always send the "end" signal to properly close the stream
             yield ChatStreamResponse(type="end")
@@ -399,37 +376,32 @@ class ChatService:
         1. When a user wants to create a LinkedIn post, ask 1-3 questions to understand their perspective, personal experiences, or key message they want to convey.
 
         2. After getting their input, use the 'generate_linkedin_post_tool' to create their post.
+           The tool has access to all the user information automatically - you don't need to pass any parameters.
 
-        3. The tool requires these parameters:
-           - idea_content: "{idea_content}"
-           - bio: "{profile_data["bio"]}"
-           - writing_style: "{profile_data["writing_style"]}"
-           - linkedin_post_strategy: "{profile_data["linkedin_post_strategy"]}"
-           - conversation_context: Include all the conversation history
-
-        4. Don't have long conversations - after 1-3 exchanges, generate the post.
+        3. Don't have long conversations - after 1-3 exchanges, generate the post.
 
         Example flow:
         - User: "Help me create a post about this article"
         - You: "What's your main takeaway from this? Any personal experience related to it?"
         - User: [provides their perspective]
-        - You: [call generate_linkedin_post_tool with all the information]
+        - You: [call generate_linkedin_post_tool - no parameters needed]
         """
 
-        deps = PostGeneratorService()
+        # Create context with all the required data
+        context = PostGenerationContext(
+            idea_content=idea_content,
+            bio=profile_data["bio"],
+            writing_style=profile_data["writing_style"],
+            linkedin_post_strategy=profile_data["linkedin_post_strategy"],
+            conversation_context=conversation_context,
+        )
+
         async for chunk in self._stream_with_agent(
             conversation_id,
             system_prompt,
             user_message.content,
             history,
-            deps,
-            lambda: deps.generate_post(
-                idea_content=idea_content,
-                bio=profile_data["bio"],
-                writing_style=profile_data["writing_style"],
-                linkedin_post_strategy=profile_data["linkedin_post_strategy"],
-                conversation_context=conversation_context,
-            ),
+            context,
         ):
             yield chunk
 
@@ -462,6 +434,7 @@ class ChatService:
 
         REVISION APPROACH:
         1. **Understand the request**: If the user's feedback is clear and specific (like "make it shorter", "add more emotion", "remove the question"), use the revise_linkedin_post_tool immediately.
+           The tool has access to all the user information and previous draft automatically - you don't need to pass any parameters.
 
         2. **Engage when unclear**: If the feedback is vague (like "make it better", "I don't like it"), ask clarifying questions to understand:
            - What specifically they want to change
@@ -472,25 +445,25 @@ class ChatService:
         3. **Reference conversation history**: Use the conversation context to understand their preferences and previous feedback.
 
         4. **Be conversational**: Keep the tone collaborative and helpful. You're working together to refine their post.
-
-        Remember: Always pass the conversation_context to the tool when you call it, as it contains valuable insights about their preferences and previous discussions.
         """
-        deps = PostGeneratorService()
+
+        # Create context with all the required data including revision-specific info
+        context = PostGenerationContext(
+            idea_content=idea_content,
+            bio=profile_data["bio"],
+            writing_style=profile_data["writing_style"],
+            linkedin_post_strategy=profile_data["linkedin_post_strategy"],
+            conversation_context=conversation_context,
+            previous_draft=previous_draft,
+            user_feedback=user_feedback,
+        )
+
         async for chunk in self._stream_with_agent(
             conversation_id,
             system_prompt,
             user_message.content,
             history,
-            deps,
-            lambda: deps.revise_post(
-                idea_content=idea_content,
-                bio=profile_data["bio"],
-                writing_style=profile_data["writing_style"],
-                linkedin_post_strategy=profile_data["linkedin_post_strategy"],
-                previous_draft=previous_draft,
-                user_feedback=user_message.content,
-                conversation_context=conversation_context,
-            ),
+            context,
         ):
             yield chunk
 
@@ -531,14 +504,6 @@ class ChatService:
                 previous_draft = m.content
             if previous_draft:
                 break
-
-        # Truncate long sections to guard against context overflow (approx 4k chars each)
-        MAX_SECTION_LEN = 4000
-        if previous_draft and len(previous_draft) > MAX_SECTION_LEN:
-            previous_draft = previous_draft[:MAX_SECTION_LEN] + "... [truncated]"
-        user_feedback = user_message.content
-        if user_feedback and len(user_feedback) > MAX_SECTION_LEN:
-            user_feedback = user_feedback[:MAX_SECTION_LEN] + "... [truncated]"
 
         profile_data = await self._get_user_profile_data(user.id)
         bio = profile_data["bio"]

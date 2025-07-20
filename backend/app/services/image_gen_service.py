@@ -3,41 +3,22 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
-from pydantic_ai.providers.openrouter import OpenRouterProvider
-from app.core.config import settings
+from app.services.model_config import model_config
 from app.models.profile import UserPreferences
 
 
 class ImageGenService:
     def __init__(self):
         """
-        Creates the Pydantic-AI agent.
-        It should use a smaller model for generating the image prompt.
+        Creates the Pydantic-AI agent using shared model configuration.
+        Uses a smaller model for generating the image prompt.
         """
-
-        fallback_models = [
-            model.strip()
-            for model in settings.openrouter_models_fallback.split(",")
-            if model.strip()
-        ]
-
-        provider = OpenRouterProvider(
-            api_key=settings.openrouter_api_key,
-        )
-
-        model = OpenAIModel(
-            settings.openrouter_model_primary,
-            provider=provider,
-        )
-
+        # Use shared model configuration for consistency
         self.agent = Agent[str, str](
-            model,
-            model_settings=OpenAIModelSettings(
-                temperature=settings.openrouter_model_temperature,
-                extra_body={"models": fallback_models},
-            ),
+            model_config.get_chat_model(),
+            model_settings=model_config.get_chat_model_settings(),
             output_type=str,
+            retries=2,  # Built-in retry mechanism
         )
 
     async def generate_image_prompt(
