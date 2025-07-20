@@ -33,6 +33,7 @@ class UserPreferences(Base):
         Time(timezone=False), nullable=True
     )
     timezone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    image_generation_style: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

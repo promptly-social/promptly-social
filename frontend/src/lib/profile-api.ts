@@ -19,6 +19,7 @@ export interface UserPreferences {
   bio: string;
   preferred_posting_time: string | null;
   timezone: string | null;
+  image_generation_style: string | null;
   content_strategies: ContentStrategy[];
   created_at: string;
   updated_at: string;
@@ -31,6 +32,7 @@ export interface UserPreferencesUpdate {
   bio?: string;
   preferred_posting_time?: string | null;
   timezone?: string | null;
+  image_generation_style?: string | null;
   content_strategies?: { [platform: string]: string };
 }
 
