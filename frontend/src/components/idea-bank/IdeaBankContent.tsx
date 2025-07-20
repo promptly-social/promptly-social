@@ -54,13 +54,13 @@ const IdeaBankContent: React.FC<IdeaBankContentProps> = ({ ideaBank }) => {
                 Show all
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[80vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>
                   {ideaBank.data.title || "Idea Content"}
                 </DialogTitle>
               </DialogHeader>
-              <div className="whitespace-pre-wrap break-words text-sm">
+              <div className="flex-grow overflow-y-auto whitespace-pre-wrap break-words text-sm">
                 {ideaBank.data.value}
               </div>
             </DialogContent>
