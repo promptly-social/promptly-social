@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppLayout from "@/components/AppLayout";
 import { CreatePostModal } from "@/components/post-modal/CreatePostModal";
 import { PostScheduleModal } from "@/components/schedule-modal/PostScheduleModal";
-import { PlusIcon, Sparkles } from "lucide-react";
+import { PlusIcon, Sparkles, ArrowUpDown } from "lucide-react";
 import { PostGenerationChatDialog } from "@/components/chat/PostGenerationChatDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { postsApi } from "@/lib/posts-api";
@@ -32,11 +32,25 @@ export const MyPosts: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const postsPerPage = 10;
 
+  // Sort state for each tab
+  const [sortConfig, setSortConfig] = useState<{
+    drafts: { field: "updated_at"; direction: "desc" };
+    scheduled: { field: "scheduled_at"; direction: "asc" };
+    posted: { field: "posted_at"; direction: "desc" };
+  }>({
+    drafts: { field: "updated_at", direction: "desc" },
+    scheduled: { field: "scheduled_at", direction: "asc" },
+    posted: { field: "posted_at", direction: "desc" },
+  });
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const statusArray =
     activeTab === "drafts" ? ["suggested", "draft"] : [activeTab];
+
+  // Get current sort configuration for active tab
+  const currentSort = sortConfig[activeTab];
 
   const {
     data: postsResponse,
@@ -46,6 +60,8 @@ export const MyPosts: React.FC = () => {
     status: statusArray,
     page: currentPage,
     size: postsPerPage,
+    order_by: currentSort.field,
+    order_direction: currentSort.direction,
   });
 
   const posts = postsResponse?.items ?? [];
@@ -61,6 +77,18 @@ export const MyPosts: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: postsKeys.all }),
       queryClient.invalidateQueries({ queryKey: postsKeys.counts }),
     ]);
+  };
+
+  // Sort toggle function
+  const toggleSort = () => {
+    setSortConfig((prev) => ({
+      ...prev,
+      [activeTab]: {
+        ...prev[activeTab],
+        direction: prev[activeTab].direction === "asc" ? "desc" : "asc",
+      },
+    }));
+    setCurrentPage(1); // Reset to first page when sorting changes
   };
 
   // Exposed handler for children ----------------------------------------
@@ -145,6 +173,18 @@ export const MyPosts: React.FC = () => {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          <div className="flex justify-end mt-4 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleSort}
+              className="flex items-center gap-2"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+              Sort by {currentSort.field.replace("_", " ")} ({currentSort.direction})
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-scroll">
