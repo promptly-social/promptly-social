@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import asyncio
 from typing import Dict, Any, List, Optional
 import traceback
@@ -150,15 +150,15 @@ async def _process_scheduled_posts_async(request):
         if db_client:
             try:
                 logger.info("Closing Cloud SQL client")
-                db_client.close()
+                await db_client.close_async()
             except Exception as cleanup_error:
                 logger.warning(f"Error closing Cloud SQL client: {cleanup_error}")
 
         # Also close the global client if it exists
         try:
-            from shared.cloud_sql_client import close_cloud_sql_client
+            from shared.cloud_sql_client import close_cloud_sql_client_async
 
-            close_cloud_sql_client()
+            await close_cloud_sql_client_async()
         except Exception as global_cleanup_error:
             logger.warning(
                 f"Error closing global Cloud SQL client: {global_cleanup_error}"

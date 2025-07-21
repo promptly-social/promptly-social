@@ -29,7 +29,7 @@ import functions_framework
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Use absolute imports from the package root
-from shared.cloud_sql_client import get_cloud_sql_client, close_cloud_sql_client
+from shared.cloud_sql_client import get_cloud_sql_client, close_cloud_sql_client_async
 from user_activity_analysis.user_activity_analyzer import UserActivityAnalyzer
 
 # ConfigManager removed - using simplified AI service
@@ -71,8 +71,7 @@ def run_async_safely(coro):
         # If we're here, there's already a running loop (e.g., in tests)
         # We need to create a task and await it properly
         import concurrent.futures
-        import threading
-
+       
         # Run the coroutine in a new thread with its own event loop
         def run_in_thread():
             new_loop = asyncio.new_event_loop()
@@ -290,8 +289,14 @@ async def cleanup_resources(db_client, analyzer: Optional[UserActivityAnalyzer] 
             logger.debug("Analyzer cleanup completed")
 
         if db_client:
-            db_client.close()
+            await db_client.close_async()
             logger.debug("Database client closed")
+
+        # Also close the global client
+        try:
+            await close_cloud_sql_client_async()
+        except Exception as global_cleanup_error:
+            logger.warning(f"Error closing global Cloud SQL client: {global_cleanup_error}")
 
     except Exception as e:
         logger.warning(f"Error during cleanup: {e}")
@@ -535,4 +540,8 @@ def health_check(request):
     finally:
         # Cleanup
         if "db_client" in locals():
-            db_client.close()
+            try:
+                # Use sync close for health check since it's not async
+                db_client.close()
+            except Exception as cleanup_error:
+                logger.warning(f"Error during health check cleanup: {cleanup_error}")
