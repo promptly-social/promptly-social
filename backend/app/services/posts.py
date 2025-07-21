@@ -911,7 +911,6 @@ class PostsService:
                         sharing_error=None,  # Clear any previous errors
                     ),
                 )
-
                 return share_result
 
             except Exception as e:

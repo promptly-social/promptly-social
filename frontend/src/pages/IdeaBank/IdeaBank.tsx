@@ -467,7 +467,7 @@ const IdeaBank: React.FC = () => {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Post Details</DialogTitle>
           </DialogHeader>
