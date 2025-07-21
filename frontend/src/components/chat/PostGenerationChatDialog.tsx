@@ -24,6 +24,7 @@ import { ConfirmationModal } from "../shared/modals/ConfirmationModal";
 import { Button } from "../ui/button";
 import { archiveConversation } from "@/lib/chat-api";
 import { streamChatMessages, type ChatMessage } from "@/lib/chat-streaming-api";
+import { Loader2 } from "lucide-react";
 
 type PostSchedulingContextType = {
   onSchedule: (content: string, topics?: string[], ideaBankId?: string) => void;
@@ -67,6 +68,7 @@ const ChatDialogContent = ({
   const [ideaBankId, setIdeaBankId] = useState<string | undefined>(undefined);
   const [initialMessages, setInitialMessages] = useState<ThreadMessage[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isConfirmArchiveOpen, setIsConfirmArchiveOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -134,6 +136,11 @@ const ChatDialogContent = ({
       );
       setConversation(newConv);
       setInitialMessages([]);
+
+      toast({
+        title: "Success",
+        description: "Started new conversation.",
+      });
     } catch (error) {
       console.error("Failed to archive conversation:", error);
       toast({
@@ -148,8 +155,10 @@ const ChatDialogContent = ({
   };
 
   useEffect(() => {
-    createOrGetConversation(conversationType, idea?.idea_bank.id).then(
-      (conv) => {
+    const initializeConversation = async () => {
+      try {
+        setIsLoading(true);
+        const conv = await createOrGetConversation(conversationType, idea?.idea_bank.id);
         setConversation(conv);
         const messages: ThreadMessage[] = conv.messages.map(
           (m: ConversationMessage) => {
@@ -170,9 +179,20 @@ const ChatDialogContent = ({
           }
         );
         setInitialMessages(messages);
+      } catch (error) {
+        console.error("Error initializing conversation:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load conversation.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-    );
-  }, [idea, conversationType]);
+    };
+
+    initializeConversation();
+  }, [idea, conversationType, toast]);
 
   useEffect(() => {
     if (idea?.idea_bank.id) {
@@ -180,11 +200,17 @@ const ChatDialogContent = ({
     }
   }, [idea]);
 
-  if (!conversation) {
+  if (isLoading || !conversation) {
     return (
-      <DialogContent>
-        <div className="flex items-center justify-center h-full">
-          <p>Initializing conversation...</p>
+      <DialogContent className="sm:max-w-[625px] h-[70vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Draft Post</DialogTitle>
+        </DialogHeader>
+        <div className="flex-grow flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading conversation...</p>
+          </div>
         </div>
       </DialogContent>
     );
@@ -206,6 +232,7 @@ const ChatDialogContent = ({
         }
         placeholder="Write a message..."
         onStartNewConversation={handleStartNewConversation}
+        isStartingNewConversation={isArchiving}
       />
 
       <CreatePostModal
@@ -245,12 +272,14 @@ const ChatThreadRuntime = ({
   placeholder,
   initialText,
   onStartNewConversation,
+  isStartingNewConversation = false,
 }: {
   conversation: Conversation;
   initialMessages: ThreadMessage[];
   placeholder?: string;
   initialText?: string;
   onStartNewConversation: () => void;
+  isStartingNewConversation?: boolean;
 }) => {
   const modelAdapter: ChatModelAdapter = {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -315,8 +344,20 @@ const ChatThreadRuntime = ({
       <DialogContent className="sm:max-w-[625px] h-[70vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between p-2">
           <DialogTitle>Draft Post</DialogTitle>
-          <Button variant="outline" size="sm" onClick={onStartNewConversation}>
-            Start New Conversation
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onStartNewConversation}
+            disabled={isStartingNewConversation}
+          >
+            {isStartingNewConversation ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              "Start New Conversation"
+            )}
           </Button>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto">

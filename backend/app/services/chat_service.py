@@ -83,22 +83,54 @@ class ChatService:
         self,
         user_id: UUID,
         idea_bank_id: Optional[UUID] = None,
+        post_id: Optional[UUID] = None,
         conversation_type: Optional[str] = None,
     ) -> Optional[Conversation]:
-        """Get a conversation by idea_bank_id, ensuring it belongs to the user."""
-        stmt = (
-            select(Conversation)
-            .where(
-                Conversation.idea_bank_id == idea_bank_id,
-                Conversation.user_id == user_id,
-                Conversation.conversation_type == conversation_type,
-                Conversation.status == "active",
+        """Get a conversation by idea_bank_id or post_id, ensuring it belongs to the user."""
+        conditions = [
+            Conversation.user_id == user_id,
+            Conversation.conversation_type == conversation_type,
+            Conversation.status == "active",
+        ]
+
+        # Check if post_id column exists by trying to access it
+        try:
+            if idea_bank_id is not None:
+                conditions.append(Conversation.idea_bank_id == idea_bank_id)
+            elif post_id is not None:
+                # Try to use post_id, but handle the case where the column doesn't exist
+                conditions.append(Conversation.post_id == post_id)
+            else:
+                # For brainstorm conversations that don't have idea_bank_id or post_id
+                conditions.extend(
+                    [
+                        Conversation.idea_bank_id.is_(None),
+                    ]
+                )
+                # Only add post_id condition if the column exists
+                try:
+                    conditions.append(Conversation.post_id.is_(None))
+                except AttributeError:
+                    # post_id column doesn't exist yet, skip this condition
+                    pass
+
+            stmt = (
+                select(Conversation)
+                .where(*conditions)
+                .order_by(Conversation.updated_at.desc())
+                .options(selectinload(Conversation.messages))
             )
-            .order_by(Conversation.updated_at.desc())
-            .options(selectinload(Conversation.messages))
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().first()
+            result = await self.db.execute(stmt)
+            return result.scalars().first()
+        except Exception as e:
+            # If post_id column doesn't exist, fall back to idea_bank_id only logic
+            if "post_id does not exist" in str(e) and post_id is not None:
+                # For post editing requests when post_id column doesn't exist,
+                # return None to force creation of a new conversation
+                return None
+            else:
+                # Re-raise other exceptions
+                raise
 
     async def create_conversation(
         self, user: User, conversation_data: ConversationCreate
@@ -114,13 +146,38 @@ class ChatService:
             if not idea_bank:
                 raise ValueError("Idea bank not found")
 
-        new_conversation = Conversation(
-            user_id=user.id,
-            idea_bank_id=conversation_data.idea_bank_id,
-            conversation_type=conversation_data.conversation_type,
-            title=conversation_data.title,
-            context=conversation_data.context,
-        )
+        if conversation_data.post_id:
+            # Import Post model here to avoid circular imports
+            from app.models.posts import Post
+
+            post_stmt = select(Post).where(
+                Post.id == conversation_data.post_id,
+                Post.user_id == user.id,
+            )
+            result = await self.db.execute(post_stmt)
+            post = result.scalars().first()
+            if not post:
+                raise ValueError("Post not found")
+
+        # Create conversation with post_id only if the column exists
+        conversation_kwargs = {
+            "user_id": user.id,
+            "idea_bank_id": conversation_data.idea_bank_id,
+            "conversation_type": conversation_data.conversation_type,
+            "title": conversation_data.title,
+            "context": conversation_data.context,
+        }
+
+        # Only add post_id if the column exists in the database
+        try:
+            # Check if post_id attribute exists on the model
+            if hasattr(Conversation, "post_id") and conversation_data.post_id:
+                conversation_kwargs["post_id"] = conversation_data.post_id
+        except Exception:
+            # If there's any issue with post_id, skip it for now
+            pass
+
+        new_conversation = Conversation(**conversation_kwargs)
         self.db.add(new_conversation)
         await self.db.commit()
         await self.db.refresh(new_conversation, attribute_names=["messages"])
@@ -467,6 +524,64 @@ class ChatService:
         ):
             yield chunk
 
+    async def _handle_post_editing(
+        self,
+        conversation_id: UUID,
+        current_post_content: str,
+        user_message: ChatMessage,
+        history: list[ModelMessage],
+        profile_data: dict,
+        user_feedback: str,
+        messages: List[ChatMessage],
+    ) -> AsyncGenerator[ChatStreamResponse, None]:
+        # Convert message history to conversation context
+        conversation_context = self._convert_to_conversation_context(messages[:-1])
+
+        system_prompt = f"""
+        You are an expert LinkedIn content strategist helping users edit and improve their existing posts through conversation.
+        Your role is to understand what the user wants to change about their post and use the 'revise_linkedin_post_tool' to create an improved version.
+
+        CURRENT POST CONTENT:
+        {current_post_content}
+
+        USER PROFILE INFORMATION:
+        - User Bio: {profile_data["bio"]}
+        - User Writing Style: {profile_data["writing_style"]}
+        - User LinkedIn Strategy: {profile_data["linkedin_post_strategy"]}
+        - Conversation History: {conversation_context or "No previous conversation"}
+
+        INSTRUCTIONS:
+        1. **Understand the edit request**: Listen carefully to what the user wants to change about their existing post.
+
+        2. **Use the revise_linkedin_post_tool**: When you have a clear understanding of the changes needed, use this tool to create an improved version of the post.
+
+        3. **Maintain the user's voice**: Keep their writing style and tone while making the requested improvements.
+
+        4. **Be conversational**: Engage with the user to clarify their needs if the request is unclear.
+
+        5. **Focus on improvement**: Make the post more engaging, clear, or aligned with their goals while respecting their original intent.
+        """
+
+        # Create context with all the required data for post editing
+        context = PostGenerationContext(
+            idea_content=current_post_content,
+            bio=profile_data["bio"],
+            writing_style=profile_data["writing_style"],
+            linkedin_post_strategy=profile_data["linkedin_post_strategy"],
+            conversation_context=conversation_context,
+            previous_draft=current_post_content,
+            user_feedback=user_feedback,
+        )
+
+        async for chunk in self._stream_with_agent(
+            conversation_id,
+            system_prompt,
+            user_message.content,
+            history,
+            context,
+        ):
+            yield chunk
+
     # ================================================================
 
     async def stream_chat_response(
@@ -479,10 +594,20 @@ class ChatService:
             return
 
         idea_content = "Please reference the chat history."
+        post_content = None
+
         if conversation.idea_bank_id:
             idea_bank = await self.db.get(IdeaBank, conversation.idea_bank_id)
             if idea_bank:
                 idea_content = idea_bank.data.get("value", "")
+        elif conversation.post_id:
+            # Import Post model here to avoid circular imports
+            from app.models.posts import Post
+
+            post = await self.db.get(Post, conversation.post_id)
+            if post:
+                post_content = post.content
+                idea_content = f"Current post content: {post_content}"
 
         user_message = messages[-1]
         await self._add_message_to_db(
@@ -521,8 +646,21 @@ class ChatService:
         # Build message history for agent (exclude most recent user message)
         history = self._convert_to_message_history(messages[:-1])
 
-        # Route to appropriate handler
-        if previous_draft:
+        # Route to appropriate handler based on conversation type
+        if conversation.conversation_type in ["post_editing", "revision"]:
+            # For post editing/revision, always treat as revision since we have existing content
+            async for chunk in self._handle_post_editing(
+                conversation_id,
+                post_content or idea_content,
+                user_message,
+                history,
+                profile_data,
+                user_feedback,
+                messages,
+            ):
+                yield chunk
+            return
+        elif previous_draft:
             async for chunk in self._handle_revision(
                 conversation_id,
                 idea_content,
