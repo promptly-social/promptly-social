@@ -89,8 +89,6 @@ class CloudSQLClient:
         Get the user's ideas that either don't have a post yet or the post was generated more than a week ago.
         """
         try:
-            one_week_ago = datetime.now() - timedelta(days=7)
-
             # Get ideas with no posts or posts older than a week
             query = """
                 SELECT DISTINCT ib.id, ib.data, ib.created_at
@@ -98,15 +96,25 @@ class CloudSQLClient:
                 LEFT JOIN posts p ON ib.id = p.idea_bank_id
                 WHERE ib.user_id = :user_id 
                   AND (ib.data->>'ai_suggested')::boolean = false
-                  AND (p.id IS NULL OR p.created_at < :one_week_ago)
+                  AND (p.id IS NULL)
                 ORDER BY ib.created_at DESC
             """
 
             results = self.client.execute_query(
-                query, {"user_id": user_id, "one_week_ago": one_week_ago}
+                query, {"user_id": user_id}
             )
 
-            return results or []
+            idea_results = results if results else []
+ 
+            ideas = []
+            
+            for result in idea_results:
+                ideas.append({
+                    "id": idea_results['id'],
+                    "content": idea_results["data"]["value"]
+                })
+
+            return ideas
         except Exception as e:
             logger.error(f"Error fetching user ideas for user {user_id}: {e}")
             return []
