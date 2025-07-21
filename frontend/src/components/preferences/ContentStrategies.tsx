@@ -126,12 +126,12 @@ export const ContentStrategies: React.FC = () => {
             {strategies.map((strategy) => (
               <div key={strategy.id}>
                 {editingStrategyId === strategy.id ? (
-                  <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+                  <div className="border rounded-lg p-4 space-y-3 bg-accent/10">
                     <Textarea
                       value={editingStrategy}
                       onChange={(e) => setEditingStrategy(e.target.value)}
                       placeholder="Describe your LinkedIn content strategy..."
-                      className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                       disabled={isSaving}
                       autoFocus
                     />
@@ -156,8 +156,8 @@ export const ContentStrategies: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="min-h-[100px] p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  <div className="min-h-[100px] p-4 bg-muted/30 rounded-lg border border-border">
+                    <p className="text-sm text-foreground whitespace-pre-wrap">
                       {strategy.strategy}
                     </p>
                   </div>
@@ -167,12 +167,12 @@ export const ContentStrategies: React.FC = () => {
 
             {/* Add new strategy */}
             {isAddingNew && (
-              <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+              <div className="border rounded-lg p-4 space-y-3 bg-accent/10">
                 <Textarea
                   value={editingStrategy}
                   onChange={(e) => setEditingStrategy(e.target.value)}
                   placeholder="Describe your LinkedIn content strategy..."
-                  className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                   disabled={isSaving}
                   autoFocus
                 />

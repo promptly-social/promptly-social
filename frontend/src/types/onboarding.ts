@@ -62,7 +62,7 @@ export const ONBOARDING_STEPS: Omit<
     highlights: [
       "Add your LinkedIn handle (required)",
       "Add your Substack handle (optional)",
-      "Click Analyze to analyze your bio, writing style, and preferences (takes about 5 minutes)"
+      "Click Analyze to analyze your bio, writing style, and preferences (takes about 5 minutes)",
     ],
   },
   {
@@ -86,7 +86,17 @@ export const ONBOARDING_STEPS: Omit<
     icon: "📄",
     highlights: [
       "Use 'New Post' button to create posts manually",
-      "Use 'Brain Storm' button to brainstorm drafts with AI",
+      "Use 'Brainstorm' button to brainstorm drafts with AI",
+      "The AI will improve as your write more posts and provide feedback",
+    ],
+  },
+  {
+    id: 5,
+    title: "Content Ideas",
+    icon: "💡",
+    highlights: [
+      "Use 'Add idea' button to drop down a few notes or drop in a URL to an article",
+      "Use 'Brainstorm' button to brainstorm drafts with AI using an idea",
     ],
   },
 ];

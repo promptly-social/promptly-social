@@ -62,31 +62,31 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-accent/10 via-background to-muted/20 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4 sm:mb-6">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary via-secondary to-accent rounded-xl flex items-center justify-center shadow-lg">
               <PenTool className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Promptly
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Welcome back
           </h1>
-          <p className="text-sm sm:text-base text-gray-600">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Sign in to continue creating amazing content
           </p>
         </div>
 
-        <Card className="border border-gray-200 shadow-xl bg-white">
+        <Card className="border border-border shadow-xl bg-card">
           <CardHeader className="pb-4 sm:pb-6">
-            <CardTitle className="text-gray-900 text-lg sm:text-xl">
+            <CardTitle className="text-foreground text-lg sm:text-xl">
               Sign In
             </CardTitle>
-            <CardDescription className="text-sm text-gray-600">
+            <CardDescription className="text-sm text-muted-foreground">
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
@@ -94,18 +94,18 @@ const Login = () => {
             <Button
               onClick={handleLinkedInSignIn}
               variant="outline"
-              className="w-full h-10 sm:h-12 border-gray-300 hover:bg-gray-50"
+              className="w-full h-10 sm:h-12 border-border hover:bg-accent/10"
               disabled={isLinkedInLoading}
             >
               <Mail className="w-4 h-4 mr-2" />
               {isLinkedInLoading ? "Signing in..." : "Continue with LinkedIn"}
             </Button>
 
-            <div className="text-center text-xs sm:text-sm text-gray-600">
+            <div className="text-center text-xs sm:text-sm text-muted-foreground">
               Don't have an account?{" "}
               <Link
                 to="/signup"
-                className="text-gray-800 hover:text-gray-900 font-semibold hover:underline"
+                className="text-primary hover:text-primary/80 font-semibold hover:underline"
               >
                 Join Early Access
               </Link>

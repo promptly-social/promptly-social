@@ -118,7 +118,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
         onChange={isPosted ? undefined : (e) => setContent(e.target.value)}
         readOnly={isPosted}
         className={`min-h-[200px] max-h-[400px] resize-y w-full ${
-          isPosted ? "bg-gray-50 cursor-not-allowed text-gray-600" : ""
+          isPosted ? "bg-muted/30 cursor-not-allowed text-muted-foreground" : ""
         }`}
         autoFocus={!isPosted}
         placeholder={
@@ -171,8 +171,8 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
                 className="w-full h-24 object-cover rounded max-w-[600]"
               />
             ) : (
-              <div className="w-full h-24 bg-gray-100 rounded flex items-center justify-center">
-                <FileVideo className="w-8 h-8 text-gray-400" />
+              <div className="w-full h-24 bg-muted/30 rounded flex items-center justify-center">
+                <FileVideo className="w-8 h-8 text-muted-foreground" />
               </div>
             )}
             <Button
@@ -199,7 +199,7 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
           value={articleUrl}
           onChange={isPosted ? undefined : (e) => setArticleUrl(e.target.value)}
           readOnly={isPosted}
-          className={isPosted ? "bg-gray-50 cursor-not-allowed text-gray-600" : ""}
+          className={isPosted ? "bg-muted/30 cursor-not-allowed text-muted-foreground" : ""}
         />
       </div>
 

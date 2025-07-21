@@ -673,11 +673,14 @@ const PostingSchedule: React.FC = () => {
                   onValueChange={(v) => setViewMode(v as "list" | "month")}
                 >
                   <TabsList className="grid w-[240px] grid-cols-2">
-                    <TabsTrigger value="list" className="text-xs">
+                    <TabsTrigger value="list" className="text-xs text-gray-800">
                       <List className="w-3 h-3 mr-1" />
                       List
                     </TabsTrigger>
-                    <TabsTrigger value="month" className="text-xs">
+                    <TabsTrigger
+                      value="month"
+                      className="text-xs text-gray-800"
+                    >
                       <CalendarDays className="w-3 h-3 mr-1" />
                       Month
                     </TabsTrigger>

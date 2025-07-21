@@ -348,7 +348,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
 
   return (
     <>
-      <Card className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-white max-w-[600]">
+      <Card className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-card max-w-[600]">
         <div className="flex justify-between items-start p-4">
           <div className="flex-grow justify-between flex items-center">
             <PostCardHeader />

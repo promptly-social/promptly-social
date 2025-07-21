@@ -78,7 +78,7 @@ export const ImageGenerationStyleEditor: React.FC<
     <>
       <div className="space-y-3 sm:space-y-4">
         <div className="flex items-center gap-2">
-          <Palette className="w-4 h-4 text-purple-500" />
+          <Palette className="w-4 h-4" />
           <h3 className="font-medium text-sm sm:text-base">
             Image Generation Style
           </h3>
@@ -123,13 +123,13 @@ export const ImageGenerationStyleEditor: React.FC<
         ) : (
           <div className="space-y-3">
             {currentStyle ? (
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+              <div className="p-3 bg-muted/30 border border-border rounded-md">
+                <p className="text-sm text-foreground whitespace-pre-wrap">
                   {currentStyle}
                 </p>
               </div>
             ) : (
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+              <div className="p-3 bg-muted/30 border border-border rounded-md">
                 <p className="text-sm text-gray-500 italic">
                   No custom image style set. Default AI style options will be
                   used.
@@ -162,7 +162,7 @@ export const ImageGenerationStyleEditor: React.FC<
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl">
-          <Palette className="w-5 h-5 text-purple-500" />
+          <Palette className="w-5 h-5" />
           Image Generation Preferences
         </CardTitle>
       </CardHeader>

@@ -93,9 +93,6 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   const headerText = isScheduleMode
     ? "📅 Post will be published on"
     : "📅 Post will be rescheduled to";
-  const headerGradientClass = isScheduleMode
-    ? "from-blue-50 to-green-50 border-blue-200"
-    : "from-orange-50 to-red-50 border-orange-200";
   const submitButtonText = isMobile
     ? isScheduleMode
       ? "Schedule"
@@ -516,18 +513,16 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
             isMobile ? "max-w-full h-[95vh] mx-2" : "max-w-4xl h-[85vh]"
           } flex flex-col`}
         >
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5" />
+          <DialogHeader className="flex-shrink-0 border-b border-border pb-4">
+            <DialogTitle className="flex items-center gap-2 text-foreground bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <CalendarIcon className="w-5 h-5 text-primary" />
               {modalTitle}
             </DialogTitle>
           </DialogHeader>
 
-          <div
-            className={`flex-shrink-0 bg-gradient-to-r ${headerGradientClass} rounded-lg p-3 mb-3`}
-          >
+          <div className="flex-shrink-0 bg-gradient-to-r from-accent/10 to-secondary/10 border border-accent/20 rounded-lg p-3 mb-3">
             <div className="text-center">
-              <p className="text-xs text-gray-600 mb-1">{headerText}</p>
+              <p className="text-xs text-muted-foreground mb-1">{headerText}</p>
               <p
                 className={`font-bold text-gray-900 ${
                   isMobile ? "text-lg" : "text-xl"
@@ -901,14 +896,14 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
             )}
           </div>
 
-          <DialogFooter className="flex-shrink-0 border-t pt-3 mt-3">
+          <DialogFooter className="flex-shrink-0 border-t border-border pt-3 mt-3">
             <Button variant="outline" onClick={onClose} className="px-4">
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-4"
+              className="px-4 bg-primary hover:bg-primary/90"
             >
               {submitting ? (
                 <>

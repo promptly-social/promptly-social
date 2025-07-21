@@ -32,51 +32,46 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Social Sunset Theme - Warm, engaging, and energetic */
+    --background: 33 100% 99%; /* #FEFCF8 - Warm White */
+    --foreground: 210 22% 22%; /* #2D3748 - Dark Gray */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* #FFFFFF - Pure White */
+    --card-foreground: 210 22% 22%; /* #2D3748 - Dark Gray */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%; /* #FFFFFF - Pure White */
+    --popover-foreground: 210 22% 22%; /* #2D3748 - Dark Gray */
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 16 100% 60%; /* #FF6B35 - Vibrant Orange */
+    --primary-foreground: 0 0% 100%; /* White text on orange */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 36 96% 55%; /* #F7931E - Golden Orange */
+    --secondary-foreground: 0 0% 100%; /* White text on golden orange */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 33 100% 97%; /* #FFF8F0 - Cream */
+    --muted-foreground: 213 13% 50%; /* #718096 - Medium Gray */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 52 100% 71%; /* #FFE66D - Warm Yellow */
+    --accent-foreground: 210 22% 22%; /* Dark text on yellow */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%; /* Keep red for destructive actions */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 33 100% 94%; /* #FDF2E9 - Light warm border */
+    --input: 33 100% 94%; /* #FDF2E9 - Light warm input border */
+    --ring: 16 100% 60%; /* #FF6B35 - Orange focus ring */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar with warm sunset tint */
+    --sidebar-background: 33 100% 97%; /* #FFF8F0 - Cream */
+    --sidebar-foreground: 210 22% 22%; /* #2D3748 - Dark Gray */
+    --sidebar-primary: 16 100% 60%; /* #FF6B35 - Vibrant Orange */
+    --sidebar-primary-foreground: 0 0% 100%; /* White */
+    --sidebar-accent: 16 100% 95%; /* Light orange accent */
+    --sidebar-accent-foreground: 16 100% 60%; /* Orange text */
+    --sidebar-border: 33 100% 94%; /* #FDF2E9 */
+    --sidebar-ring: 16 100% 60%; /* #FF6B35 - Orange */
   }
 
   .dark {
