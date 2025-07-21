@@ -14,23 +14,47 @@ import {
   TrendingUp,
   BookOpen,
   Clock,
-  Users,
   Target,
   Zap,
   Shield,
-  Star,
-  Quote,
-  AlertTriangle,
-  BarChart3,
+  Brain,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const Landing = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Carousel state
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const totalSlides = 5;
+
+  // Carousel navigation functions
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % totalSlides);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  // Auto-cycling carousel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nextSlide();
+    }, 5000); // Change slide every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Handle OAuth callback with code parameter or verification tokens
   useEffect(() => {
@@ -109,35 +133,38 @@ const Landing = () => {
         <div className="relative max-w-7xl mx-auto px-6 pt-20 pb-32">
           <div className="text-center max-w-5xl mx-auto">
             <Badge className="mb-8 bg-accent/20 text-accent-foreground hover:bg-accent/20 border border-accent/30 px-4 py-2 text-sm font-medium">
-              AI LinkedIn Content That Converts
+              AI-Powered LinkedIn Content Creation
             </Badge>
 
-            {/* IMPACT Headline: [What You Do] + [Outcome] */}
-            <h1 className="text-6xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight tracking-tight">
-              AI LinkedIn Posts
-              <span className="block bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                10x Your Engagement
+            <h1 className="text-5xl md:text-7xl font-bold text-foreground mb-8 tracking-tight leading-tight">
+              Turn Your Ideas Into
+              <br />
+              <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                Engaging LinkedIn Posts
               </span>
             </h1>
 
-            {/* IMPACT Subheadline: We help [Audience] + [Value Prop 1], [Value Prop 2], [Value Prop 3], with [What You Do] */}
-            <p className="text-xl text-gray-600 mb-12 leading-relaxed max-w-4xl mx-auto font-light">
-              We help busy founders and professionals create authentic LinkedIn
-              content, build thought leadership faster, and get 10x more
-              engagement with AI that writes in your unique voice.
+            <p className="text-xl md:text-2xl text-muted-foreground mb-12 font-light max-w-4xl mx-auto leading-relaxed">
+              Promptly transforms your content ideas, favorite articles, and
+              Substack subscriptions into authentic LinkedIn posts that sound
+              exactly like you. Our AI learns your voice and creates daily
+              suggestions that drive real engagement.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
+            <div className="flex flex-col items-center space-y-6">
               <Link to="/signup">
                 <Button
                   size="lg"
                   className="bg-primary hover:bg-primary/90 text-white text-lg px-10 py-4 shadow-xl"
                 >
-                  Start Creating Content Today
+                  Get Daily Post Suggestions
                   <ArrowRight className="ml-3 w-5 h-5" />
                 </Button>
               </Link>
-              <p className="text-sm text-gray-500">7-day free trial</p>
+              <p className="text-sm text-gray-500">
+                {" "}
+                7-day free trial • No credit card required
+              </p>
             </div>
 
             {/* TRUST Indicators */}
@@ -165,105 +192,129 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* EMPATHY Section */}
+      {/* EMPATHY & PAIN Section - Carousel */}
       <section className="py-24 bg-gradient-to-b from-red-50 to-white border-t border-red-100">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          {/* Empathy Headline: [Question] + [Deep Rooted Concern] */}
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 tracking-tight">
-            Struggling to Build Your LinkedIn Presence While Running Your
-            Business?
-          </h2>
-
-          <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto font-light leading-relaxed">
-            You know LinkedIn is crucial for building thought leadership and
-            growing your network. But finding time to create engaging, authentic
-            content that actually drives results feels impossible when you're
-            juggling everything else.
-          </p>
-
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-red-100">
-            <div className="flex items-center justify-center mb-6">
-              <AlertTriangle className="w-8 h-8 text-red-500" />
-            </div>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-4">
-              Every day without consistent LinkedIn content is a missed
-              opportunity
-            </h3>
-            <p className="text-gray-600">
-              Your competitors are building relationships, establishing
-              expertise, and generating leads while your LinkedIn sits silent.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* PAIN Section */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
-              The Real Cost of Inconsistent LinkedIn Presence
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 tracking-tight">
+              Sound Familiar? 🤔
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Every missed post is lost revenue, lost connections, and lost
-              influence in your industry.
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto font-light leading-relaxed">
+              We get it. LinkedIn content creation is... a special kind of
+              torture.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                icon: BarChart3,
-                title: "Lost Revenue",
-                description:
-                  "Missing out on $50K+ in potential business from LinkedIn connections who never discover your expertise.",
-                color: "text-red-600",
-                bg: "bg-red-50",
-              },
-              {
-                icon: Clock,
-                title: "Wasted Time",
-                description:
-                  "Spending 3+ hours weekly struggling to create content that gets minimal engagement.",
-                color: "text-orange-600",
-                bg: "bg-orange-50",
-              },
-              {
-                icon: Users,
-                title: "Lost Opportunities",
-                description:
-                  "Competitors are building the relationships and partnerships that should be yours.",
-                color: "text-purple-600",
-                bg: "bg-purple-50",
-              },
-              {
-                icon: Target,
-                title: "Stalled Growth",
-                description:
-                  "Your personal brand and business growth hit a ceiling without consistent thought leadership.",
-                color: "text-primary",
-                bg: "bg-accent/10",
-              },
-            ].map((pain, index) => (
-              <Card
-                key={index}
-                className={`border-2 border-gray-200 hover:shadow-lg transition-all duration-300 ${pain.bg}`}
-              >
-                <CardHeader className="text-center">
-                  <div
-                    className={`w-16 h-16 ${pain.bg} rounded-2xl flex items-center justify-center mb-4 mx-auto`}
+          {/* Carousel Container */}
+          <div className="relative overflow-hidden">
+            {/* Left Arrow */}
+            <button
+              onClick={prevSlide}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 hover:scale-110"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-700" />
+            </button>
+
+            {/* Right Arrow */}
+            <button
+              onClick={nextSlide}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 hover:scale-110"
+              aria-label="Next slide"
+            >
+              <ChevronRight className="w-6 h-6 text-gray-700" />
+            </button>
+
+            <div 
+              className="flex transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
+              {[
+                {
+                  icon: "😤",
+                  title: "Are you jealous of Gary from Accounting?",
+                  description:
+                    "He posts more often than you on LinkedIn and somehow gets 50+ likes on his 'Monday Motivation' posts. GARY. From ACCOUNTING.",
+                  bg: "bg-orange-50",
+                  border: "border-orange-200",
+                },
+                {
+                  icon: "⏰",
+                  title: "Staring at the blank post box for 47 minutes?",
+                  description:
+                    "You opened LinkedIn to post something insightful. Three cat videos and a scroll through your ex-colleague's vacation photos later, you close the tab.",
+                  bg: "bg-purple-50",
+                  border: "border-purple-200",
+                },
+                {
+                  icon: "🎭",
+                  title: "Your last post got 3 likes (including your mom)?",
+                  description:
+                    "You spent 2 hours crafting what you thought was pure LinkedIn gold. Your mom, your business partner, and... that's it. Even the LinkedIn algorithm ghosted you.",
+                  bg: "bg-blue-50",
+                  border: "border-blue-200",
+                },
+                {
+                  icon: "🤖",
+                  title: "Tried ChatGPT but it sounds like a robot?",
+                  description:
+                    "'Excited to share insights on synergistic paradigm shifts!' No human has ever talked like this. Your audience can smell the AI from a mile away.",
+                  bg: "bg-green-50",
+                  border: "border-green-200",
+                },
+                {
+                  icon: "📈",
+                  title: "Watching competitors build their empire?",
+                  description:
+                    "While you're perfecting that one post for the 15th time, your competitors are out there building relationships, closing deals, and becoming industry thought leaders.",
+                  bg: "bg-red-50",
+                  border: "border-red-200",
+                },
+              ].map((item, index) => (
+                <div key={index} className="w-full flex-shrink-0 px-4">
+                  <Card
+                    className={`${item.bg} border-2 ${item.border} hover:shadow-xl transition-all duration-300 mx-auto max-w-2xl`}
                   >
-                    <pain.icon className={`w-8 h-8 ${pain.color}`} />
-                  </div>
-                  <CardTitle className="text-xl text-gray-900 font-semibold mb-3">
-                    {pain.title}
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 leading-relaxed">
-                    {pain.description}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
+                    <CardHeader className="text-center p-8">
+                      <div className="text-6xl mb-6">{item.icon}</div>
+                      <CardTitle className="text-2xl text-gray-900 font-bold mb-4">
+                        {item.title}
+                      </CardTitle>
+                      <CardDescription className="text-gray-700 text-lg leading-relaxed">
+                        {item.description}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                </div>
+              ))}
+            </div>
+            
+            {/* Carousel Navigation Dots */}
+            <div className="flex justify-center mt-8 space-x-2">
+              {[0, 1, 2, 3, 4].map((index) => (
+                <button
+                  key={index}
+                  className={`w-3 h-3 rounded-full transition-colors duration-200 ${
+                    currentSlide === index ? 'bg-primary' : 'bg-gray-300 hover:bg-primary/70'
+                  }`}
+                  onClick={() => goToSlide(index)}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom CTA */}
+          <div className="text-center mt-12">
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-red-200 max-w-3xl mx-auto">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Stop the LinkedIn Struggle Bus 🚌💨
+              </h3>
+              <p className="text-gray-600 text-lg">
+                What if you could wake up to personalized, authentic LinkedIn
+                posts that actually sound like you wrote them?
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -272,53 +323,59 @@ const Landing = () => {
       <section className="py-24 bg-gradient-to-b from-accent/10 to-background">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            {/* Authority Formula: We Help [Customer Industry] + [Path Forward] */}
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
-              We Help Busy Founders Build Authentic LinkedIn Presence
+              AI That Actually Understands Your Voice
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our AI analyzes your writing style, interests, and content sources
-              to create posts that sound exactly like you—because they're
-              written in your voice.
+              From content ideas to published posts - Promptly handles your
+              entire LinkedIn content workflow. Our AI learns your writing style
+              and creates daily suggestions that sound authentically like you.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                icon: PenTool,
-                title: "AI Writing Style Analysis",
+                icon: Zap,
+                title: "Daily AI Suggestions",
                 description:
-                  "Analyzes your existing LinkedIn posts to generate content that sounds authentically you. Never generic, always personal.",
+                  "Get personalized post suggestions every day based on your interests, favorite websites, and Substack subscriptions.",
                 gradient: "from-primary to-secondary",
               },
               {
-                icon: BookOpen,
-                title: "Smart Content Sources",
+                icon: PenTool,
+                title: "Learns Your Voice",
                 description:
-                  "Automatically pulls insights from your Substack subscriptions and favorite websites to create relevant, timely posts.",
+                  "Our AI analyzes your writing style and creates posts that sound authentically like you - not generic AI content.",
                 gradient: "from-green-600 to-green-700",
               },
               {
-                icon: Target,
-                title: "LinkedIn Algorithm Optimization",
+                icon: BookOpen,
+                title: "Content Idea Bank",
                 description:
-                  "Built-in engagement strategies: strong hooks, conversation starters, optimal formatting, and strategic hashtags.",
+                  "Drop in article URLs, jot down quick notes, or brainstorm with AI to never run out of content ideas.",
                 gradient: "from-purple-600 to-purple-700",
               },
               {
-                icon: Zap,
-                title: "Daily Personalized Suggestions",
+                icon: Calendar,
+                title: "Smart Scheduling",
                 description:
-                  "Wake up to 3-5 ready-to-post suggestions based on your bio, interests, and recent content from your sources.",
+                  "Schedule posts for optimal times or publish immediately. Handle drafts, scheduled posts, and published content in one place.",
                 gradient: "from-orange-600 to-orange-700",
               },
               {
-                icon: Calendar,
-                title: "Schedule Posts",
+                icon: Target,
+                title: "Topic Preferences",
                 description:
-                  "Schedule posts with an intuitive calendar interface.",
+                  "Tell us what you like to write about and which websites you follow. We'll create relevant content suggestions.",
                 gradient: "from-teal-600 to-teal-700",
+              },
+              {
+                icon: Brain,
+                title: "Continuous Learning",
+                description:
+                  "The more you use Promptly, the better it gets at understanding your preferences and creating engaging content.",
+                gradient: "from-blue-600 to-blue-700",
               },
             ].map((feature, index) => (
               <Card
@@ -350,15 +407,15 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <h3 className="text-4xl font-bold text-gray-900 mb-8 tracking-tight">
-                Transform 5 Minutes Into LinkedIn Growth Engine
+                From Content Ideas to Published Posts
               </h3>
               <div className="space-y-6">
                 {[
-                  "Generate 5 authentic LinkedIn posts daily that sound exactly like you wrote them",
-                  "Never run out of content ideas with AI that monitors your favorite sources every day",
-                  "Increase engagement 10x with posts optimized for LinkedIn's algorithm",
-                  "Build thought leadership without sacrificing time you need for your business",
-                  "Post directly to LinkedIn with one click—no copy-paste, no formatting issues",
+                  "Get daily personalized post suggestions based on your interests and favorite content sources",
+                  "AI learns your writing style to create posts that sound authentically like you",
+                  "Transform article URLs and quick notes into engaging LinkedIn content",
+                  "Schedule posts or publish immediately with intuitive content management",
+                  "Build consistent LinkedIn presence without spending hours writing",
                 ].map((benefit, index) => (
                   <div key={index} className="flex items-start space-x-4">
                     <CheckCircle className="w-6 h-6 text-green-600 mt-1 flex-shrink-0" />
@@ -385,21 +442,20 @@ const Landing = () => {
       {/* ACTION Section */}
       <section className="py-24 bg-gradient-to-r from-primary via-secondary to-accent">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          {/* Action Headline: [Value] + Starts Now */}
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
-            Your LinkedIn Growth Starts Now
+            Start Creating Authentic LinkedIn Content Today
           </h2>
           <p className="text-xl text-primary-foreground/80 mb-8 font-light max-w-3xl mx-auto">
-            Join forward-thinking founders who are building thought leadership
-            and generating leads with AI-powered LinkedIn content.
+            Join professionals who are building their LinkedIn presence with AI
+            that learns their voice and creates personalized content suggestions
+            every day.
           </p>
 
-          {/* Cost of Inaction */}
           <div className="bg-primary/20 backdrop-blur-sm border border-accent/30 rounded-2xl p-6 mb-10">
             <p className="text-primary-foreground/90 text-lg">
-              <strong>Every day you wait, competitors gain ground.</strong>
+              <strong>Stop staring at blank pages.</strong>
               <br />
-              Stop losing opportunities to inconsistent LinkedIn presence.
+              Get daily content suggestions that sound exactly like you.
             </p>
           </div>
 
