@@ -6,6 +6,7 @@ from .onboarding import UserOnboarding
 from .profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from .posts import Post
 from .user import User
+from .user_topics import UserTopic
 from .daily_suggestion_schedule import DailySuggestionSchedule
 
 __all__ = [
@@ -17,6 +18,8 @@ __all__ = [
     "WritingStyleAnalysis",
     "Post",
     "User",
+    "UserTopic",
+    "DailySuggestionSchedule",
 ]
 __all__ += [
     "DailySuggestionSchedule",

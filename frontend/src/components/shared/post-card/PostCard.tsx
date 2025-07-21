@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit3, Check, Link, MoreHorizontal } from "lucide-react";
+import { Check } from "lucide-react";
 import { Post, PostMedia, PostUpdate } from "@/types/posts";
 import { PostCardHeader } from "./components/PostCardHeader";
 import { PostContent } from "./components/PostContent";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { PostEditorFields } from "./components/PostEditorFields";
 import { PostCardMeta } from "./components/PostCardMeta";
 import { PostCardTopics } from "./components/PostCardTopics";

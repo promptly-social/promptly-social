@@ -13,6 +13,7 @@ export interface PostEditorState {
 
 export interface UsePostEditorReturn extends PostEditorState {
   setContent: (val: string) => void;
+  setTopics: (val: string[]) => void;
   setTopicInput: (val: string) => void;
   addTopic: () => void;
   removeTopic: (topic: string) => void;
@@ -109,6 +110,7 @@ export const usePostEditor = (
     mediaFiles,
     mediaPreviews,
     setContent,
+    setTopics,
     setTopicInput,
     addTopic,
     removeTopic,
