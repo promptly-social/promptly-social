@@ -11,12 +11,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import functions_framework
-# from .posts_generator import PostsGenerator
-# from .article_fetcher import ArticleFetcher
-# from .database_client import CloudSQLClient
-from posts_generator import PostsGenerator
-from article_fetcher import ArticleFetcher
-from database_client import CloudSQLClient
+from .posts_generator import PostsGenerator
+from .article_fetcher import ArticleFetcher
+from .database_client import CloudSQLClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
