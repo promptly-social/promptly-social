@@ -11,9 +11,12 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import functions_framework
-from .posts_generator import PostsGenerator
-from .article_fetcher import ArticleFetcher
-from .database_client import CloudSQLClient
+# from .posts_generator import PostsGenerator
+# from .article_fetcher import ArticleFetcher
+# from .database_client import CloudSQLClient
+from posts_generator import PostsGenerator
+from article_fetcher import ArticleFetcher
+from database_client import CloudSQLClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -117,8 +120,8 @@ def generate_suggestions(request):
             user_ideas = database_client.get_user_ideas(user_id)
             print(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
 
-            # initialize candidate posts with user ideas first
-            candidate_posts = user_ideas
+            
+            candidate_posts = []
 
             # Get latest articles suggested by AI and saved in the idea banks
             latest_idea_bank_posts = database_client.get_latest_articles_from_idea_bank(

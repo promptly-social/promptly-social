@@ -1,4 +1,5 @@
 import os
+import random
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -72,6 +73,11 @@ class PostsGenerator:
                 post_copy["id"] = str(post_copy["id"])
             candidate_posts_serializable.append(post_copy)
 
+        # Randomly select up to 10 articles if there are more than 10
+        if len(candidate_posts_serializable) > 10:
+            print(f"Randomly selecting 10 articles from {len(candidate_posts_serializable)} candidates")
+            candidate_posts_serializable = random.sample(candidate_posts_serializable, 10)
+
         prompt = f"""You are an expert Content Strategist who helps thought leaders find compelling articles to use as inspiration for creating engaging LinkedIn posts. Your goal is to select articles that will spark discussion, showcase expertise, and resonate with a professional audience.
 
 **User Profile:**
@@ -82,7 +88,7 @@ For the purpose of *selecting* articles, focus on the article's **content and su
 
 **Candidate Articles:**
 You will be given a list of articles, each with a title, subtitle, and URL. Some might have content already.
-{candidate_posts}
+{candidate_posts_serializable}
 
 **Your Task:**
 From the list of candidate articles, select UP TO {number_of_posts_to_generate} that are BEST suited for creating high-engagement LinkedIn posts.
