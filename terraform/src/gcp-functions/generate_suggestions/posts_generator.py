@@ -81,7 +81,7 @@ class PostsGenerator:
 For the purpose of *selecting* articles, focus on the article's **content and substance**, not its writing style. The user's writing style will be applied when the post is generated later.
 
 **Candidate Articles:**
-You will be given a list of articles, each with a title, subtitle, and URL. Some could be missing.
+You will be given a list of articles, each with a title, subtitle, and URL. Some might have content already.
 {candidate_posts}
 
 **Your Task:**
