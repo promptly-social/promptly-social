@@ -88,9 +88,9 @@ export const UserBio: React.FC = () => {
 
             {!isEditing ? (
               // Display mode
-              <div className="min-h-[100px] p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="min-h-[100px] p-4 bg-muted/30 rounded-lg border border-border">
                 {bio ? (
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">
                     {bio}
                   </p>
                 ) : (
@@ -102,12 +102,12 @@ export const UserBio: React.FC = () => {
               </div>
             ) : (
               // Edit mode
-              <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+              <div className="border rounded-lg p-4 space-y-3 bg-accent/10">
                 <Textarea
                   value={editingBio}
                   onChange={(e) => setEditingBio(e.target.value)}
                   placeholder="Tell us about yourself, your interests, and what you're passionate about..."
-                  className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                   disabled={isSaving}
                 />
                 <div className="flex justify-end items-center">

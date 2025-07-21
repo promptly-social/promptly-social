@@ -8,7 +8,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
-  FileText,
   PenTool,
   Calendar,
   CheckCircle,
@@ -27,7 +26,6 @@ import {
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 
 const Landing = () => {
   const [searchParams] = useSearchParams();
@@ -75,15 +73,15 @@ const Landing = () => {
   }, [searchParams, navigate, toast]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
+      <nav className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center justify-between p-6 max-w-7xl mx-auto">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary via-secondary to-accent rounded-xl flex items-center justify-center shadow-lg">
               <PenTool className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Promptly
             </span>
           </div>
@@ -91,13 +89,13 @@ const Landing = () => {
             <Link to="/login">
               <Button
                 variant="ghost"
-                className="text-gray-600 hover:text-gray-900 font-medium"
+                className="text-muted-foreground hover:text-foreground font-medium"
               >
                 Sign In
               </Button>
             </Link>
             <Link to="/signup">
-              <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg">
+              <Button className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white shadow-lg">
                 Start Free Trial
               </Button>
             </Link>
@@ -110,14 +108,14 @@ const Landing = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-100"></div>
         <div className="relative max-w-7xl mx-auto px-6 pt-20 pb-32">
           <div className="text-center max-w-5xl mx-auto">
-            <Badge className="mb-8 bg-blue-100 text-blue-700 hover:bg-blue-100 border border-blue-200 px-4 py-2 text-sm font-medium">
+            <Badge className="mb-8 bg-accent/20 text-accent-foreground hover:bg-accent/20 border border-accent/30 px-4 py-2 text-sm font-medium">
               AI LinkedIn Content That Converts
             </Badge>
 
             {/* IMPACT Headline: [What You Do] + [Outcome] */}
             <h1 className="text-6xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight tracking-tight">
               AI LinkedIn Posts
-              <span className="block bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
                 10x Your Engagement
               </span>
             </h1>
@@ -133,7 +131,7 @@ const Landing = () => {
               <Link to="/signup">
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-lg px-10 py-4 shadow-xl"
+                  className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-lg px-10 py-4 shadow-xl"
                 >
                   Start Creating Content Today
                   <ArrowRight className="ml-3 w-5 h-5" />
@@ -152,7 +150,7 @@ const Landing = () => {
               ].map((stat, index) => (
                 <div key={index} className="text-center">
                   <div className="flex items-center justify-center mb-2">
-                    <stat.icon className="w-5 h-5 text-blue-600 mr-2" />
+                    <stat.icon className="w-5 h-5 text-primary mr-2" />
                     <div className="text-2xl font-bold text-gray-900">
                       {stat.metric}
                     </div>
@@ -243,8 +241,8 @@ const Landing = () => {
                 title: "Stalled Growth",
                 description:
                   "Your personal brand and business growth hit a ceiling without consistent thought leadership.",
-                color: "text-blue-600",
-                bg: "bg-blue-50",
+                color: "text-primary",
+                bg: "bg-accent/10",
               },
             ].map((pain, index) => (
               <Card
@@ -271,7 +269,7 @@ const Landing = () => {
       </section>
 
       {/* AUTHORITY Section */}
-      <section className="py-24 bg-gradient-to-b from-blue-50 to-white">
+      <section className="py-24 bg-gradient-to-b from-accent/10 to-background">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             {/* Authority Formula: We Help [Customer Industry] + [Path Forward] */}
@@ -292,7 +290,7 @@ const Landing = () => {
                 title: "AI Writing Style Analysis",
                 description:
                   "Analyzes your existing LinkedIn posts to generate content that sounds authentically you. Never generic, always personal.",
-                gradient: "from-blue-600 to-blue-700",
+                gradient: "from-primary to-secondary",
               },
               {
                 icon: BookOpen,
@@ -358,7 +356,6 @@ const Landing = () => {
               content
             </p>
           </div>
-
           <div className="grid md:grid-cols-3 gap-8 mb-16">
             {[
               {
@@ -396,7 +393,7 @@ const Landing = () => {
                       />
                     ))}
                   </div>
-                  <Quote className="w-8 h-8 text-blue-600 mb-4" />
+                  <Quote className="w-8 h-8 text-primary mb-4" />
                   <p className="text-gray-700 italic mb-6 leading-relaxed">
                     "{testimonial.quote}"
                   </p>
@@ -415,16 +412,15 @@ const Landing = () => {
               </Card>
             ))}
           </div>
-
           {/* Trust indicators */}
-          <div className="text-center">
-            <div className="flex justify-center items-center space-x-12 opacity-60">
+          {/* <div className="text-center"> */}
+          {/* <div className="flex justify-center items-center space-x-12 opacity-60">
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5" />
                 <span className="text-sm font-medium">500+ Happy Users</span>
               </div>
-            </div>
-          </div>
+            </div> */}
+          {/* </div> */}
         </div>
       </section>
 
@@ -451,12 +447,12 @@ const Landing = () => {
                 ))}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl p-12 text-center">
-              <div className="text-6xl font-bold text-blue-700 mb-4">5 min</div>
-              <div className="text-xl text-blue-800 mb-6">
+            <div className="bg-gradient-to-br from-accent/10 to-accent/20 rounded-3xl p-12 text-center">
+              <div className="text-6xl font-bold text-primary mb-4">5 min</div>
+              <div className="text-xl text-secondary mb-6">
                 Daily Time Investment
               </div>
-              <div className="text-blue-700 text-lg leading-relaxed">
+              <div className="text-primary text-lg leading-relaxed">
                 Spend 5 minutes reviewing and publishing.
                 <br />
                 <strong>Get 10x the results of hours of manual work.</strong>
@@ -467,20 +463,20 @@ const Landing = () => {
       </section>
 
       {/* ACTION Section */}
-      <section className="py-24 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800">
+      <section className="py-24 bg-gradient-to-r from-primary via-secondary to-accent">
         <div className="max-w-4xl mx-auto px-6 text-center">
           {/* Action Headline: [Value] + Starts Now */}
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
             Your LinkedIn Growth Starts Now
           </h2>
-          <p className="text-xl text-blue-100 mb-8 font-light max-w-3xl mx-auto">
+          <p className="text-xl text-primary-foreground/80 mb-8 font-light max-w-3xl mx-auto">
             Join forward-thinking founders who are building thought leadership
             and generating leads with AI-powered LinkedIn content.
           </p>
 
           {/* Cost of Inaction */}
-          <div className="bg-blue-800/30 backdrop-blur-sm border border-blue-400/20 rounded-2xl p-6 mb-10">
-            <p className="text-blue-100 text-lg">
+          <div className="bg-primary/20 backdrop-blur-sm border border-accent/30 rounded-2xl p-6 mb-10">
+            <p className="text-primary-foreground/90 text-lg">
               <strong>Every day you wait, competitors gain ground.</strong>
               <br />
               Stop losing opportunities to inconsistent LinkedIn presence.
@@ -491,7 +487,7 @@ const Landing = () => {
             <Link to="/signup">
               <Button
                 size="lg"
-                className="bg-white text-blue-700 hover:bg-gray-100 text-lg px-12 py-4 shadow-xl font-semibold"
+                className="bg-white text-primary hover:bg-muted text-lg px-12 py-4 shadow-xl font-semibold"
               >
                 Start Your 7-Day Free Trial
                 <ArrowRight className="ml-3 w-5 h-5" />
@@ -499,7 +495,7 @@ const Landing = () => {
             </Link>
           </div>
 
-          <p className="text-blue-200 text-sm mt-6">
+          <p className="text-primary-foreground/70 text-sm mt-6">
             Cancel anytime • Setup in under 5 minutes
           </p>
         </div>
@@ -510,10 +506,10 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6 py-16">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-3 mb-8 md:mb-0">
-              <div className="w-10 h-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary via-secondary to-accent rounded-xl flex items-center justify-center shadow-lg">
                 <PenTool className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 Promptly
               </span>
             </div>

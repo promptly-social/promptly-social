@@ -9,14 +9,14 @@ interface PostCardMetaProps {
 
 const getStatusColor = (status: string) => {
   const statusColors: Record<string, string> = {
-    suggested: "bg-blue-100 text-blue-800",
-    draft: "bg-purple-100 text-purple-800",
-    posted: "bg-green-100 text-green-800",
-    scheduled: "bg-yellow-100 text-yellow-800",
-    canceled: "bg-orange-100 text-orange-800",
-    dismissed: "bg-red-100 text-red-800",
+    suggested: "bg-accent/20 text-accent-foreground border-accent/30",
+    draft: "bg-secondary/20 text-secondary-foreground border-secondary/30",
+    posted: "bg-primary/10 text-primary border-primary/40",
+    scheduled: "bg-accent/20 text-accent-foreground border-accent/30",
+    canceled: "bg-secondary/20 text-secondary-foreground border-secondary/30",
+    dismissed: "bg-destructive/20 text-destructive-foreground border-destructive/30",
   };
-  return statusColors[status] || "bg-gray-100 text-gray-800";
+  return statusColors[status] || "bg-muted text-muted-foreground border-border";
 };
 
 const getStatusIcon = (status: string) => {
@@ -58,11 +58,11 @@ const getStatusTimestamp = (post: Post) => {
 
 export const PostCardMeta: React.FC<PostCardMetaProps> = ({ post }) => {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 pt-4">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-4">
       <div className="flex items-center gap-2">
         <Badge
-          className={`${getStatusColor(post.status)} text-xs`}
-          variant="secondary"
+          className={`${getStatusColor(post.status)} text-xs border`}
+          variant="outline"
         >
           {getStatusIcon(post.status)}
           <span className="ml-1 capitalize">{post.status}</span>

@@ -111,7 +111,7 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
             </Button>
             
             {showStyleEditor && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-md">
+              <div className="mt-3 p-3 bg-muted/30 rounded-md">
                 <ImageGenerationStyleEditor
                   variant="content"
                   onSave={handleStyleSave}

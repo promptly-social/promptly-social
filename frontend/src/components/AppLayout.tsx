@@ -21,8 +21,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
   const emailClasses =
     emailBreakpoint === "md"
-      ? "hidden md:inline text-gray-600 text-sm"
-      : "hidden sm:inline text-gray-600 text-sm";
+      ? "hidden md:inline text-sm text-gray-900"
+      : "hidden sm:inline text-sm text-gray-900";
 
   // Helper function to get display name (first name or email fallback)
   const getDisplayName = () => {
@@ -42,11 +42,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <SidebarInset>
-      <header className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50 !bg-transparent">
+      <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center justify-between p-4 sm:p-6">
           <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger />
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground">
               {title}
             </h1>
           </div>
