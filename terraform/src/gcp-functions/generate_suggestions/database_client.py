@@ -110,8 +110,8 @@ class CloudSQLClient:
             
             for result in idea_results:
                 ideas.append({
-                    "id": idea_results['id'],
-                    "content": idea_results["data"]["value"]
+                    "id": result['id'],
+                    "content": result["data"]["value"]
                 })
 
             return ideas
