@@ -911,24 +911,6 @@ class PostsService:
                         sharing_error=None,  # Clear any previous errors
                     ),
                 )
-
-                # Delete media from GCS after posting
-                if post.media:
-                    for media_item in post.media:
-                        if media_item.storage_path:
-                            try:
-                                blob = self.bucket.blob(media_item.storage_path)
-                                if blob.exists():
-                                    blob.delete()
-                                media_item.storage_path = None
-                                media_item.gcs_url = None
-                                self._db.add(media_item)
-                            except Exception as e:
-                                logger.error(
-                                    f"Error deleting media {media_item.storage_path} from GCS: {e}"
-                                )
-                    await self._db.commit()
-
                 return share_result
 
             except Exception as e:
