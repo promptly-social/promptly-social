@@ -49,6 +49,7 @@ data "archive_file" "generate_suggestions_source" {
     "env.example",
     "test**",
     "test-output.json",
+    ".env",
     "venv/**",
     "__pycache__/**",
     ".pytest_cache/**",
