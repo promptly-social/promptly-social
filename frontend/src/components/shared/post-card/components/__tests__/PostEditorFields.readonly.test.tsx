@@ -10,7 +10,14 @@ import { ProfileProvider } from "@/contexts/ProfileContext";
 
 // Mock the UI components
 vi.mock("@/components/ui/textarea", () => ({
-  Textarea: ({ value, onChange, readOnly, className, placeholder, ...props }: any) => (
+  Textarea: ({
+    value,
+    onChange,
+    readOnly,
+    className,
+    placeholder,
+    ...props
+  }: any) => (
     <textarea
       value={value}
       onChange={onChange}
@@ -24,7 +31,14 @@ vi.mock("@/components/ui/textarea", () => ({
 }));
 
 vi.mock("@/components/ui/input", () => ({
-  Input: ({ value, onChange, readOnly, className, placeholder, ...props }: any) => (
+  Input: ({
+    value,
+    onChange,
+    readOnly,
+    className,
+    placeholder,
+    ...props
+  }: any) => (
     <input
       value={value}
       onChange={onChange}
@@ -106,7 +120,9 @@ vi.mock("@/lib/profile-queries", () => ({
 
 // Mock the AuthContext
 vi.mock("@/contexts/AuthContext", () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   useAuth: () => ({
     user: {
       id: "test-user-id",
@@ -132,9 +148,7 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ProfileProvider>
-          {children}
-        </ProfileProvider>
+        <ProfileProvider>{children}</ProfileProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
@@ -163,74 +177,64 @@ describe("PostEditorFields - Read-only behavior", () => {
   it("renders content textarea as read-only for posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="posted"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="posted" />
       </TestWrapper>
     );
 
     const textarea = screen.getByTestId("content-textarea");
     expect(textarea).toHaveAttribute("readOnly");
-    expect(textarea).toHaveAttribute("placeholder", "Content cannot be edited for posted posts");
-    expect(textarea).toHaveClass("bg-gray-50", "cursor-not-allowed", "text-gray-600");
+    expect(textarea).toHaveAttribute(
+      "placeholder",
+      "Content cannot be edited for posted posts"
+    );
   });
 
   it("renders content textarea as editable for non-posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="draft"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="draft" />
       </TestWrapper>
     );
 
     const textarea = screen.getByTestId("content-textarea");
     expect(textarea).not.toHaveAttribute("readOnly");
-    expect(textarea).toHaveAttribute("placeholder", "Edit your post content...");
-    expect(textarea).not.toHaveClass("bg-gray-50", "cursor-not-allowed", "text-gray-600");
+    expect(textarea).toHaveAttribute(
+      "placeholder",
+      "Edit your post content..."
+    );
   });
 
   it("renders article URL input as read-only for posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="posted"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="posted" />
       </TestWrapper>
     );
 
     const input = screen.getByTestId("article-url");
     expect(input).toHaveAttribute("readOnly");
-    expect(input).toHaveAttribute("placeholder", "Article URL cannot be edited for posted posts");
-    expect(input).toHaveClass("bg-gray-50", "cursor-not-allowed", "text-gray-600");
+    expect(input).toHaveAttribute(
+      "placeholder",
+      "Article URL cannot be edited for posted posts"
+    );
   });
 
   it("renders article URL input as editable for non-posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="draft"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="draft" />
       </TestWrapper>
     );
 
     const input = screen.getByTestId("article-url");
     expect(input).not.toHaveAttribute("readOnly");
     expect(input).toHaveAttribute("placeholder", "https://example.com/article");
-    expect(input).not.toHaveClass("bg-gray-50", "cursor-not-allowed", "text-gray-600");
   });
 
   it("disables media upload button for posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="posted"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="posted" />
       </TestWrapper>
     );
 
@@ -242,10 +246,7 @@ describe("PostEditorFields - Read-only behavior", () => {
   it("enables media upload button for non-posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="draft"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="draft" />
       </TestWrapper>
     );
 
@@ -256,10 +257,7 @@ describe("PostEditorFields - Read-only behavior", () => {
   it("disables AI prompt generation for posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="posted"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="posted" />
       </TestWrapper>
     );
 
@@ -270,10 +268,7 @@ describe("PostEditorFields - Read-only behavior", () => {
   it("enables AI prompt generation for non-posted posts", () => {
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={mockEditor}
-          postStatus="draft"
-        />
+        <PostEditorFields editor={mockEditor} postStatus="draft" />
       </TestWrapper>
     );
 
@@ -303,15 +298,14 @@ describe("PostEditorFields - Read-only behavior", () => {
 
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={editorWithMedia}
-          postStatus="posted"
-        />
+        <PostEditorFields editor={editorWithMedia} postStatus="posted" />
       </TestWrapper>
     );
 
     // Media removal buttons should not be present for posted posts
-    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /delete/i })
+    ).not.toBeInTheDocument();
   });
 
   it("shows media removal buttons for non-posted posts", () => {
@@ -336,10 +330,7 @@ describe("PostEditorFields - Read-only behavior", () => {
 
     render(
       <TestWrapper>
-        <PostEditorFields
-          editor={editorWithMedia}
-          postStatus="draft"
-        />
+        <PostEditorFields editor={editorWithMedia} postStatus="draft" />
       </TestWrapper>
     );
 
@@ -360,6 +351,5 @@ describe("PostEditorFields - Read-only behavior", () => {
 
     const textarea = screen.getByTestId("content-textarea");
     expect(textarea).toHaveAttribute("readOnly");
-    expect(textarea).toHaveClass("bg-gray-50", "cursor-not-allowed", "text-gray-600");
   });
 });

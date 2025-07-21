@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { ChevronRight, ChevronLeft, SkipForward } from "lucide-react";
+import { ChevronRight, ChevronLeft, SkipForward, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { SocialConnections } from "../profile/SocialConnections";
@@ -39,14 +39,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   updateStep,
 }) => {
   const [currentViewStep, setCurrentViewStep] = useState(1);
+  const [isNextLoading, setIsNextLoading] = useState(false);
+  const [isFinishLoading, setIsFinishLoading] = useState(false);
   const steps = getStepsWithStatus();
   const currentStep = steps.find((s) => s.id === currentViewStep);
 
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   if (!isOpen || loading || !progress) return null;
 
   const handleStepComplete = async () => {
+    setIsNextLoading(true);
     try {
       await updateStep(currentViewStep, true);
       if (currentViewStep < totalSteps) {
@@ -56,6 +59,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       }
     } catch (error) {
       console.error("Failed to update step:", error);
+    } finally {
+      setIsNextLoading(false);
     }
   };
 
@@ -170,28 +175,50 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           <div className="flex items-center gap-2">
             {currentViewStep < totalSteps ? (
               <Button
-                onClick={async () => {
-                  handleStepComplete();
-                  handleNext();
-                }}
+                onClick={handleStepComplete}
+                disabled={isNextLoading}
                 className="flex items-center gap-2"
               >
-                Next
-                <ChevronRight className="h-4 w-4" />
+                {isNextLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
               </Button>
             ) : (
               <Button
                 onClick={async () => {
-                  await handleStepComplete();
-                  if (onComplete) {
-                    await onComplete();
-                  } else {
-                    onClose();
+                  setIsFinishLoading(true);
+                  try {
+                    await handleStepComplete();
+                    if (onComplete) {
+                      await onComplete();
+                    } else {
+                      onClose();
+                    }
+                  } catch (error) {
+                    console.error("Failed to finish setup:", error);
+                  } finally {
+                    setIsFinishLoading(false);
                   }
                 }}
+                disabled={isFinishLoading}
                 className="flex items-center gap-2"
               >
-                Finish Setup
+                {isFinishLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Finishing...
+                  </>
+                ) : (
+                  "Finish Setup"
+                )}
               </Button>
             )}
           </div>

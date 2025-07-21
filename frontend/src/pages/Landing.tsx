@@ -95,7 +95,7 @@ const Landing = () => {
               </Button>
             </Link>
             <Link to="/signup">
-              <Button className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white shadow-lg">
+              <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg">
                 Start Free Trial
               </Button>
             </Link>
@@ -131,7 +131,7 @@ const Landing = () => {
               <Link to="/signup">
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-lg px-10 py-4 shadow-xl"
+                  className="bg-primary hover:bg-primary/90 text-white text-lg px-10 py-4 shadow-xl"
                 >
                   Start Creating Content Today
                   <ArrowRight className="ml-3 w-5 h-5" />
@@ -341,86 +341,6 @@ const Landing = () => {
               </Card>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* TRUST Section - Social Proof */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Join Founders Already Growing Their LinkedIn
-            </h2>
-            <p className="text-xl text-gray-600">
-              Early users are seeing immediate results with authentic, engaging
-              content
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            {[
-              {
-                quote:
-                  "Finally, LinkedIn content that actually sounds like me. My engagement went from 5 likes to 50+ on every post.",
-                author: "Sarah Chen",
-                role: "SaaS Founder",
-                metric: "10x engagement increase",
-              },
-              {
-                quote:
-                  "I was spending hours writing posts that flopped. Now I get daily suggestions that consistently perform.",
-                author: "Mike Rodriguez",
-                role: "Tech Startup CEO",
-                metric: "Saved 8 hours/week",
-              },
-              {
-                quote:
-                  "The AI perfectly captures my voice. People ask if I hired a content team, but it's just Promptly.",
-                author: "Alex Thompson",
-                role: "Marketing Consultant",
-                metric: "3x more leads",
-              },
-            ].map((testimonial, index) => (
-              <Card
-                key={index}
-                className="border border-gray-200 bg-white shadow-lg"
-              >
-                <CardHeader>
-                  <div className="flex items-center mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="w-5 h-5 text-yellow-400 fill-current"
-                      />
-                    ))}
-                  </div>
-                  <Quote className="w-8 h-8 text-primary mb-4" />
-                  <p className="text-gray-700 italic mb-6 leading-relaxed">
-                    "{testimonial.quote}"
-                  </p>
-                  <div className="border-t pt-4">
-                    <div className="font-semibold text-gray-900">
-                      {testimonial.author}
-                    </div>
-                    <div className="text-sm text-gray-600 mb-2">
-                      {testimonial.role}
-                    </div>
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                      {testimonial.metric}
-                    </Badge>
-                  </div>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-          {/* Trust indicators */}
-          {/* <div className="text-center"> */}
-          {/* <div className="flex justify-center items-center space-x-12 opacity-60">
-              <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5" />
-                <span className="text-sm font-medium">500+ Happy Users</span>
-              </div>
-            </div> */}
-          {/* </div> */}
         </div>
       </section>
 

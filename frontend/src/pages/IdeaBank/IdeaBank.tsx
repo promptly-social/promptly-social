@@ -288,13 +288,10 @@ const IdeaBank: React.FC = () => {
 
   // Removed in-file render components; replaced with extracted ones
 
-
-
   return (
     <AppLayout title="Ideas" emailBreakpoint="md">
       <main className="py-4 px-4 sm:py-8 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          
           {/* Page Header with Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="text-center sm:text-left">
@@ -467,7 +464,7 @@ const IdeaBank: React.FC = () => {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Post Details</DialogTitle>
           </DialogHeader>

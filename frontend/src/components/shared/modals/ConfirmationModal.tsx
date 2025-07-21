@@ -40,7 +40,7 @@ export const ConfirmationModal = ({
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             {cancelButtonText}
           </Button>
-          <Button onClick={onConfirm} disabled={isLoading} className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90">
+          <Button onClick={onConfirm} disabled={isLoading} className="bg-primary hover:bg-primary/90">
             {isLoading ? (
               <span className="flex items-center">
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />

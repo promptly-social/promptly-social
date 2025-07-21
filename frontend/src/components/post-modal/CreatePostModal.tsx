@@ -146,7 +146,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90">
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
               {isSubmitting ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>

@@ -142,7 +142,7 @@ export const MyPosts: React.FC = () => {
               className="ml-2"
               onClick={() => setIsBrainstormOpen(true)}
             >
-              <Sparkles className="h-5 w-5 mr-2" /> Brain Storm
+              <Sparkles className="h-5 w-5 mr-2" /> Brainstorm
             </Button>
             <Button
               variant="default"
@@ -182,7 +182,8 @@ export const MyPosts: React.FC = () => {
               className="flex items-center gap-2"
             >
               <ArrowUpDown className="h-4 w-4" />
-              Sort by {currentSort.field.replace("_", " ")} ({currentSort.direction})
+              Sort by {currentSort.field.replace("_", " ")} (
+              {currentSort.direction})
             </Button>
           </div>
         </div>

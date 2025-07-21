@@ -78,7 +78,7 @@ export const ImageGenerationStyleEditor: React.FC<
     <>
       <div className="space-y-3 sm:space-y-4">
         <div className="flex items-center gap-2">
-          <Palette className="w-4 h-4 text-purple-500" />
+          <Palette className="w-4 h-4" />
           <h3 className="font-medium text-sm sm:text-base">
             Image Generation Style
           </h3>

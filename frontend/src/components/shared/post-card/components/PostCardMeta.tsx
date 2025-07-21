@@ -10,11 +10,12 @@ interface PostCardMetaProps {
 const getStatusColor = (status: string) => {
   const statusColors: Record<string, string> = {
     suggested: "bg-accent/20 text-accent-foreground border-accent/30",
-    draft: "bg-secondary/20 text-secondary-foreground border-secondary/30",
+    draft: "bg-secondary/20 text-accent-foreground border-secondary/30",
     posted: "bg-primary/10 text-primary border-primary/40",
     scheduled: "bg-accent/20 text-accent-foreground border-accent/30",
     canceled: "bg-secondary/20 text-secondary-foreground border-secondary/30",
-    dismissed: "bg-destructive/20 text-destructive-foreground border-destructive/30",
+    dismissed:
+      "bg-destructive/20 text-destructive-foreground border-destructive/30",
   };
   return statusColors[status] || "bg-muted text-muted-foreground border-border";
 };

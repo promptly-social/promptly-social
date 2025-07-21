@@ -63,7 +63,7 @@ const EarlyAccess = () => {
 
             <Button
               onClick={handleEarlyAccessClick}
-              className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white h-12 font-semibold shadow-lg text-base"
+              className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-semibold shadow-lg text-base"
             >
               Sign Up for Early Access
               <ExternalLink className="w-4 h-4 ml-2" />

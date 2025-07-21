@@ -93,9 +93,6 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
   const headerText = isScheduleMode
     ? "📅 Post will be published on"
     : "📅 Post will be rescheduled to";
-  const headerGradientClass = isScheduleMode
-    ? "from-blue-50 to-green-50 border-blue-200"
-    : "from-orange-50 to-red-50 border-orange-200";
   const submitButtonText = isMobile
     ? isScheduleMode
       ? "Schedule"
@@ -523,9 +520,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
             </DialogTitle>
           </DialogHeader>
 
-          <div
-            className="flex-shrink-0 bg-gradient-to-r from-accent/10 to-secondary/10 border border-accent/20 rounded-lg p-3 mb-3"
-          >
+          <div className="flex-shrink-0 bg-gradient-to-r from-accent/10 to-secondary/10 border border-accent/20 rounded-lg p-3 mb-3">
             <div className="text-center">
               <p className="text-xs text-muted-foreground mb-1">{headerText}</p>
               <p
@@ -908,7 +903,7 @@ export const SchedulePostModalBase: React.FC<SchedulePostModalBaseProps> = ({
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-4 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+              className="px-4 bg-primary hover:bg-primary/90"
             >
               {submitting ? (
                 <>
