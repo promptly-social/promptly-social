@@ -57,13 +57,13 @@ variable "environment" {
 variable "schedule" {
   description = "Cron schedule for the analysis job"
   type        = string
-  default     = "0 * * * *"  # Every hour at minute 0
+  default     = "0 7 * * *"  # Once daily at midnight PDT (7 AM UTC)
 }
 
 variable "timezone" {
   description = "Timezone for the scheduler"
   type        = string
-  default     = "UTC"
+  default     = "America/Los_Angeles"  # PDT timezone
 }
 
 variable "scheduler_retry_count" {
@@ -152,10 +152,22 @@ variable "scheduler_failure_threshold" {
 }
 
 # Analysis configuration
-variable "ai_provider" {
-  description = "AI provider to use for analysis (openai, anthropic)"
+variable "openrouter_model_primary" {
+  description = "Primary OpenRouter model for generation."
   type        = string
-  default     = "openai"
+  default     = "google/gemini-2.5-flash"
+}
+
+variable "openrouter_models_fallback" {
+  description = "Fallback OpenRouter models for generation."
+  type        = list(string)
+  default     = ["google/gemini-pro", "mistralai/mistral-7b-instruct"]
+}
+
+variable "openrouter_model_temperature" {
+  description = "Temperature for OpenRouter model."
+  type        = string
+  default     = "0.0"
 }
 
 variable "post_threshold" {

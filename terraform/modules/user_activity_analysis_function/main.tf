@@ -69,7 +69,7 @@ resource "google_cloudfunctions2_function" "function" {
   name        = var.function_name
   location    = var.region
   project     = var.project_id
-  description = "User activity analysis function that runs hourly to analyze user engagement patterns"
+  description = "User activity analysis function that runs daily at midnight PDT to analyze user engagement patterns"
 
   build_config {
     runtime     = "python313"
@@ -89,12 +89,14 @@ resource "google_cloudfunctions2_function" "function" {
     timeout_seconds    = 900  # 15 minutes as per requirements
     
     environment_variables = {
-      AI_PROVIDER                = var.ai_provider
-      POST_THRESHOLD             = var.post_threshold
-      MESSAGE_THRESHOLD          = var.message_threshold
-      MAX_RETRY_ATTEMPTS         = var.max_retry_attempts
-      ANALYSIS_TIMEOUT_MINUTES   = var.analysis_timeout_minutes
-      BATCH_SIZE                 = var.batch_size
+      POST_THRESHOLD               = var.post_threshold
+      MESSAGE_THRESHOLD            = var.message_threshold
+      MAX_RETRY_ATTEMPTS           = var.max_retry_attempts
+      ANALYSIS_TIMEOUT_MINUTES     = var.analysis_timeout_minutes
+      BATCH_SIZE                   = var.batch_size
+      OPENROUTER_MODEL_PRIMARY     = var.openrouter_model_primary
+      OPENROUTER_MODELS_FALLBACK   = join(",", var.openrouter_models_fallback)
+      OPENROUTER_MODEL_TEMPERATURE = var.openrouter_model_temperature
     }
 
     secret_environment_variables {
@@ -147,12 +149,12 @@ resource "google_cloudfunctions2_function" "function" {
   ]
 }
 
-# Cloud Scheduler job to trigger the function every hour
+# Cloud Scheduler job to trigger the function daily at midnight PDT
 resource "google_cloud_scheduler_job" "user_activity_analysis" {
   project          = var.project_id
   region           = var.region
   name             = var.scheduler_job_name
-  description      = "Triggers user activity analysis function every hour with comprehensive retry and monitoring"
+  description      = "Triggers user activity analysis function daily at midnight PDT with comprehensive retry and monitoring"
   schedule         = var.schedule
   time_zone        = var.timezone
   attempt_deadline = "900s"  # 15 minutes as per requirements
@@ -215,15 +217,17 @@ resource "google_logging_project_sink" "scheduler_monitoring" {
 # Pub/Sub topic for scheduler monitoring
 resource "google_pubsub_topic" "scheduler_monitoring" {
   count = var.enable_scheduler_monitoring ? 1 : 0
-  
+
   name    = "${var.scheduler_job_name}-monitoring"
   project = var.project_id
-  
+
   labels = {
     environment = var.environment
     component   = "scheduler-monitoring"
     function    = var.function_name
   }
+
+
 }
 
 # Grant the log sink permission to publish to the topic
@@ -254,7 +258,7 @@ resource "google_monitoring_alert_policy" "function_error_rate" {
     condition_threshold {
       filter = "resource.type=\"cloud_function\" resource.label.function_name=\"${var.function_name}\" metric.type=\"cloudfunctions.googleapis.com/function/execution_count\" metric.label.status!=\"ok\""
       
-      comparison = "COMPARISON_GREATER_THAN"
+      comparison = "COMPARISON_GT"
       threshold_value = var.error_rate_threshold
       duration = "300s"  # 5 minutes
       
@@ -273,12 +277,7 @@ resource "google_monitoring_alert_policy" "function_error_rate" {
   combiner = "OR"
   enabled  = true
 
-  dynamic "notification_channels" {
-    for_each = var.notification_channels
-    content {
-      notification_channels = [notification_channels.value]
-    }
-  }
+  notification_channels = var.notification_channels
 }
 
 # Cloud Monitoring Alert Policy for Function Execution Time
@@ -299,7 +298,7 @@ resource "google_monitoring_alert_policy" "function_execution_time" {
     condition_threshold {
       filter = "resource.type=\"cloud_function\" resource.label.function_name=\"${var.function_name}\" metric.type=\"cloudfunctions.googleapis.com/function/execution_times\""
       
-      comparison = "COMPARISON_GREATER_THAN"
+      comparison = "COMPARISON_GT"
       threshold_value = var.execution_time_threshold_ms
       duration = "300s"  # 5 minutes
       
@@ -318,12 +317,7 @@ resource "google_monitoring_alert_policy" "function_execution_time" {
   combiner = "OR"
   enabled  = true
 
-  dynamic "notification_channels" {
-    for_each = var.notification_channels
-    content {
-      notification_channels = [notification_channels.value]
-    }
-  }
+  notification_channels = var.notification_channels
 }
 
 # Cloud Monitoring Alert Policy for Scheduler Job Failures
@@ -344,7 +338,7 @@ resource "google_monitoring_alert_policy" "scheduler_job_failures" {
     condition_threshold {
       filter = "resource.type=\"cloud_scheduler_job\" resource.label.job_id=\"${var.scheduler_job_name}\" metric.type=\"cloudscheduler.googleapis.com/job/num_attempts\" metric.label.response_code!=\"200\""
       
-      comparison = "COMPARISON_GREATER_THAN"
+      comparison = "COMPARISON_GT"
       threshold_value = var.scheduler_failure_threshold
       duration = "600s"  # 10 minutes
       
@@ -363,12 +357,7 @@ resource "google_monitoring_alert_policy" "scheduler_job_failures" {
   combiner = "OR"
   enabled  = true
 
-  dynamic "notification_channels" {
-    for_each = var.notification_channels
-    content {
-      notification_channels = [notification_channels.value]
-    }
-  }
+  notification_channels = var.notification_channels
 }
 
 # Custom metric for analysis completion rate
@@ -388,7 +377,6 @@ resource "google_logging_metric" "analysis_completion_rate" {
     metric_kind = "GAUGE"
     value_type  = "INT64"
     display_name = "User Activity Analysis Completion Rate"
-    description = "Rate of successful analysis completions"
   }
   
   value_extractor = "EXTRACT(jsonPayload.users_processed)"
@@ -413,10 +401,9 @@ resource "google_logging_metric" "analysis_errors" {
   EOT
   
   metric_descriptor {
-    metric_kind = "COUNTER"
+    metric_kind = "CUMULATIVE"
     value_type  = "INT64"
     display_name = "User Activity Analysis Errors"
-    description = "Count of analysis errors"
   }
   
   label_extractors = {
@@ -433,6 +420,7 @@ resource "google_monitoring_dashboard" "user_activity_analysis" {
   dashboard_json = jsonencode({
     displayName = "User Activity Analysis System Health"
     mosaicLayout = {
+      columns = 12
       tiles = [
         {
           width = 6

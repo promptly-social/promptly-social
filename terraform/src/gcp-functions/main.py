@@ -32,5 +32,12 @@ except ImportError as e:
     traceback.print_exc()
     process_scheduled_posts = None
 
+try:
+    from user_activity_analysis.main import analyze_user_activity
+except ImportError as e:
+    print(f"Failed to import analyze_user_activity function: {e}")
+    traceback.print_exc()
+    analyze_user_activity = None
+
 # Export functions for Google Cloud Functions
-__all__ = ["analyze", "generate_suggestions", "process_scheduled_posts"]
+__all__ = ["analyze", "generate_suggestions", "process_scheduled_posts", "analyze_user_activity"]

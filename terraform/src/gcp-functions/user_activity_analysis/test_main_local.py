@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Local test script for the user_activity_analysis Cloud Function.
+Local test script for the analyze_user_activity Cloud Function.
 This script allows you to test the function locally without deploying to GCP.
 """
 
@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # Add the current directory to Python path to import the main module
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from main import user_activity_analysis
+from main import analyze_user_activity
 
 
 class MockRequest:
@@ -67,10 +67,10 @@ def setup_environment():
     return True
 
 
-def test_user_activity_analysis_sync(config: Dict[str, Any] = None):
-    """Test the user_activity_analysis function with optional configuration (synchronous version)."""
+def test_analyze_user_activity_sync(config: Dict[str, Any] = None):
+    """Test the analyze_user_activity function with optional configuration (synchronous version)."""
 
-    print(f"\n🧪 Testing user_activity_analysis function")
+    print(f"\n🧪 Testing analyze_user_activity function")
     print("=" * 50)
 
     # Create mock request with optional configuration
@@ -79,7 +79,7 @@ def test_user_activity_analysis_sync(config: Dict[str, Any] = None):
 
     try:
         # Call the function (this is synchronous despite internal async operations)
-        response_data, status_code, headers = user_activity_analysis(mock_request)
+        response_data, status_code, headers = analyze_user_activity(mock_request)
 
         # Parse response
         if isinstance(response_data, str):
@@ -152,7 +152,7 @@ def test_health_check_sync():
 
 def main():
     """Main function to run the tests."""
-    print("🚀 Starting local test for user_activity_analysis Cloud Function")
+    print("🚀 Starting local test for analyze_user_activity Cloud Function")
     print("=" * 60)
 
     # Setup environment
@@ -165,7 +165,7 @@ def main():
 
     # Run the main test with default configuration
     print("\n🧪 Testing with default configuration...")
-    response, status = test_user_activity_analysis_sync()
+    response, status = test_analyze_user_activity_sync()
 
     # Test with custom configuration
     print("\n🧪 Testing with custom configuration...")
@@ -175,7 +175,7 @@ def main():
         "batch_timeout_minutes": 10,
         "max_users_per_batch": 50
     }
-    response, status = test_user_activity_analysis_sync(custom_config)
+    response, status = test_analyze_user_activity_sync(custom_config)
 
     # Test error cases
     print("\n🧪 Testing error cases...")
@@ -185,20 +185,20 @@ def main():
     print("\n🔍 Testing with invalid post_threshold:")
     invalid_config = {"post_threshold": -1}
     mock_request = MockRequest(invalid_config)
-    response_data, status_code, headers = user_activity_analysis(mock_request)
+    response_data, status_code, headers = analyze_user_activity(mock_request)
     print(f"   Status: {status_code} (expected: 400)")
 
     # Test with invalid message_threshold
     print("\n🔍 Testing with invalid message_threshold:")
     invalid_config = {"message_threshold": "invalid"}
     mock_request = MockRequest(invalid_config)
-    response_data, status_code, headers = user_activity_analysis(mock_request)
+    response_data, status_code, headers = analyze_user_activity(mock_request)
     print(f"   Status: {status_code} (expected: 400)")
 
     # Test CORS preflight request
     print("\n🔍 Testing CORS preflight request:")
     mock_request = MockRequest({}, method="OPTIONS")
-    response_data, status_code, headers = user_activity_analysis(mock_request)
+    response_data, status_code, headers = analyze_user_activity(mock_request)
     print(f"   Status: {status_code} (expected: 204)")
     print(f"   CORS Headers: {headers.get('Access-Control-Allow-Origin', 'Missing')}")
 

@@ -298,7 +298,7 @@ async def cleanup_resources(db_client, analyzer: Optional[UserActivityAnalyzer] 
 
 
 @functions_framework.http
-def user_activity_analysis(request):
+def analyze_user_activity(request):
     """
     Main Cloud Function entry point for user activity analysis.
 
