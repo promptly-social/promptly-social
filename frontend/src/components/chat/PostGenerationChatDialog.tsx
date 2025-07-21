@@ -259,24 +259,26 @@ const ChatThreadRuntime = ({
       if (!conversation) return;
 
       // Transform assistant-ui messages to API format
-      const apiMessages: ChatMessage[] = messages.flatMap((m: ThreadMessage) => {
-        const parts: ChatMessage[] = [];
-        let textContent = "";
+      const apiMessages: ChatMessage[] = messages.flatMap(
+        (m: ThreadMessage) => {
+          const parts: ChatMessage[] = [];
+          let textContent = "";
 
-        m.content.forEach((c) => {
-          if (c.type === "text") {
-            textContent += `${c.text}\n`;
-          } else if (c.type === "tool-call") {
-            parts.push({ role: "tool", content: c.text });
+          m.content.forEach((c) => {
+            if (c.type === "text") {
+              textContent += `${c.text}\n`;
+            } else if (c.type === "tool-call") {
+              parts.push({ role: "tool", content: c.text });
+            }
+          });
+
+          if (textContent.trim()) {
+            parts.unshift({ role: m.role, content: textContent.trim() });
           }
-        });
 
-        if (textContent.trim()) {
-          parts.unshift({ role: m.role, content: textContent.trim() });
+          return parts;
         }
-
-        return parts;
-      });
+      );
 
       // Use the new streaming API
       try {
@@ -294,7 +296,9 @@ const ChatThreadRuntime = ({
           content: [
             {
               type: "text",
-              text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+              text: `Error: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
             },
           ],
         };

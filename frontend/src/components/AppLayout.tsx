@@ -42,7 +42,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <SidebarInset>
-      <header className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50 !bg-transparent">
         <div className="flex items-center justify-between p-4 sm:p-6">
           <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger />

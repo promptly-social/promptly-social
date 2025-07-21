@@ -135,14 +135,7 @@ export const MyPosts: React.FC = () => {
       <div className="p-4 sm:p-6 border-b">
         <div className="max-w-4xl mx-auto w-full">
           {/* Onboarding Banner for Step 4 */}
-          <div className="flex justify-end mb-4">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              <PlusIcon className="h-5 w-5 mr-2" /> New Post
-            </Button>
+          <div className="flex justify-end mb-4 gap-2">
             <Button
               variant="default"
               size="sm"
@@ -150,6 +143,13 @@ export const MyPosts: React.FC = () => {
               onClick={() => setIsBrainstormOpen(true)}
             >
               <Sparkles className="h-5 w-5 mr-2" /> Brain Storm
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              <PlusIcon className="h-5 w-5 mr-2" /> New Post
             </Button>
           </div>
 

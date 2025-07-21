@@ -87,6 +87,7 @@ export const ONBOARDING_STEPS: Omit<
     highlights: [
       "Use 'New Post' button to create posts manually",
       "Use 'Brain Storm' button to brainstorm drafts with AI",
+      "The AI will improve as your write more posts and provide feedback",
     ],
   },
 ];
