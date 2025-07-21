@@ -64,7 +64,7 @@ variable "openrouter_models_fallback" {
 variable "openrouter_model_temperature" {
   description = "Temperature for OpenRouter model."
   type        = string
-  default     = "0.7"
+  default     = "0.0"
 }
 
 variable "openrouter_large_model_primary" {

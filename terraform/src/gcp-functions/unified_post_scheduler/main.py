@@ -153,13 +153,16 @@ async def _process_scheduled_posts_async(request):
                 db_client.close()
             except Exception as cleanup_error:
                 logger.warning(f"Error closing Cloud SQL client: {cleanup_error}")
-        
+
         # Also close the global client if it exists
         try:
             from shared.cloud_sql_client import close_cloud_sql_client
+
             close_cloud_sql_client()
         except Exception as global_cleanup_error:
-            logger.warning(f"Error closing global Cloud SQL client: {global_cleanup_error}")
+            logger.warning(
+                f"Error closing global Cloud SQL client: {global_cleanup_error}"
+            )
 
 
 @functions_framework.http

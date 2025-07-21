@@ -15,7 +15,16 @@ from loguru import logger
 
 from app.core.config import settings
 from app.core.database import close_db, init_db
-from app.routers import auth, chat, idea_bank, onboarding, profile, posts, schedules, user_topics
+from app.routers import (
+    auth,
+    chat,
+    idea_bank,
+    onboarding,
+    profile,
+    posts,
+    schedules,
+    user_topics,
+)
 
 
 # Configure logging

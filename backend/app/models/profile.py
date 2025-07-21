@@ -6,7 +6,7 @@ from datetime import datetime, time
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Time, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Time, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -34,6 +34,7 @@ class UserPreferences(Base):
     )
     timezone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     image_generation_style: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    negative_analysis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

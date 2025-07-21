@@ -171,7 +171,9 @@ async def update_analysis_results(
                 },
             )
 
-            logger.info(f"Updated writing style analysis for user {user_id} from {platform} analysis")
+            logger.info(
+                f"Updated writing style analysis for user {user_id} from {platform} analysis"
+            )
 
         # Update social connection with results and completion timestamp (only for platforms that use connections)
         if platform != "import":
