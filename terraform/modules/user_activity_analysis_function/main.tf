@@ -46,6 +46,7 @@ data "archive_file" "user_activity_analysis_source" {
     "terraform/**",
     "README.md",
     "env.example",
+    ".env",
     "test**",
     "test-output.json",
     "venv/**",
