@@ -6,12 +6,13 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Text, func
+from sqlalchemy import DateTime, ForeignKey, func
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.helpers import JSONType, UUIDType
+from app.models.user import User
 
 
 class UserAnalysisTracking(Base):
