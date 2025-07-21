@@ -41,6 +41,35 @@ export const createOrGetConversation = async (
   });
 };
 
+export const createOrGetPostEditingConversation = async (
+  postId: string
+): Promise<Conversation> => {
+  try {
+    // First, try to get an existing conversation for this post
+    const conversation = await apiClient.request<Conversation | null>(
+      `/chat/conversations?post_id=${postId}&conversation_type=revision`
+    );
+
+    if (conversation) {
+      return conversation;
+    }
+  } catch (error) {
+    console.warn(
+      "Could not fetch existing post editing conversation. Attempting to create a new one.",
+      error
+    );
+  }
+
+  // If not found or error, create a new one
+  return apiClient.request<Conversation>("/chat/conversations", {
+    method: "POST",
+    body: JSON.stringify({
+      post_id: postId,
+      conversation_type: "revision",
+    }),
+  });
+};
+
 export const archiveConversation = async (
   conversationId: string
 ): Promise<Conversation> => {

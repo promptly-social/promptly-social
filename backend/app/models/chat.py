@@ -26,6 +26,9 @@ class Conversation(Base):
     idea_bank_id: Mapped[Optional[UUID]] = mapped_column(
         UUIDType(), ForeignKey("idea_banks.id", ondelete="SET NULL"), nullable=True
     )
+    post_id: Mapped[Optional[UUID]] = mapped_column(
+        UUIDType(), ForeignKey("posts.id", ondelete="SET NULL"), nullable=True
+    )
     conversation_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # "post_generation", etc.

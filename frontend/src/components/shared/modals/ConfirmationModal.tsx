@@ -32,11 +32,11 @@ export const ConfirmationModal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader className="border-b border-border pb-4">
+        <DialogHeader className="border-border pb-4">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
           <DialogDescription className="text-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter className="border-t border-border pt-4">
+        <DialogFooter className="border-border pt-4">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             {cancelButtonText}
           </Button>

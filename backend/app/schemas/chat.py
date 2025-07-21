@@ -41,6 +41,9 @@ class ConversationCreate(BaseModel):
     idea_bank_id: Optional[UUID] = Field(
         None, description="The idea bank ID to generate a post for"
     )
+    post_id: Optional[UUID] = Field(
+        None, description="The post ID to edit (for post editing conversations)"
+    )
     conversation_type: str = Field(
         default="post_generation", description="Type of conversation"
     )
@@ -58,6 +61,7 @@ class ConversationResponse(BaseModel):
     id: UUID
     user_id: UUID
     idea_bank_id: Optional[UUID]
+    post_id: Optional[UUID]
     conversation_type: str
     title: Optional[str]
     context: Optional[Dict[str, Any]]
