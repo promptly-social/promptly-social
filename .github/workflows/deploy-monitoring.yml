@@ -21,7 +21,7 @@ on:
 
 jobs:
   deploy:
-    name: "Deploy Analyze Function to ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}"
+    name: "Deploy GCP Monitoring to ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}"
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'push' && 'staging' || github.event.inputs.environment }}
     permissions:
@@ -47,14 +47,14 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-        working-directory: terraform/environments/analyze/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/monitoring/${{ env.TARGET_ENV }}
 
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
-        working-directory: terraform/environments/analyze/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/monitoring/${{ env.TARGET_ENV }}
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve
-        working-directory: terraform/environments/analyze/${{ env.TARGET_ENV }}
+        working-directory: terraform/environments/monitoring/${{ env.TARGET_ENV }}
