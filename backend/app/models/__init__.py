@@ -5,6 +5,7 @@ from .idea_bank import IdeaBank
 from .onboarding import UserOnboarding
 from .profile import SocialConnection, UserPreferences, WritingStyleAnalysis
 from .posts import Post
+from .support import SupportRequest
 from .user import User
 from .daily_suggestion_schedule import DailySuggestionSchedule
 from .user_activity_analysis import UserAnalysisTracking
@@ -18,6 +19,7 @@ __all__ = [
     "UserPreferences",
     "WritingStyleAnalysis",
     "Post",
+    "SupportRequest",
     "User",
     "UserAnalysisTracking",
     "ActivityQueryLayer",

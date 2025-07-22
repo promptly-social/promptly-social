@@ -14,6 +14,7 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base
 from app.models.helpers import UUIDType
+from app.models.support import SupportRequest
 
 
 class User(Base):
@@ -83,6 +84,9 @@ class User(Base):
     # Relationships
     sessions: Mapped[list["UserSession"]] = relationship(
         "UserSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    support_requests: Mapped[list["SupportRequest"]] = relationship(
+        "SupportRequest", back_populates="user", cascade="all, delete-orphan"
     )
 
     @hybrid_property
