@@ -239,17 +239,11 @@ Respond with ONLY "YES" if this article would make a compelling LinkedIn post, o
 
 **Context for this Task:**
 
-1.  **Source Material (Content Idea):**
-    ---
-    {idea_content}
-    ---
-    This is the core content you will base the post on.
-
-2.  **Author's Profile:**
+1. **Author's Profile:**
     -   **Bio:** {bio}
     -   **Writing Style:** {writing_style}
 
-3.  **Specific Post Instructions:**
+2. **Specific Post Instructions:**
     -   **LinkedIn Post Style:** {linkedin_post_strategy}
     This is a specific directive on the format and style of the post. You must follow it closely.
 
@@ -275,6 +269,12 @@ Respond with ONLY "YES" if this article would make a compelling LinkedIn post, o
 -   **Topics, not Hashtags:** Identify one relevant topic for the post. Your options are: Education, Story-telling, Analysis, Validation, and/or Promotion. DO NOT format them as #hashtags.
 
 Finally, return the generated post and the topics in the required JSON format.
+
+**Source Material (Content Idea):**
+    ---
+    {idea_content}
+    ---
+    This is the core content you will base the post on.
 """
 
         model = OpenAIModel(
