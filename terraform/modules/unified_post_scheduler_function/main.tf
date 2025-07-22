@@ -57,6 +57,13 @@ resource "google_cloudfunctions2_function" "unified_post_scheduler" {
     }
 
     secret_environment_variables {
+      key        = "POST_MEDIA_BUCKET_NAME"
+      project_id = var.project_id
+      secret     = "POST_MEDIA_BUCKET_NAME"
+      version    = "latest"
+    }
+
+    secret_environment_variables {
       key        = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
       project_id = var.project_id
       secret     = "CLOUD_SQL_INSTANCE_CONNECTION_NAME"
@@ -111,6 +118,7 @@ resource "google_cloudfunctions2_function" "unified_post_scheduler" {
     google_secret_manager_secret_iam_member.secret_access_cloud_sql_password,
     google_secret_manager_secret_iam_member.secret_access_linkedin_client_id,
     google_secret_manager_secret_iam_member.secret_access_linkedin_client_secret,
+    google_secret_manager_secret_iam_member.secret_access_post_media_bucket_name,
   ]
 }
 
@@ -190,6 +198,11 @@ data "google_secret_manager_secret" "linkedin_client_secret" {
   secret_id = "LINKEDIN_CLIENT_SECRET"
 }
 
+data "google_secret_manager_secret" "post_media_bucket_name" {
+  project   = var.project_id
+  secret_id = "POST_MEDIA_BUCKET_NAME"
+}
+
 # Grant the function's service account access to the secrets
 resource "google_secret_manager_secret_iam_member" "secret_access_cloud_sql_instance_connection_name" {
   project   = data.google_secret_manager_secret.cloud_sql_instance_connection_name.project
@@ -229,6 +242,13 @@ resource "google_secret_manager_secret_iam_member" "secret_access_linkedin_clien
 resource "google_secret_manager_secret_iam_member" "secret_access_linkedin_client_secret" {
   project   = data.google_secret_manager_secret.linkedin_client_secret.project
   secret_id = data.google_secret_manager_secret.linkedin_client_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "secret_access_post_media_bucket_name" {
+  project   = data.google_secret_manager_secret.post_media_bucket_name.project
+  secret_id = data.google_secret_manager_secret.post_media_bucket_name.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_account_email}"
 }
