@@ -302,12 +302,26 @@ async def process_posts_batch(
 
             # Update post with error status
             try:
+                # Determine if this is a media processing error (should not retry)
+                # or other error (can retry)
+                error_message = str(e)
+                if "Media processing failed" in error_message or "missing required fields" in error_message:
+                    # Media processing errors - mark as draft so user can fix
+                    status = "draft"
+                    sharing_error = f"Media processing error: {error_message}"
+                    logger.error(f"Media processing failed for post {post['id']}, marking as draft")
+                else:
+                    # Other errors - keep as scheduled for retry
+                    status = "scheduled"
+                    sharing_error = f"Unified scheduler error: {error_message}"
+                    logger.error(f"General error for post {post['id']}, keeping as scheduled for retry")
+
                 await update_post_status(
                     client,
                     post["id"],
                     {
-                        "sharing_error": f"Unified scheduler error: {str(e)}",
-                        "status": "scheduled",  # Keep as scheduled for retry
+                        "sharing_error": sharing_error,
+                        "status": status,
                     },
                 )
             except Exception as update_error:
@@ -750,18 +764,26 @@ async def share_to_linkedin(
                         media_payloads.append({"media": asset_urn})
 
                     except Exception as e:
-                        logger.error(f"Failed to upload media {media.get('id', 'unknown')}: {e}")
+                        logger.error(f"CRITICAL: Failed to process media {media.get('id', 'unknown')}: {e}")
                         logger.error(f"Media data: {media}")
                         import traceback
                         logger.error(f"Traceback: {traceback.format_exc()}")
-                        # Continue without this media item
-                        continue
+                        # FAIL THE ENTIRE POST - don't post to LinkedIn with incomplete media
+                        raise Exception(f"Media processing failed for media {media.get('id', 'unknown')}: {e}")
                 else:
-                    logger.warning(f"Media item missing required fields: {media}")
-                    logger.warning(f"Has storage_path: {bool(media.get('storage_path'))}")
-                    logger.warning(f"Has media_type: {bool(media.get('media_type'))}")
+                    logger.error(f"CRITICAL: Media item missing required fields: {media}")
+                    logger.error(f"Has storage_path: {bool(media.get('storage_path'))}")
+                    logger.error(f"Has media_type: {bool(media.get('media_type'))}")
+                    # FAIL THE ENTIRE POST - don't post to LinkedIn with incomplete media
+                    raise Exception(f"Media item {media.get('id', 'unknown')} missing required fields (storage_path or media_type)")
 
         logger.info(f"Final media_payloads: {media_payloads}")
+
+        # Validate that all media items were successfully processed
+        if media_items and len(media_payloads) != len(media_items):
+            missing_count = len(media_items) - len(media_payloads)
+            logger.error(f"CRITICAL: Only {len(media_payloads)} out of {len(media_items)} media items were processed successfully")
+            raise Exception(f"Failed to process {missing_count} media items. Aborting post to prevent incomplete LinkedIn post.")
 
         # Handle different media scenarios - match linkedin_service.py logic
         if article_url and (not media_payloads or len(media_payloads) == 0):
