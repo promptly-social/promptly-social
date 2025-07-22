@@ -52,64 +52,151 @@ class PostsGenerator:
         ]
         self.model_temperature = float(os.getenv("OPENROUTER_MODEL_TEMPERATURE", "0.0"))
 
+    def _prepare_articles_for_filtering(self, candidate_posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Prepare articles for filtering by converting IDs to strings.
+        """
+        prepared_posts = []
+        for post in candidate_posts:
+            post_copy = post.copy()
+
+            # Convert UUID to string
+            if "id" in post_copy and hasattr(post_copy["id"], "__str__"):
+                post_copy["id"] = str(post_copy["id"])
+
+            prepared_posts.append(post_copy)
+
+        return prepared_posts
+
+
+
     async def filter_articles(
         self,
         candidate_posts: List[Dict[str, Any]],
         bio: str,
         topics_of_interest: List[str],
         number_of_posts_to_generate: int,
-    ) -> List[FilteredArticlesResult]:
+    ) -> List[Dict[str, Any]]:
         """
-        Filter the articles based on the user's bio, writing style, and topics of interest.
+        Filter the articles based on the user's bio and topics of interest.
+        Uses individual article evaluation with shuffling for randomness.
         """
 
         print(f"{len(candidate_posts)} candidate posts are being filtered.")
 
-        # Convert UUIDs to strings for LLM prompt
-        candidate_posts_serializable = []
-        for post in candidate_posts:
-            post_copy = post.copy()
-            if "id" in post_copy and hasattr(post_copy["id"], "__str__"):
-                post_copy["id"] = str(post_copy["id"])
-            candidate_posts_serializable.append(post_copy)
+        if not candidate_posts:
+            return []
 
-        # Randomly select up to 10 articles if there are more than 10
-        if len(candidate_posts_serializable) > 10:
-            print(f"Randomly selecting 10 articles from {len(candidate_posts_serializable)} candidates")
-            candidate_posts_serializable = random.sample(candidate_posts_serializable, 10)
+        # Prepare articles for filtering (convert IDs to strings)
+        prepared_posts = self._prepare_articles_for_filtering(candidate_posts)
 
-        prompt = f"""You are an expert Content Strategist who helps thought leaders find compelling articles to use as inspiration for creating engaging LinkedIn posts. Your goal is to select articles that will spark discussion, showcase expertise, and resonate with a professional audience.
+        # Shuffle the posts for randomness before processing
+        random.shuffle(prepared_posts)
+        print("Shuffled articles for random selection order")
+
+        # Use individual processing for all articles
+        selected_ids = await self._filter_articles_individually(
+            prepared_posts, bio, topics_of_interest, number_of_posts_to_generate
+        )
+        print(f"{len(selected_ids)} articles were selected: {selected_ids}")
+
+        if len(selected_ids) == 0:
+            print(
+                "No articles were found that match the user's bio and topics of interest."
+            )
+            return []
+
+        # Map selected IDs back to original posts (with full content)
+        filtered_articles = []
+        for selected_id in selected_ids:
+            for original_post in candidate_posts:
+                post_id = str(original_post.get("id")) if hasattr(original_post.get("id"), "__str__") else original_post.get("id")
+                if post_id == selected_id:
+                    # Create a copy with string ID for consistency
+                    post_copy = original_post.copy()
+                    post_copy["id"] = post_id
+                    filtered_articles.append(post_copy)
+                    break
+
+        if len(filtered_articles) < number_of_posts_to_generate:
+            print(
+                f"{len(filtered_articles)} articles were found that match the user's bio and topics of interest."
+            )
+
+        return filtered_articles
+
+    async def _filter_articles_individually(
+        self,
+        prepared_posts: List[Dict[str, Any]],
+        bio: str,
+        topics_of_interest: List[str],
+        number_of_posts_to_generate: int,
+    ) -> List[str]:
+        """
+        Filter articles one by one for maximum reliability.
+        Processes articles in shuffled order until we have enough selections.
+        """
+        selected_articles = []
+
+        for post in prepared_posts:
+            if len(selected_articles) >= number_of_posts_to_generate:
+                break
+
+            try:
+                # Process each article individually
+                is_suitable = await self._evaluate_single_article(
+                    post, bio, topics_of_interest
+                )
+
+                if is_suitable:
+                    selected_articles.append(post["id"])
+                    print(f"Selected article: {post.get('title', 'No title')} (ID: {post['id']})")
+
+            except Exception as e:
+                print(f"Error evaluating article {post.get('id')}: {e}")
+                continue
+
+        return selected_articles
+
+    async def _evaluate_single_article(
+        self,
+        article: Dict[str, Any],
+        bio: str,
+        topics_of_interest: List[str],
+    ) -> bool:
+        """
+        Evaluate a single article for suitability.
+        Returns True if the article should be selected.
+        """
+        # Trim content if it's very long to avoid token limits
+        content = article.get('content', 'No content')
+        if len(content.split()) > 500:  # If more than 500 words, take first 500
+            content_words = content.split()[:500]
+            content = " ".join(content_words) + "..."
+
+        prompt = f"""Evaluate this single article to determine if it would make a compelling LinkedIn post.
 
 **User Profile:**
 - **Bio:** {bio}
 - **Topics of Interest:** {topics_of_interest}
 
-For the purpose of *selecting* articles, focus on the article's **content and substance**, not its writing style. The user's writing style will be applied when the post is generated later.
+**Article to Evaluate:**
+- **Title:** {article.get('title', 'No title')}
+- **Subtitle:** {article.get('subtitle', 'No subtitle')}
+- **Content:** {content}
 
-**Your Task:**
-From the list of candidate articles, select UP TO {number_of_posts_to_generate} that are BEST suited for creating high-engagement LinkedIn posts.
+**Evaluation Criteria:**
+- Does it present thought-provoking content with strong opinions or unique perspectives?
+- Would it encourage discussion and comments on LinkedIn?
+- Is it relevant to the user's expertise and topics of interest?
+- Does it have broader appeal beyond niche product updates?
 
-**Selection Criteria (What to look for):**
-- **Thought-Provoking Content:** Does the article present a strong opinion, a unique perspective, or deep analysis? Does it challenge common wisdom?
-- **Conversation Starter:** Can the user add their own experience or opinion to it easily? Will it encourage comments and debate?
-- **Relevance to User's Expertise:** Does it align with the user's bio and topics of interest, positioning them as an expert?
-- **Broader Appeal:** Does it discuss a trend, a strategy, or a timeless concept rather than being a niche product update?
-
-**What to AVOID (Very Important):**
-- **Software Updates & Product Announcements:** Do not select articles that are just about a new version release, a new feature, or a product launch. These are generally poor for engagement. For example, avoid titles like "Announcing Product X v2.4".
-- **Simple News Reports or Press Releases:** Avoid articles that just state facts without providing analysis or opinion. For example, avoid "Company ABC Acquires Company XYZ".
-- **Hiring Announcements or Company-specific News:** Avoid articles that are only relevant to one company's internal affairs.
+**Avoid:**
+- Software updates, product announcements, simple news reports
+- Company-specific hiring or internal news
 
 **Instructions:**
-1. Carefully analyze each article in the provided list against the criteria above.
-2. Consider how the content could be turned into a compelling LinkedIn post by the user.
-3. Select the top {number_of_posts_to_generate} articles.
-4. Return ONLY a JSON object containing the IDs of your selected articles, like this:
-{{"ids": ["id1", "id2", "id3"]}}
-
-**Candidate Articles**
-You are given a list of articles, each with a title, subtitle, and URL. Some might have content already.
-{candidate_posts_serializable}
+Respond with ONLY "YES" if this article would make a compelling LinkedIn post, or "NO" if it would not.
 """
 
         model = OpenAIModel(
@@ -121,40 +208,21 @@ You are given a list of articles, each with a title, subtitle, and URL. Some mig
 
         agent = Agent(
             model,
-            output_type=FilteredArticlesResult,
+            output_type=str,
             model_settings=OpenAIModelSettings(
                 temperature=self.model_temperature,
                 extra_body={"models": self.models_fallback},
             ),
-            system_prompt="",
+            system_prompt="You are an expert Content Strategist who evaluates articles for LinkedIn post potential.",
         )
 
-        result = await agent.run(prompt)
-        filtered_articles_result = result.output
-
-        ids = filtered_articles_result.ids
-
-        print(f"{len(ids)} articles were selected: {ids}")
-
-        if len(ids) == 0:
-            print(
-                "No articles were found that match the user's bio, writing style, and topics of interest."
-            )
-            return []
-
-        filtered_articles = []
-        for id in ids:
-            for post in candidate_posts_serializable:
-                if post.get("id") == id:
-                    filtered_articles.append(post)
-                    break
-
-        if len(filtered_articles) < number_of_posts_to_generate:
-            print(
-                f"{len(filtered_articles)} articles were found that match the user's bio, writing style, and topics of interest."
-            )
-
-        return filtered_articles
+        try:
+            result = await agent.run(prompt)
+            response_text = result.output.strip().upper()
+            return response_text == "YES"
+        except Exception as e:
+            print(f"Error evaluating single article: {e}")
+            return False
 
     async def generate_post(
         self,
