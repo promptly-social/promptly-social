@@ -34,7 +34,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants for retry logic
-MAX_RETRY_ATTEMPTS = int(os.getenv("MAX_RETRY_ATTEMPTS", "3"))
+MAX_RETRY_ATTEMPTS = int(os.getenv("MAX_RETRY_ATTEMPTS", "1"))
 INITIAL_RETRY_DELAY = 1  # seconds
 
 
@@ -73,6 +73,7 @@ async def _process_scheduled_posts_async(request):
 
     try:
         logger.info("Starting unified post scheduler execution")
+        logger.info(f"Environment variables: POST_MEDIA_BUCKET_NAME={os.getenv('POST_MEDIA_BUCKET_NAME')}")
         start_time = datetime.now(timezone.utc)
 
         # Initialize Cloud SQL client
@@ -551,6 +552,8 @@ async def upload_media_to_linkedin(
     :return: LinkedIn asset URN
     """
     try:
+        logger.info(f"Starting LinkedIn media upload: type={media_type}, size={len(media_content)} bytes")
+
         # Step 1: Register upload
         register_endpoint = "https://api.linkedin.com/v2/assets?action=registerUpload"
         recipe = (
@@ -578,13 +581,22 @@ async def upload_media_to_linkedin(
             "X-Restli-Protocol-Version": "2.0.0",
         }
 
+        logger.info(f"Registering upload with LinkedIn: recipe={recipe}")
+        logger.info(f"Register payload: {register_payload}")
+
         async with httpx.AsyncClient() as client:
             # Register upload
             response = await client.post(
                 register_endpoint, json=register_payload, headers=headers
             )
+
+            logger.info(f"LinkedIn register response status: {response.status_code}")
+            if response.status_code != 200:
+                logger.error(f"LinkedIn register response: {response.text}")
+
             response.raise_for_status()
             registration = response.json()
+            logger.info(f"LinkedIn registration response: {registration}")
 
             # Extract upload URL and asset URN
             upload_url = registration["value"]["uploadMechanism"][
@@ -592,12 +604,20 @@ async def upload_media_to_linkedin(
             ]["uploadUrl"]
             asset_urn = registration["value"]["asset"]
 
+            logger.info(f"Got upload URL and asset URN: {asset_urn}")
+
             # Step 2: Upload media content
+            logger.info(f"Uploading {len(media_content)} bytes to LinkedIn")
             upload_response = await client.post(
                 upload_url,
                 content=media_content,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
+
+            logger.info(f"LinkedIn upload response status: {upload_response.status_code}")
+            if upload_response.status_code not in [200, 201]:
+                logger.error(f"LinkedIn upload response: {upload_response.text}")
+
             upload_response.raise_for_status()
 
             logger.info(f"Successfully uploaded {media_type} to LinkedIn: {asset_urn}")
@@ -605,6 +625,8 @@ async def upload_media_to_linkedin(
 
     except Exception as e:
         logger.error(f"Error uploading media to LinkedIn: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise
 
 
@@ -613,17 +635,32 @@ async def download_media_from_gcs(storage_path: str) -> bytes:
     try:
         # Initialize GCS client
         gcs_client = storage.Client()
-        bucket_name = os.getenv("GCS_BUCKET_NAME", "promptly-social-scribe-media")
+        bucket_name = os.getenv("POST_MEDIA_BUCKET_NAME")
+
+        if not bucket_name:
+            # Fallback to default pattern
+            environment = os.getenv("ENVIRONMENT", "staging")
+            bucket_name = f"promptly-social-scribe-post-media-{environment}"
+            logger.info(f"Using fallback bucket name: {bucket_name}")
+
+        logger.info(f"Using GCS bucket: {bucket_name}")
         bucket = gcs_client.bucket(bucket_name)
         blob = bucket.blob(storage_path)
 
+        # Check if blob exists
+        if not blob.exists():
+            raise Exception(f"Blob does not exist: {storage_path}")
+
         # Download media content
+        logger.info(f"Downloading blob: {storage_path}")
         media_content = blob.download_as_bytes()
-        logger.info(f"Downloaded media from GCS: {storage_path}")
+        logger.info(f"Downloaded {len(media_content)} bytes from GCS: {storage_path}")
         return media_content
 
     except Exception as e:
         logger.error(f"Error downloading media from GCS {storage_path}: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise
 
 
@@ -679,33 +716,52 @@ async def share_to_linkedin(
 
         # Convert media items to the format expected by LinkedIn service logic
         media_payloads = []
+        logger.info(f"Processing {len(media_items) if media_items else 0} media items")
+
         if media_items:
-            for media in media_items:
+            for i, media in enumerate(media_items):
+                logger.info(f"Media item {i}: {media}")
+
                 # Check if we already have a LinkedIn asset URN
                 if media.get("linkedin_asset_urn"):
+                    logger.info(f"Using existing LinkedIn asset URN: {media['linkedin_asset_urn']}")
                     media_payloads.append({"media": media["linkedin_asset_urn"]})
                 # If not, upload the media to LinkedIn first
                 elif media.get("storage_path") and media.get("media_type"):
                     try:
-                        logger.info(f"Uploading media to LinkedIn: {media['storage_path']}")
+                        logger.info(f"Uploading media to LinkedIn: storage_path={media['storage_path']}, media_type={media['media_type']}")
 
                         # Download media from GCS
+                        logger.info(f"Downloading media from GCS: {media['storage_path']}")
                         media_content = await download_media_from_gcs(media["storage_path"])
+                        logger.info(f"Downloaded {len(media_content)} bytes from GCS")
 
                         # Upload to LinkedIn
+                        logger.info(f"Uploading to LinkedIn: media_type={media['media_type']}")
                         asset_urn = await upload_media_to_linkedin(
                             access_token, linkedin_user_id, media_content, media["media_type"]
                         )
+                        logger.info(f"LinkedIn upload successful: {asset_urn}")
 
                         # Store the asset URN in the database for future use
+                        logger.info(f"Storing LinkedIn asset URN in database for media {media['id']}")
                         await update_media_linkedin_urn(client, media["id"], asset_urn)
 
                         media_payloads.append({"media": asset_urn})
 
                     except Exception as e:
-                        logger.error(f"Failed to upload media {media['id']}: {e}")
+                        logger.error(f"Failed to upload media {media.get('id', 'unknown')}: {e}")
+                        logger.error(f"Media data: {media}")
+                        import traceback
+                        logger.error(f"Traceback: {traceback.format_exc()}")
                         # Continue without this media item
                         continue
+                else:
+                    logger.warning(f"Media item missing required fields: {media}")
+                    logger.warning(f"Has storage_path: {bool(media.get('storage_path'))}")
+                    logger.warning(f"Has media_type: {bool(media.get('media_type'))}")
+
+        logger.info(f"Final media_payloads: {media_payloads}")
 
         # Handle different media scenarios - match linkedin_service.py logic
         if article_url and (not media_payloads or len(media_payloads) == 0):
