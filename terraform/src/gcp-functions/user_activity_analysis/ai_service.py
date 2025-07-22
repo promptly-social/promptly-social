@@ -5,7 +5,6 @@ This module provides a simplified AI service implementation using Pydantic AI
 and OpenRouter, similar to the chat service pattern used in the main application.
 """
 
-import json
 import logging
 import os
 from typing import Any, Dict, List, Optional

@@ -86,10 +86,6 @@ class PostsGenerator:
 
 For the purpose of *selecting* articles, focus on the article's **content and substance**, not its writing style. The user's writing style will be applied when the post is generated later.
 
-**Candidate Articles:**
-You will be given a list of articles, each with a title, subtitle, and URL. Some might have content already.
-{candidate_posts_serializable}
-
 **Your Task:**
 From the list of candidate articles, select UP TO {number_of_posts_to_generate} that are BEST suited for creating high-engagement LinkedIn posts.
 
@@ -110,6 +106,10 @@ From the list of candidate articles, select UP TO {number_of_posts_to_generate} 
 3. Select the top {number_of_posts_to_generate} articles.
 4. Return ONLY a JSON object containing the IDs of your selected articles, like this:
 {{"ids": ["id1", "id2", "id3"]}}
+
+**Candidate Articles**
+You are given a list of articles, each with a title, subtitle, and URL. Some might have content already.
+{candidate_posts_serializable}
 """
 
         model = OpenAIModel(
