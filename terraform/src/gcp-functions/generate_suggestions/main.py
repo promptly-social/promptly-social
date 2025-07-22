@@ -29,6 +29,45 @@ class DateTimeEncoder(json.JSONEncoder):
         return super(DateTimeEncoder, self).default(o)
 
 
+def remove_duplicate_posts(candidate_posts):
+    """
+    Remove duplicate posts from candidate_posts list based on their ID.
+
+    Args:
+        candidate_posts: List of post dictionaries, each containing an 'id' field
+
+    Returns:
+        List of unique posts (duplicates removed)
+    """
+    if not candidate_posts:
+        return candidate_posts
+
+    seen_ids = set()
+    unique_posts = []
+    duplicates_count = 0
+
+    for post in candidate_posts:
+        post_id = post.get("id")
+        if post_id is None:
+            # Keep posts without ID (shouldn't happen, but be safe)
+            unique_posts.append(post)
+            continue
+
+        # Convert to string for consistent comparison
+        post_id_str = str(post_id)
+
+        if post_id_str not in seen_ids:
+            seen_ids.add(post_id_str)
+            unique_posts.append(post)
+        else:
+            duplicates_count += 1
+
+    if duplicates_count > 0:
+        logger.info(f"Removed {duplicates_count} duplicate posts from {len(candidate_posts)} candidates")
+
+    return unique_posts
+
+
 @functions_framework.http
 def generate_suggestions(request):
     """
@@ -117,8 +156,7 @@ def generate_suggestions(request):
             user_ideas = database_client.get_user_ideas(user_id)
             print(f"Fetched {len(user_ideas)} user ideas for user {user_id}")
 
-            
-            candidate_posts = []
+            candidate_posts = user_ideas
 
             # Get latest articles suggested by AI and saved in the idea banks
             latest_idea_bank_posts = database_client.get_latest_articles_from_idea_bank(
@@ -177,6 +215,11 @@ def generate_suggestions(request):
                         logger.info(
                             f"Saved {len(saved_posts)} new articles to idea bank."
                         )
+
+            # Remove duplicate posts based on ID before filtering
+            original_count = len(candidate_posts)
+            candidate_posts = remove_duplicate_posts(candidate_posts)
+            logger.info(f"Candidate posts: {original_count} → {len(candidate_posts)} (after deduplication)")
 
             posts_generator = PostsGenerator()
 
