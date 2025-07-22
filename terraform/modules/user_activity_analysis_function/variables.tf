@@ -102,54 +102,7 @@ variable "scheduler_max_doublings" {
   default     = 5
 }
 
-variable "enable_scheduler_monitoring" {
-  description = "Enable advanced monitoring for scheduler jobs"
-  type        = bool
-  default     = true
-}
 
-# Monitoring and alerting configuration
-variable "enable_monitoring_alerts" {
-  description = "Enable Cloud Monitoring alert policies"
-  type        = bool
-  default     = true
-}
-
-variable "enable_custom_metrics" {
-  description = "Enable custom logging metrics"
-  type        = bool
-  default     = true
-}
-
-variable "enable_monitoring_dashboard" {
-  description = "Enable monitoring dashboard creation"
-  type        = bool
-  default     = true
-}
-
-variable "notification_channels" {
-  description = "List of notification channel IDs for alerts"
-  type        = list(string)
-  default     = []
-}
-
-variable "error_rate_threshold" {
-  description = "Threshold for function error rate alerts (errors per second)"
-  type        = number
-  default     = 0.1
-}
-
-variable "execution_time_threshold_ms" {
-  description = "Threshold for function execution time alerts (milliseconds)"
-  type        = number
-  default     = 600000  # 10 minutes
-}
-
-variable "scheduler_failure_threshold" {
-  description = "Threshold for scheduler job failure alerts (failures per 10 minutes)"
-  type        = number
-  default     = 2
-}
 
 # Analysis configuration
 variable "openrouter_model_primary" {
