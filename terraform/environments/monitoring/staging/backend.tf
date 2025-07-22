@@ -1,7 +1,7 @@
 # Backend configuration for staging monitoring
 terraform {
   backend "gcs" {
-    bucket = "promptly-social-staging-terraform-state"
-    prefix = "monitoring"
+    bucket = "promptly-terraform-states"
+    prefix = "terraform/state/gcp-functions/unified-post-scheduler/staging"
   }
 }

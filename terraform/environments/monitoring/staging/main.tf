@@ -7,11 +7,6 @@ terraform {
       version = "~> 5.0"
     }
   }
-
-  backend "gcs" {
-    bucket = "promptly-social-staging-terraform-state"
-    prefix = "monitoring"
-  }
 }
 
 provider "google" {
@@ -22,49 +17,60 @@ provider "google" {
 # Data sources to get information about existing infrastructure
 data "google_project" "current" {}
 
-# Get Cloud Run service information
-data "google_cloud_run_service" "backend" {
-  count    = var.enable_cloud_run_monitoring ? 1 : 0
-  name     = "${var.app_name}-backend"
-  location = var.region
-}
+# Note: Data sources are commented out because monitoring should be deployable
+# independently of infrastructure. The monitoring module uses resource naming
+# conventions and doesn't require data sources to function properly.
+# 
+# If you need to reference specific infrastructure resources, you can:
+# 1. Enable these data sources after infrastructure is deployed
+# 2. Use terraform import to bring existing resources into state
+# 3. Pass resource names/IDs via variables
 
-# Get Cloud SQL instance information
-data "google_sql_database_instance" "main" {
-  count = var.enable_cloud_sql_monitoring ? 1 : 0
-  name  = "${var.app_name}-db-${var.environment}"
-}
-
-# Get Cloud Functions information
-data "google_cloudfunctions_function" "user_activity" {
-  count  = var.enable_cloud_function_monitoring ? 1 : 0
-  name   = "${var.app_name}-user-activity-analysis-${var.environment}"
-  region = var.region
-}
-
-data "google_cloudfunctions_function" "generate_suggestions" {
-  count  = var.enable_cloud_function_monitoring ? 1 : 0
-  name   = "${var.app_name}-generate-suggestions-${var.environment}"
-  region = var.region
-}
-
-data "google_cloudfunctions_function" "post_scheduler" {
-  count  = var.enable_cloud_function_monitoring ? 1 : 0
-  name   = "${var.app_name}-unified-post-scheduler-${var.environment}"
-  region = var.region
-}
-
-data "google_cloudfunctions_function" "analyze" {
-  count  = var.enable_cloud_function_monitoring ? 1 : 0
-  name   = "${var.app_name}-analyze-${var.environment}"
-  region = var.region
-}
-
-# Get Load Balancer information
-data "google_compute_global_forwarding_rule" "backend_lb" {
-  count = var.enable_load_balancer_monitoring ? 1 : 0
-  name  = "${var.app_name}-backend-lb"
-}
+# Uncomment these data sources only after infrastructure resources exist:
+# 
+# # Get Cloud Run service information
+# data "google_cloud_run_service" "backend" {
+#   count    = var.enable_cloud_run_monitoring ? 1 : 0
+#   name     = "${var.app_name}-backend"
+#   location = var.region
+# }
+# 
+# # Get Cloud SQL instance information
+# data "google_sql_database_instance" "main" {
+#   count = var.enable_cloud_sql_monitoring ? 1 : 0
+#   name  = "${var.app_name}-db-${var.environment}"
+# }
+# 
+# # Get Cloud Functions information
+# data "google_cloudfunctions_function" "user_activity" {
+#   count  = var.enable_cloud_function_monitoring ? 1 : 0
+#   name   = "${var.app_name}-user-activity-analysis-${var.environment}"
+#   region = var.region
+# }
+# 
+# data "google_cloudfunctions_function" "generate_suggestions" {
+#   count  = var.enable_cloud_function_monitoring ? 1 : 0
+#   name   = "${var.app_name}-generate-suggestions-${var.environment}"
+#   region = var.region
+# }
+# 
+# data "google_cloudfunctions_function" "post_scheduler" {
+#   count  = var.enable_cloud_function_monitoring ? 1 : 0
+#   name   = "${var.app_name}-unified-post-scheduler-${var.environment}"
+#   region = var.region
+# }
+# 
+# data "google_cloudfunctions_function" "analyze" {
+#   count  = var.enable_cloud_function_monitoring ? 1 : 0
+#   name   = "${var.app_name}-analyze-${var.environment}"
+#   region = var.region
+# }
+# 
+# # Get Load Balancer information
+# data "google_compute_global_forwarding_rule" "backend_lb" {
+#   count = var.enable_load_balancer_monitoring ? 1 : 0
+#   name  = "${var.app_name}-backend-lb"
+# }
 
 # Monitoring Module - Now completely independent
 module "monitoring" {

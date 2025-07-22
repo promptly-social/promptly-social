@@ -8,9 +8,7 @@ environment = "production"
 
 # Monitoring Notifications - Production
 monitoring_notification_emails = [
-  "ops-team@promptly.social",
-  "production-alerts@promptly.social",
-  "engineering@promptly.social"
+  "justin@promptly.social",
 ]
 
 # Slack webhook for production alerts (recommended for immediate notifications)

@@ -5,15 +5,52 @@ output "monitoring_summary" {
   value       = module.monitoring.monitoring_summary
 }
 
-output "notification_channels" {
-  description = "Created notification channels"
-  value       = module.monitoring.notification_channels
+output "email_notification_channels" {
+  description = "Email notification channel IDs"
+  value       = module.monitoring.email_notification_channels
+}
+
+output "slack_notification_channel" {
+  description = "Slack notification channel ID (if configured)"
+  value       = module.monitoring.slack_notification_channel
   sensitive   = true
 }
 
-output "alert_policies" {
-  description = "Created alert policies"
-  value       = module.monitoring.alert_policies
+output "all_notification_channels" {
+  description = "All notification channel IDs"
+  value       = module.monitoring.all_notification_channels
+  sensitive   = true
+}
+
+# Alert Policy Outputs
+output "cloud_function_alert_policies" {
+  description = "Cloud Function alert policy names"
+  value       = module.monitoring.cloud_function_alert_policies
+}
+
+output "cloud_run_alert_policies" {
+  description = "Cloud Run alert policy names"
+  value       = module.monitoring.cloud_run_alert_policies
+}
+
+output "cloud_sql_alert_policies" {
+  description = "Cloud SQL alert policy names"
+  value       = module.monitoring.cloud_sql_alert_policies
+}
+
+output "cloud_scheduler_alert_policies" {
+  description = "Cloud Scheduler alert policy names"
+  value       = module.monitoring.cloud_scheduler_alert_policies
+}
+
+output "load_balancer_alert_policies" {
+  description = "Load Balancer alert policy names"
+  value       = module.monitoring.load_balancer_alert_policies
+}
+
+output "uptime_check_alert_policies" {
+  description = "Uptime check alert policy names"
+  value       = module.monitoring.uptime_check_alert_policies
 }
 
 output "dashboards" {

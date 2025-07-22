@@ -8,8 +8,7 @@ environment = "staging"
 
 # Monitoring Notifications - Staging
 monitoring_notification_emails = [
-  "dev-team@promptly.social",
-  "staging-alerts@promptly.social"
+  "justin@promptly.social",
 ]
 
 # Optional Slack webhook for staging alerts
