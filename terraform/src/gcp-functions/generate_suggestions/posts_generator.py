@@ -182,22 +182,21 @@ From the list of candidate articles, select UP TO {number_of_posts_to_generate} 
     -   **Writing Style:** {writing_style}
 
 3.  **Specific Post Instructions:**
-    -   **LinkedIn Post Strategy:** {linkedin_post_strategy}
-    This is a specific directive on the tone, angle, or goal for this particular post. You must follow it closely.
+    -   **LinkedIn Post Style:** {linkedin_post_strategy}
+    This is a specific directive on the format and style of the post. You must follow it closely.
 
 **Your Task & Thought Process:**
 
 1.  **Deconstruct the Source:** Read the `Source Material` and identify its single most important takeaway or a surprising insight. Don't just summarize.
 2.  **Connect to the Author:** How can this key takeaway be framed from the author's perspective, using their `Bio` and expertise? How can they add a personal story or a strong opinion to it?
-3.  **Draft the Post:** Write the post following the `LinkedIn Post Strategy` and mimicking the author's `Writing Style`.
+3.  **Draft the Post:** Write the post following the `LinkedIn Post Style` and mimicking the author's `Writing Style`.
 
 **LinkedIn Post Best Practices to Apply:**
 
--   **Start with a powerful hook:** Grab the reader's attention in the first sentence.
--   **Provide a unique take:** Don't just regurgitate the article. Add the user's opinion, analysis, or a personal anecdote. This is crucial. Avoid being too broad.
--   **Be human and authentic:** Write in a conversational tone. Use "I" statements. Use the user's writing style.
--   **End with a question:** Encourage comments by asking your audience for their opinion or experiences.
--   **Structure for readability:** Use short paragraphs and white space.
+-   **Use conversation insights**: If the user shared personal experiences, anecdotes, or specific perspectives in the conversation, incorporate them into the post
+-   **Provide their unique take**: Use the conversation context to understand their specific angle or opinion
+-   **Be human and authentic**: Write in a conversational tone. Use "I" statements. Use the user's writing style and any personal details they've shared
+-   **Structure for readability**: Use short paragraphs and white space
 
 **VERY IMPORTANT - Formatting and Content Rules:**
 

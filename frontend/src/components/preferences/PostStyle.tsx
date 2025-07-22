@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Target, Edit3, Check, X, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const ContentStrategies: React.FC = () => {
+export const PostStyle: React.FC = () => {
   const { userPreferences, loading: isLoading, refreshProfile } = useProfile();
   const { toast } = useToast();
   const strategies = userPreferences?.content_strategies || [];
@@ -39,7 +39,7 @@ export const ContentStrategies: React.FC = () => {
     if (!editingStrategy.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a strategy",
+        description: "Please enter a post style",
         variant: "destructive",
       });
       return;
@@ -61,13 +61,13 @@ export const ContentStrategies: React.FC = () => {
 
       toast({
         title: "Success",
-        description: "Content strategy updated successfully",
+        description: "Post style updated successfully",
       });
     } catch (error) {
-      console.error("Error saving content strategy:", error);
+      console.error("Error saving post style:", error);
       toast({
         title: "Error",
-        description: "Failed to save content strategy",
+        description: "Failed to save post style",
         variant: "destructive",
       });
     } finally {
@@ -130,7 +130,7 @@ export const ContentStrategies: React.FC = () => {
                     <Textarea
                       value={editingStrategy}
                       onChange={(e) => setEditingStrategy(e.target.value)}
-                      placeholder="Describe your LinkedIn content strategy..."
+                      placeholder="Describe your LinkedIn post style..."
                       className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                       disabled={isSaving}
                       autoFocus
@@ -204,7 +204,7 @@ export const ContentStrategies: React.FC = () => {
                   className="w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add LinkedIn Strategy
+                  Add LinkedIn Post Style
                 </Button>
               )}
           </div>
