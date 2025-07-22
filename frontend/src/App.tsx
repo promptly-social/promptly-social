@@ -17,6 +17,7 @@ import { MyPosts } from "./pages/MyPosts";
 import PostingSchedule from "./pages/PostingSchedule/PostingSchedule";
 import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 import LinkedinCallback from "./pages/auth/LinkedinCallback";
 import EarlyAccess from "./pages/EarlyAccess";
@@ -128,6 +129,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/support"
+                element={
+                  <ProtectedRoute>
+                    <Support />
                   </ProtectedRoute>
                 }
               />

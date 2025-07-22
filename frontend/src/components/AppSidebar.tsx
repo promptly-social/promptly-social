@@ -22,6 +22,7 @@ import {
   Lightbulb,
   Calendar,
   Target,
+  HelpCircle,
 } from "lucide-react";
 
 const contentMenuItems = [
@@ -57,6 +58,11 @@ const personalizationMenuItems = [
     title: "Settings",
     url: "/settings",
     icon: Settings,
+  },
+  {
+    title: "Support",
+    url: "/support",
+    icon: HelpCircle,
   },
 ];
 
