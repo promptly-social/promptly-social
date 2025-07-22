@@ -507,10 +507,10 @@ const Landing = () => {
                 Terms of Service
               </a>
               <a
-                href="mailto:support@promptly.social"
+                href="mailto:contact@promptly.social"
                 className="hover:text-gray-900 transition-colors font-medium"
               >
-                Support
+                Contact Us
               </a>
             </div>
           </div>
