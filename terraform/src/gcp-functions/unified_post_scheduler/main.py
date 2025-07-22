@@ -10,6 +10,7 @@ from uuid import UUID
 import functions_framework
 import httpx
 import sys
+from google.cloud import storage
 
 # Add parent directory to path for absolute imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -342,7 +343,7 @@ async def process_single_post(
         media_items = await get_post_media(client, post_id)
 
         # Share to LinkedIn
-        share_result = await share_to_linkedin(post, refreshed_connection, media_items)
+        share_result = await share_to_linkedin(client, post, refreshed_connection, media_items)
         if not share_result:
             raise Exception("Failed to share to LinkedIn")
 
@@ -525,7 +526,7 @@ async def get_post_media(client: CloudSQLClient, post_id: str) -> list:
     """Get media attachments for a post."""
     try:
         query = """
-            SELECT * FROM post_media 
+            SELECT * FROM post_media
             WHERE post_id = :post_id
         """
 
@@ -537,8 +538,124 @@ async def get_post_media(client: CloudSQLClient, post_id: str) -> list:
         return []
 
 
+async def upload_media_to_linkedin(
+    access_token: str, linkedin_user_id: str, media_content: bytes, media_type: str
+) -> str:
+    """
+    Upload media to LinkedIn and return the asset URN.
+
+    :param access_token: LinkedIn access token
+    :param linkedin_user_id: LinkedIn user ID
+    :param media_content: Media content as bytes
+    :param media_type: Type of media ("image" or "video")
+    :return: LinkedIn asset URN
+    """
+    try:
+        # Step 1: Register upload
+        register_endpoint = "https://api.linkedin.com/v2/assets?action=registerUpload"
+        recipe = (
+            "urn:li:digitalmediaRecipe:feedshare-image"
+            if media_type == "image"
+            else "urn:li:digitalmediaRecipe:feedshare-video"
+        )
+
+        register_payload = {
+            "registerUploadRequest": {
+                "recipes": [recipe],
+                "owner": f"urn:li:person:{linkedin_user_id}",
+                "serviceRelationships": [
+                    {
+                        "relationshipType": "OWNER",
+                        "identifier": "urn:li:userGeneratedContent",
+                    }
+                ],
+            }
+        }
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "X-Restli-Protocol-Version": "2.0.0",
+        }
+
+        async with httpx.AsyncClient() as client:
+            # Register upload
+            response = await client.post(
+                register_endpoint, json=register_payload, headers=headers
+            )
+            response.raise_for_status()
+            registration = response.json()
+
+            # Extract upload URL and asset URN
+            upload_url = registration["value"]["uploadMechanism"][
+                "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+            ]["uploadUrl"]
+            asset_urn = registration["value"]["asset"]
+
+            # Step 2: Upload media content
+            upload_response = await client.post(
+                upload_url,
+                content=media_content,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            upload_response.raise_for_status()
+
+            logger.info(f"Successfully uploaded {media_type} to LinkedIn: {asset_urn}")
+            return asset_urn
+
+    except Exception as e:
+        logger.error(f"Error uploading media to LinkedIn: {e}")
+        raise
+
+
+async def download_media_from_gcs(storage_path: str) -> bytes:
+    """Download media content from Google Cloud Storage."""
+    try:
+        # Initialize GCS client
+        gcs_client = storage.Client()
+        bucket_name = os.getenv("GCS_BUCKET_NAME", "promptly-social-scribe-media")
+        bucket = gcs_client.bucket(bucket_name)
+        blob = bucket.blob(storage_path)
+
+        # Download media content
+        media_content = blob.download_as_bytes()
+        logger.info(f"Downloaded media from GCS: {storage_path}")
+        return media_content
+
+    except Exception as e:
+        logger.error(f"Error downloading media from GCS {storage_path}: {e}")
+        raise
+
+
+async def update_media_linkedin_urn(
+    client: CloudSQLClient, media_id: str, linkedin_asset_urn: str
+) -> bool:
+    """Update the LinkedIn asset URN for a media item."""
+    try:
+        query = """
+            UPDATE post_media
+            SET linkedin_asset_urn = :linkedin_asset_urn
+            WHERE id = :media_id
+        """
+
+        rows_affected = await client.execute_update_async(
+            query, {"linkedin_asset_urn": linkedin_asset_urn, "media_id": media_id}
+        )
+
+        if rows_affected > 0:
+            logger.info(f"Updated media {media_id} with LinkedIn asset URN")
+            return True
+        else:
+            logger.error(f"Failed to update media {media_id}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Error updating media LinkedIn URN: {e}")
+        return False
+
+
 async def share_to_linkedin(
-    post_data: Dict[str, Any], connection: Dict[str, Any], media_items: list = None
+    client: CloudSQLClient, post_data: Dict[str, Any], connection: Dict[str, Any], media_items: list = None
 ) -> Optional[Dict[str, Any]]:
     """Share post to LinkedIn using the API."""
     try:
@@ -564,8 +681,31 @@ async def share_to_linkedin(
         media_payloads = []
         if media_items:
             for media in media_items:
+                # Check if we already have a LinkedIn asset URN
                 if media.get("linkedin_asset_urn"):
                     media_payloads.append({"media": media["linkedin_asset_urn"]})
+                # If not, upload the media to LinkedIn first
+                elif media.get("storage_path") and media.get("media_type"):
+                    try:
+                        logger.info(f"Uploading media to LinkedIn: {media['storage_path']}")
+
+                        # Download media from GCS
+                        media_content = await download_media_from_gcs(media["storage_path"])
+
+                        # Upload to LinkedIn
+                        asset_urn = await upload_media_to_linkedin(
+                            access_token, linkedin_user_id, media_content, media["media_type"]
+                        )
+
+                        # Store the asset URN in the database for future use
+                        await update_media_linkedin_urn(client, media["id"], asset_urn)
+
+                        media_payloads.append({"media": asset_urn})
+
+                    except Exception as e:
+                        logger.error(f"Failed to upload media {media['id']}: {e}")
+                        # Continue without this media item
+                        continue
 
         # Handle different media scenarios - match linkedin_service.py logic
         if article_url and (not media_payloads or len(media_payloads) == 0):
