@@ -11,7 +11,8 @@ export interface ConversationMessage {
 export interface Conversation {
   id: string;
   user_id: string;
-  idea_bank_id: string;
+  idea_bank_id?: string;
+  post_id?: string;
   conversation_type: string;
   title?: string;
   context?: Record<string, unknown>;

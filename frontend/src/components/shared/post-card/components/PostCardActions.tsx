@@ -35,12 +35,12 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-100">
+    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-border">
       {post.status === "scheduled" ? (
         <>
           <Button
             onClick={() => onReschedulePost?.(post.id)}
-            className="bg-blue-600 hover:bg-blue-700 flex-1"
+            className="flex-1"
           >
             <Calendar className="w-4 h-4 mr-2" />
             Reschedule
@@ -65,8 +65,8 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
           </Button>
           <Button
             onClick={() => onRemoveFromSchedule?.(post)}
-            variant="outline"
-            className="flex-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+            variant="secondary"
+            className="flex-1"
           >
             <X className="w-4 h-4 mr-2" />
             Remove from Schedule
@@ -76,7 +76,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
         <>
           <Button
             onClick={() => onSchedulePost?.(post.id)}
-            className="bg-blue-600 hover:bg-blue-700 flex-1"
+            className="flex-1"
           >
             <Calendar className="w-4 h-4 mr-2" />
             Schedule Post
@@ -111,8 +111,8 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
         Edit
       </Button>
       <Button
-        variant="outline"
-        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+        variant="destructive"
+        className="flex-1"
         onClick={() => onDismissPost?.(post)}
         disabled={dismissingPostId === post.id}
       >

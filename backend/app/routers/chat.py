@@ -32,11 +32,14 @@ async def create_new_conversation(
 ):
     """Create a new conversation."""
     chat_service = ChatService(db)
-    # Check if conversation already exists for this idea bank
+    # Check if conversation already exists for this idea bank or post
     existing_conversation = None
-    if conversation_data.idea_bank_id:
+    if conversation_data.idea_bank_id or conversation_data.post_id:
         existing_conversation = await chat_service.get_conversation_by_params(
-            user.id, conversation_data.idea_bank_id, conversation_data.conversation_type
+            user.id,
+            conversation_data.idea_bank_id,
+            conversation_data.post_id,
+            conversation_data.conversation_type,
         )
 
     if existing_conversation:
@@ -55,18 +58,19 @@ async def create_new_conversation(
 
 
 @router.get("/conversations", response_model=Optional[ConversationResponse])
-async def get_conversation_by_idea(
+async def get_conversation_by_params(
     idea_bank_id: Optional[UUID] = Query(None, description="The ID of the idea bank"),
+    post_id: Optional[UUID] = Query(None, description="The ID of the post"),
     conversation_type: Optional[str] = Query(
         None, description="The type of conversation"
     ),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Get a conversation by idea_bank_id."""
+    """Get a conversation by idea_bank_id or post_id."""
     chat_service = ChatService(db)
     conversation = await chat_service.get_conversation_by_params(
-        user.id, idea_bank_id, conversation_type
+        user.id, idea_bank_id, post_id, conversation_type
     )
     return conversation
 

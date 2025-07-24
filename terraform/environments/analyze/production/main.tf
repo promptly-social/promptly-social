@@ -24,8 +24,8 @@ provider "google" {
 # Generate source hash for versioning
 locals {
   source_hash = substr(sha256(join("", concat([
-    for f in fileset("${path.module}/../../../src/gcp-functions/user_activity_analysis", "**") :
-    filesha256("${path.module}/../../../src/gcp-functions/user_activity_analysis/${f}")
+    for f in fileset("${path.module}/../../../src/gcp-functions/analyze", "**") :
+    filesha256("${path.module}/../../../src/gcp-functions/analyze/${f}")
   ], [
     for f in fileset("${path.module}/../../../src/gcp-functions/shared", "**") :
     filesha256("${path.module}/../../../src/gcp-functions/shared/${f}")

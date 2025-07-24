@@ -28,6 +28,7 @@ import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { useMemo, useRef, useEffect, useState } from "react";
 import { usePostScheduling } from "../chat/PostGenerationChatDialog";
+import { usePostEditing } from "../chat/PostEditingChatDialog";
 import { Badge } from "@/components/ui/badge";
 
 interface GeneratedPost {
@@ -81,7 +82,7 @@ export const Thread: FC<{ placeholder?: string; initialText?: string }> = ({
   return (
     <ThreadPrimitive.Root
       className="bg-background box-border flex h-full flex-col overflow-hidden"
-      scroll-lock={true}
+      data-scroll-lock="true"
       style={{
         ["--thread-max-width" as string]: "42rem",
       }}
@@ -244,8 +245,23 @@ const EditComposer: FC = () => {
  */
 const AssistantMessage: FC = () => {
   const message = useMessage();
-  const { onSchedule, ideaBankId } = usePostScheduling();
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // Try to get post scheduling context (for post generation)
+  let postSchedulingContext = null;
+  try {
+    postSchedulingContext = usePostScheduling();
+  } catch {
+    // Not in post scheduling context
+  }
+
+  // Try to get post editing context (for post editing)
+  let postEditingContext = null;
+  try {
+    postEditingContext = usePostEditing();
+  } catch {
+    // Not in post editing context
+  }
 
   const isToolOutput = useMemo(
     () => message.content[0]?.type === "tool-call",
@@ -306,19 +322,34 @@ const AssistantMessage: FC = () => {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button
-                  onClick={() => {
-                    if (generatedPost?.linkedin_post) {
-                      onSchedule(
-                        generatedPost.linkedin_post,
-                        generatedPost.topics,
-                        ideaBankId
-                      );
-                    }
-                  }}
-                >
-                  Edit this draft
-                </Button>
+                {postSchedulingContext ? (
+                  <Button
+                    onClick={() => {
+                      if (generatedPost?.linkedin_post) {
+                        postSchedulingContext.onSchedule(
+                          generatedPost.linkedin_post,
+                          generatedPost.topics,
+                          postSchedulingContext.ideaBankId
+                        );
+                      }
+                    }}
+                  >
+                    Edit this draft
+                  </Button>
+                ) : postEditingContext ? (
+                  <Button
+                    onClick={() => {
+                      if (generatedPost?.linkedin_post) {
+                        postEditingContext.onUseRevision(
+                          generatedPost.linkedin_post,
+                          generatedPost.topics
+                        );
+                      }
+                    }}
+                  >
+                    Use this Revision
+                  </Button>
+                ) : null}
               </CardFooter>
             </Card>
           ) : (
@@ -332,15 +363,34 @@ const AssistantMessage: FC = () => {
                 </p>
               </CardContent>
               <CardFooter>
-                <Button
-                  onClick={() => {
-                    if (toolCallContent.result) {
-                      onSchedule(toolCallContent.result, [], ideaBankId);
-                    }
-                  }}
-                >
-                  Edit this draft
-                </Button>
+                {postSchedulingContext ? (
+                  <Button
+                    onClick={() => {
+                      if (toolCallContent.result) {
+                        postSchedulingContext.onSchedule(
+                          toolCallContent.result,
+                          [],
+                          postSchedulingContext.ideaBankId
+                        );
+                      }
+                    }}
+                  >
+                    Edit this draft
+                  </Button>
+                ) : postEditingContext ? (
+                  <Button
+                    onClick={() => {
+                      if (toolCallContent.result) {
+                        postEditingContext.onUseRevision(
+                          toolCallContent.result,
+                          postEditingContext.post.topics
+                        );
+                      }
+                    }}
+                  >
+                    Use this Revision
+                  </Button>
+                ) : null}
               </CardFooter>
             </Card>
           )

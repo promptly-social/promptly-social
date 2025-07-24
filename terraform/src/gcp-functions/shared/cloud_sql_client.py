@@ -173,6 +173,25 @@ class CloudSQLClient:
             finally:
                 await session.close()
 
+    async def close_async(self):
+        """Close all connections and connectors asynchronously."""
+        if self._connector:
+            self._connector.close()
+            self._connector = None
+        if self._async_connector:
+            self._async_connector.close()
+            self._async_connector = None
+        if self._engine:
+            self._engine.dispose()
+            self._engine = None
+        if self._async_engine:
+            try:
+                await self._async_engine.dispose()
+            except Exception as e:
+                logger.warning(f"Error during async engine disposal: {e}")
+            finally:
+                self._async_engine = None
+
     def close(self):
         """Close all connections and connectors."""
         if self._connector:
@@ -185,32 +204,13 @@ class CloudSQLClient:
             self._engine.dispose()
             self._engine = None
         if self._async_engine:
-            # Handle async engine disposal safely
-            try:
-                # Try to get the current event loop
-                asyncio.get_running_loop()
-                # If we have a running loop, create a task
-                asyncio.create_task(self._async_engine.dispose())
-            except RuntimeError:
-                # No event loop running, we need to handle this differently
-                try:
-                    # Try to run the disposal in a new event loop
-                    asyncio.run(self._async_engine.dispose())
-                except Exception as e:
-                    logger.warning(f"Could not properly dispose async engine: {e}")
-                    # As a last resort, try synchronous disposal if available
-                    try:
-                        # Some engines support sync disposal
-                        if hasattr(self._async_engine, "sync_engine"):
-                            self._async_engine.sync_engine.dispose()
-                    except Exception as sync_error:
-                        logger.warning(
-                            f"Could not dispose sync engine either: {sync_error}"
-                        )
-            except Exception as e:
-                logger.warning(f"Error during async engine disposal: {e}")
-            finally:
-                self._async_engine = None
+            # For sync close, we'll just set the engine to None and log a warning
+            # The proper way is to use close_async() in async contexts
+            logger.warning(
+                "Async engine disposal skipped in sync close(). "
+                "Use close_async() for proper cleanup in async contexts."
+            )
+            self._async_engine = None
 
 
 # Global client instance
@@ -223,6 +223,14 @@ def get_cloud_sql_client() -> CloudSQLClient:
     if _client is None:
         _client = CloudSQLClient()
     return _client
+
+
+async def close_cloud_sql_client_async():
+    """Close the global Cloud SQL client asynchronously."""
+    global _client
+    if _client:
+        await _client.close_async()
+        _client = None
 
 
 def close_cloud_sql_client():

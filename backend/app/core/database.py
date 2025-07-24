@@ -264,10 +264,10 @@ def get_sync_db():
 
 async def init_db() -> None:
     """
-    Initialize database connection and apply pending migrations.
+    Initialize database connection.
     This is typically called during application startup.
 
-    Note: Table creation is now handled by migrations, not automatic creation.
+    Note: Migrations are now handled manually via alembic commands.
     """
     # Import all models to ensure they are registered
     from app.models import (
@@ -281,64 +281,17 @@ async def init_db() -> None:
         daily_suggestion_schedule,
     )  # noqa: F401
 
-    # Import and run migrations
+    # Import migration manager for connection validation only
     from app.core.migrations import migration_manager
-    from app.core.rls import rls_manager
 
     logger.info("Initializing database...")
 
-    # Validate database connection first
+    # Validate database connection
     if not migration_manager.validate_database_connection():
         raise RuntimeError("Database connection validation failed")
 
-    # Apply pending migrations automatically with proper error handling
-    try:
-        logger.info("Checking for pending migrations...")
-        pending_migrations = migration_manager.check_pending_migrations()
-
-        if pending_migrations:
-            logger.info(
-                f"Found {len(pending_migrations)} pending migrations: {pending_migrations}"
-            )
-
-            # Apply migrations with locking and error handling
-            migration_success = migration_manager.auto_migrate_on_startup()
-
-            if migration_success:
-                logger.info("All pending migrations applied successfully")
-            else:
-                logger.warning("Migration completed with warnings")
-        else:
-            logger.info("No pending migrations found")
-
-        # Validate RLS setup after migrations
-        try:
-            session_factory = get_async_session_local()
-            async with session_factory() as session:
-                rls_valid = await rls_manager.validate_rls_setup(session)
-                if rls_valid:
-                    logger.info("RLS validation completed successfully")
-                else:
-                    logger.warning(
-                        "RLS validation found issues - some policies may not be properly configured"
-                    )
-        except Exception as rls_error:
-            logger.error(f"RLS validation failed: {rls_error}")
-            # Don't fail startup for RLS validation issues in non-production
-            if settings.environment == "production":
-                raise RuntimeError(f"RLS validation failed in production: {rls_error}")
-
-        logger.info("Database initialization completed successfully")
-
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-        # Log migration history for debugging
-        try:
-            history = migration_manager.get_migration_history()
-            logger.info(f"Migration history: {history}")
-        except Exception:
-            pass  # Don't fail if we can't get history
-        raise RuntimeError(f"Database initialization failed: {e}")
+    logger.info("Database connection validated successfully")
+    logger.info("Database initialization completed successfully")
 
 
 async def close_db() -> None:

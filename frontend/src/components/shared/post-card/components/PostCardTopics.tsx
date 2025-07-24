@@ -12,12 +12,12 @@ export const PostCardTopics: React.FC<PostCardTopicsProps> = ({ topics }) => {
 
   return (
     <div className="space-y-2 pt-2">
-      <p className="text-xs sm:text-sm font-medium text-gray-700">
+      <p className="text-xs sm:text-sm font-medium text-foreground">
         Categories:
       </p>
       <div className="flex flex-wrap gap-1 sm:gap-2">
         {topics.map((topic, idx) => (
-          <Badge key={idx} variant="outline" className="text-xs">
+          <Badge key={idx} variant="outline" className="text-xs bg-muted/50 text-muted-foreground border-border hover:bg-accent/20 hover:text-accent-foreground transition-colors">
             {topic}
           </Badge>
         ))}

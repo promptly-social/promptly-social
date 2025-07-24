@@ -97,8 +97,8 @@ class PostGeneratorService:
     -   **Writing Style:** {writing_style}
 
 3.  **Specific Post Instructions:**
-    -   **LinkedIn Post Strategy:** {linkedin_post_strategy}
-    This is a specific directive on the tone, angle, or goal for this particular post. You must follow it closely.
+    -   **LinkedIn Post Style:** {linkedin_post_strategy}
+    This is a specific directive on the format and style of the post. You must follow it closely.
 
 **Your Task & Thought Process:**
 
@@ -110,15 +110,13 @@ class PostGeneratorService:
 
 2.  **Connect to the Author**: Frame the content from the author's perspective, using their Bio and the insights from the conversation. Include personal stories or opinions they've shared.
 
-3.  **Draft the Post**: Write the post following the LinkedIn Post Strategy, mimicking the author's Writing Style, and incorporating the conversational insights.
+3.  **Draft the Post**: Write the post following the LinkedIn Post Style, mimicking the author's Writing Style, and incorporating the conversational insights.
 
 **LinkedIn Post Best Practices to Apply:**
 
 -   **Use conversation insights**: If the user shared personal experiences, anecdotes, or specific perspectives in the conversation, incorporate them into the post
--   **Start with a powerful hook**: Grab the reader's attention in the first sentence
 -   **Provide their unique take**: Use the conversation context to understand their specific angle or opinion
 -   **Be human and authentic**: Write in a conversational tone. Use "I" statements. Use the user's writing style and any personal details they've shared
--   **End with a question**: Encourage comments by asking your audience for their opinion or experiences
 -   **Structure for readability**: Use short paragraphs and white space
 
 **VERY IMPORTANT - Formatting and Content Rules:**

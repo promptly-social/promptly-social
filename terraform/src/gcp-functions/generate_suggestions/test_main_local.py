@@ -16,10 +16,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from main import generate_suggestions
 
+TEST_UER_ID = "60e26ed3-1d48-4595-9667-fd865c609443"
+
 
 class MockRequest:
     """Mock request object to simulate Flask request."""
-
     def __init__(self, json_data: Dict[str, Any], method: str = "POST"):
         self.json_data = json_data
         self.method = method
@@ -56,8 +57,8 @@ def setup_environment():
 
     # Set default for optional variables1
     if not os.getenv("NUMBER_OF_POSTS_TO_GENERATE"):
-        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "1"
-        print("ℹ️  Set NUMBER_OF_POSTS_TO_GENERATE to default value: 1")
+        os.environ["NUMBER_OF_POSTS_TO_GENERATE"] = "5"
+        print(f"ℹ️  Set NUMBER_OF_POSTS_TO_GENERATE to default value: {os.environ["NUMBER_OF_POSTS_TO_GENERATE"]}")
 
     print("✅ All required environment variables are set")
     return True
@@ -123,7 +124,7 @@ async def main():
         print("\n❌ Environment setup failed. Exiting.")
         sys.exit(1)
 
-    test_user_id = "60e26ed3-1d48-4595-9667-fd865c609443"
+    test_user_id = TEST_UER_ID
     # Run the main test
     response, status = await test_generate_suggestions(test_user_id)
 

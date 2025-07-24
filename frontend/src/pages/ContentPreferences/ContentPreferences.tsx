@@ -1,5 +1,5 @@
 import React from "react";
-import { ContentStrategies } from "@/components/preferences/ContentStrategies";
+import { PostStyle } from "@/components/preferences/PostStyle";
 import { UserPreferences } from "@/components/preferences/UserPreferences";
 import { ImageGenerationStyleEditor } from "@/components/preferences/ImageGenerationStyleEditor";
 import AppLayout from "@/components/AppLayout";
@@ -19,7 +19,7 @@ const ContentPreferences: React.FC = () => {
           <div className="space-y-6 sm:space-y-8">
             <UserPreferences />
 
-            <ContentStrategies />
+            <PostStyle />
 
             <ImageGenerationStyleEditor />
           </div>

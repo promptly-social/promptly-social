@@ -56,7 +56,8 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
     setShowStyleEditor(false);
     toast({
       title: "Style Updated",
-      description: "Your image generation style has been updated. Regenerate the prompt to apply the new style.",
+      description:
+        "Your image generation style has been updated. Regenerate the prompt to apply the new style.",
     });
   };
 
@@ -77,14 +78,14 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
         <DialogHeader>
           <DialogTitle>Generated Prompt</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <Textarea
             value={editedPrompt}
             onChange={(e) => setEditedPrompt(e.target.value)}
             className="min-h-[150px] resize-y"
           />
-          
+
           {/* Image Generation Style Section */}
           <div className="border-t pt-4">
             <Button
@@ -93,7 +94,7 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
               className="w-full justify-between p-2 h-auto"
             >
               <div className="flex items-center gap-2">
-                <Palette className="w-4 h-4 text-purple-500" />
+                <Palette className="w-4 h-4" />
                 <span className="text-sm font-medium">
                   Image Generation Style
                   {userPreferences?.image_generation_style && (
@@ -109,9 +110,9 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
                 <ChevronDown className="w-4 h-4" />
               )}
             </Button>
-            
+
             {showStyleEditor && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-md">
+              <div className="mt-3 p-3 bg-muted/30 rounded-md">
                 <ImageGenerationStyleEditor
                   variant="content"
                   onSave={handleStyleSave}
@@ -122,7 +123,7 @@ export const PromptGenerationModal: React.FC<PromptGenerationModalProps> = ({
             )}
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Close

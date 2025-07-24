@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Sparkle } from "lucide-react";
 import { Post, PostMedia, PostUpdate } from "@/types/posts";
 import { PostCardHeader } from "./components/PostCardHeader";
 import { PostContent } from "./components/PostContent";
@@ -20,6 +20,7 @@ import { usePostEditor } from "@/hooks/usePostEditor";
 import { ideaBankApi, IdeaBankData } from "@/lib/idea-bank-api";
 import { PostInspiration } from "./components/PostInspiration";
 import { LinkedInButton } from "./components/LinkedInButton";
+import { PostEditingChatDialog } from "@/components/chat/PostEditingChatDialog";
 
 interface PostCardProps {
   post: Post;
@@ -40,6 +41,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
   const [signedMedia, setSignedMedia] = useState<PostMedia[]>(post.media);
   const [inspiration, setInspiration] = useState<IdeaBankData | null>(null);
   const [inspirationLoading, setInspirationLoading] = useState(false);
+  const [isAiEditingOpen, setIsAiEditingOpen] = useState(false);
 
   // Helper to fetch the latest signed media from backend
   const refreshSignedMedia = useCallback(async () => {
@@ -342,11 +344,22 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
 
   return (
     <>
-      <Card className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-white max-w-[600]">
+      <Card className="relative hover:shadow-md transition-shadow flex flex-col h-full bg-card max-w-[600]">
         <div className="flex justify-between items-start p-4">
           <div className="flex-grow justify-between flex items-center">
             <PostCardHeader />
-            <LinkedInButton post={post} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAiEditingOpen(true)}
+                className="flex items-center gap-1"
+              >
+                <Sparkle className="w-4 h-4" />
+                Edit with AI
+              </Button>
+              <LinkedInButton post={post} />
+            </div>
           </div>
         </div>
 
@@ -443,6 +456,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostUpdate }) => {
         onClose={() => setSchedulingPostId(null)}
         post={post}
         onSchedule={handleScheduleSubmit}
+      />
+      <PostEditingChatDialog
+        post={post}
+        open={isAiEditingOpen}
+        onOpenChange={setIsAiEditingOpen}
+        onPostUpdated={(updatedPost) => {
+          onPostUpdate?.(updatedPost);
+        }}
       />
     </>
   );

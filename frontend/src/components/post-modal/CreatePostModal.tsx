@@ -136,15 +136,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Post</DialogTitle>
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="text-foreground text-xl font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Create New Post
+            </DialogTitle>
           </DialogHeader>
           <PostEditorFields editor={editor} />
-          <DialogFooter className="pt-4">
+          <DialogFooter className="pt-4 border-t border-border">
             <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
               {isSubmitting ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>

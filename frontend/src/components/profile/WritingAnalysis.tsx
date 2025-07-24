@@ -346,12 +346,12 @@ export const WritingAnalysis: React.FC = () => {
                   )}
 
                   {isEditing ? (
-                    <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+                    <div className="border rounded-lg p-4 space-y-3 bg-accent/10">
                       <Textarea
                         value={editedText}
                         onChange={(e) => setEditedText(e.target.value)}
                         placeholder="Enter your writing style analysis..."
-                        className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                       <div className="flex gap-2 justify-end">
                         <Button
@@ -379,8 +379,8 @@ export const WritingAnalysis: React.FC = () => {
                     </div>
                   ) : analysisData?.analysis_data ? (
                     <div className="space-y-4">
-                      <div className="min-h-[100px] p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      <div className="min-h-[100px] p-4 bg-muted/30 rounded-lg border border-border">
+                        <p className="text-sm text-foreground whitespace-pre-wrap">
                           {analysisData.analysis_data}
                         </p>
                       </div>

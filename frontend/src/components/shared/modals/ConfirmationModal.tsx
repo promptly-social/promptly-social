@@ -32,15 +32,15 @@ export const ConfirmationModal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+        <DialogHeader className="border-border pb-4">
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className="border-border pt-4">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             {cancelButtonText}
           </Button>
-          <Button onClick={onConfirm} disabled={isLoading}>
+          <Button onClick={onConfirm} disabled={isLoading} className="bg-primary hover:bg-primary/90">
             {isLoading ? (
               <span className="flex items-center">
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />

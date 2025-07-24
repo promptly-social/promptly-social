@@ -86,27 +86,40 @@ class CloudSQLClient:
 
     def get_user_ideas(self, user_id: str) -> List[Dict[str, Any]]:
         """
-        Get the user's ideas that either don't have a post yet or the post was generated more than a week ago.
+        Get the user's ideas that don't have any active posts (suggested, scheduled, posted, or draft).
+        Only returns ideas with no posts at all, or ideas where all posts have been dismissed.
         """
         try:
-            one_week_ago = datetime.now() - timedelta(days=7)
-
-            # Get ideas with no posts or posts older than a week
+            # Get ideas that don't have any scheduled, posted, or suggested posts
+            # Only include ideas with no posts at all, or only dismissed posts
             query = """
                 SELECT DISTINCT ib.id, ib.data, ib.created_at
                 FROM idea_banks ib
-                LEFT JOIN posts p ON ib.id = p.idea_bank_id
-                WHERE ib.user_id = :user_id 
+                WHERE ib.user_id = :user_id
                   AND (ib.data->>'ai_suggested')::boolean = false
-                  AND (p.id IS NULL OR p.created_at < :one_week_ago)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM posts p
+                    WHERE p.idea_bank_id = ib.id
+                    AND p.status IN ('suggested', 'scheduled', 'posted', 'draft')
+                  )
                 ORDER BY ib.created_at DESC
             """
 
             results = self.client.execute_query(
-                query, {"user_id": user_id, "one_week_ago": one_week_ago}
+                query, {"user_id": user_id}
             )
 
-            return results or []
+            idea_results = results if results else []
+ 
+            ideas = []
+            
+            for result in idea_results:
+                ideas.append({
+                    "id": result['id'],
+                    "content": result["data"]["value"]
+                })
+
+            return ideas
         except Exception as e:
             logger.error(f"Error fetching user ideas for user {user_id}: {e}")
             return []

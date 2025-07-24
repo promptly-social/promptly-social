@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Target, Edit3, Check, X, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const ContentStrategies: React.FC = () => {
+export const PostStyle: React.FC = () => {
   const { userPreferences, loading: isLoading, refreshProfile } = useProfile();
   const { toast } = useToast();
   const strategies = userPreferences?.content_strategies || [];
@@ -39,7 +39,7 @@ export const ContentStrategies: React.FC = () => {
     if (!editingStrategy.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a strategy",
+        description: "Please enter a post style",
         variant: "destructive",
       });
       return;
@@ -61,13 +61,13 @@ export const ContentStrategies: React.FC = () => {
 
       toast({
         title: "Success",
-        description: "Content strategy updated successfully",
+        description: "Post style updated successfully",
       });
     } catch (error) {
-      console.error("Error saving content strategy:", error);
+      console.error("Error saving post style:", error);
       toast({
         title: "Error",
-        description: "Failed to save content strategy",
+        description: "Failed to save post style",
         variant: "destructive",
       });
     } finally {
@@ -126,12 +126,12 @@ export const ContentStrategies: React.FC = () => {
             {strategies.map((strategy) => (
               <div key={strategy.id}>
                 {editingStrategyId === strategy.id ? (
-                  <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+                  <div className="border rounded-lg p-4 space-y-3 bg-accent/10">
                     <Textarea
                       value={editingStrategy}
                       onChange={(e) => setEditingStrategy(e.target.value)}
-                      placeholder="Describe your LinkedIn content strategy..."
-                      className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      placeholder="Describe your LinkedIn post style..."
+                      className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                       disabled={isSaving}
                       autoFocus
                     />
@@ -156,8 +156,8 @@ export const ContentStrategies: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="min-h-[100px] p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  <div className="min-h-[100px] p-4 bg-muted/30 rounded-lg border border-border">
+                    <p className="text-sm text-foreground whitespace-pre-wrap">
                       {strategy.strategy}
                     </p>
                   </div>
@@ -167,12 +167,12 @@ export const ContentStrategies: React.FC = () => {
 
             {/* Add new strategy */}
             {isAddingNew && (
-              <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+              <div className="border rounded-lg p-4 space-y-3 bg-accent/10">
                 <Textarea
                   value={editingStrategy}
                   onChange={(e) => setEditingStrategy(e.target.value)}
                   placeholder="Describe your LinkedIn content strategy..."
-                  className="min-h-[250px] text-sm bg-white border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="min-h-[250px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                   disabled={isSaving}
                   autoFocus
                 />
@@ -204,7 +204,7 @@ export const ContentStrategies: React.FC = () => {
                   className="w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add LinkedIn Strategy
+                  Add LinkedIn Post Style
                 </Button>
               )}
           </div>
