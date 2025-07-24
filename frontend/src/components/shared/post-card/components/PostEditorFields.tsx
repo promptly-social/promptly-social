@@ -10,11 +10,11 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { FileVideo, Trash2, X, Copy, Loader2 } from "lucide-react";
+import { FileVideo, Trash2, Copy, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { postsApi } from "@/lib/posts-api";
 import { PromptGenerationModal } from "./PromptGenerationModal";
+import { TopicSelector } from "./TopicSelector";
 
 interface PostEditorFieldsProps {
   editor: UsePostEditorReturn;
@@ -286,35 +286,14 @@ export const PostEditorFields: React.FC<PostEditorFieldsProps> = ({
         prompt={prompt}
       />
 
-      <div className="space-y-2">
-        <Label htmlFor="topics-input">Categories:</Label>
-        <div className="flex flex-wrap gap-2 my-2">
-          {(topics || []).map((topic) => (
-            <Badge key={topic} variant="secondary">
-              {topic}
-              <button
-                type="button"
-                onClick={() => removeTopic(topic)}
-                className="ml-1.5 -mr-1 p-0.5 rounded-full hover:bg-background"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-        <Input
-          id="topics-input"
-          placeholder="Type a category and press Enter to add"
-          value={topicInput}
-          onChange={(e) => setTopicInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addTopic();
-            }
-          }}
-        />
-      </div>
+      <TopicSelector
+        selectedTopics={topics || []}
+        onTopicsChange={(newTopics) => {
+          // Update the topics in the editor
+          editor.setTopics(newTopics);
+        }}
+        isReadOnly={isPosted}
+      />
     </div>
   );
 };
