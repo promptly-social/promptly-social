@@ -201,3 +201,116 @@ variable "cloud_function_sa_emails" {
   type        = list(string)
   default     = []
 }
+
+# Monitoring Configuration Variables
+variable "monitoring_notification_emails" {
+  description = "List of email addresses for monitoring alert notifications"
+  type        = list(string)
+  default     = []
+}
+
+variable "monitoring_slack_webhook_url" {
+  description = "Slack webhook URL for monitoring notifications (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# Service management flags for monitoring
+variable "manage_cloud_functions" {
+  description = "Whether to manage Cloud Functions (enables function monitoring)"
+  type        = bool
+  default     = true
+}
+
+variable "manage_cloud_sql" {
+  description = "Whether to manage Cloud SQL (enables SQL monitoring)"
+  type        = bool
+  default     = true
+}
+
+variable "manage_cloud_scheduler" {
+  description = "Whether to manage Cloud Scheduler (enables scheduler monitoring)"
+  type        = bool
+  default     = true
+}
+
+variable "manage_frontend_deployment" {
+  description = "Whether to manage frontend deployment (enables frontend uptime checks)"
+  type        = bool
+  default     = true
+}
+
+# Monitoring feature toggles
+variable "enable_uptime_checks" {
+  description = "Enable uptime checks for critical endpoints"
+  type        = bool
+  default     = true
+}
+
+variable "enable_custom_metrics" {
+  description = "Enable custom logging metrics"
+  type        = bool
+  default     = true
+}
+
+variable "enable_monitoring_dashboards" {
+  description = "Enable monitoring dashboards"
+  type        = bool
+  default     = true
+}
+
+# Monitoring threshold variables
+variable "monitoring_cloud_function_error_threshold" {
+  description = "Threshold for Cloud Function error rate alerts (errors per second)"
+  type        = number
+  default     = 0.1
+}
+
+variable "monitoring_cloud_function_execution_time_threshold_ms" {
+  description = "Threshold for Cloud Function execution time alerts (milliseconds)"
+  type        = number
+  default     = 600000  # 10 minutes
+}
+
+variable "monitoring_cloud_run_error_threshold" {
+  description = "Threshold for Cloud Run error rate alerts (errors per second)"
+  type        = number
+  default     = 1.0
+}
+
+variable "monitoring_cloud_run_latency_threshold_ms" {
+  description = "Threshold for Cloud Run latency alerts (milliseconds)"
+  type        = number
+  default     = 5000  # 5 seconds
+}
+
+variable "monitoring_cloud_sql_cpu_threshold" {
+  description = "Threshold for Cloud SQL CPU utilization alerts (percentage)"
+  type        = number
+  default     = 0.8  # 80%
+}
+
+variable "monitoring_cloud_sql_memory_threshold" {
+  description = "Threshold for Cloud SQL memory utilization alerts (percentage)"
+  type        = number
+  default     = 0.9  # 90%
+}
+
+variable "monitoring_cloud_sql_connections_threshold" {
+  description = "Threshold for Cloud SQL connections alerts (number of connections)"
+  type        = number
+  default     = 80
+}
+
+variable "monitoring_cloud_scheduler_failure_threshold" {
+  description = "Threshold for Cloud Scheduler failure alerts (failures per 10 minutes)"
+  type        = number
+  default     = 2
+}
+
+variable "monitoring_load_balancer_error_threshold" {
+  description = "Threshold for Load Balancer error rate alerts (errors per second)"
+  type        = number
+  default     = 5.0
+}

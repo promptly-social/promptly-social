@@ -60,3 +60,35 @@ cloud_function_sa_emails = [
 ] 
 
 terraform_service_account_email = "promptly-tf-sa-staging@promptly-social-staging.iam.gserviceaccount.com"
+
+# Monitoring Configuration - Staging
+# Email notifications for staging alerts
+monitoring_notification_emails = [
+  "dev-team@promptly.social",
+  "staging-alerts@promptly.social"
+]
+
+# Optional Slack webhook for staging alerts
+# monitoring_slack_webhook_url = "https://hooks.slack.com/services/YOUR/STAGING/WEBHOOK"
+
+# Service management flags (enable monitoring for deployed services)
+manage_cloud_functions = true
+manage_cloud_sql = true
+manage_cloud_scheduler = true
+manage_frontend_deployment = true
+
+# Monitoring feature toggles - Staging
+enable_uptime_checks = true
+enable_custom_metrics = true
+enable_monitoring_dashboards = true
+
+# Monitoring thresholds - Staging (more relaxed than production)
+monitoring_cloud_function_error_threshold = 0.2  # Allow higher error rate in staging
+monitoring_cloud_function_execution_time_threshold_ms = 900000  # 15 minutes
+monitoring_cloud_run_error_threshold = 2.0  # Higher tolerance for staging
+monitoring_cloud_run_latency_threshold_ms = 10000  # 10 seconds
+monitoring_cloud_sql_cpu_threshold = 0.9  # 90% CPU before alerting
+monitoring_cloud_sql_memory_threshold = 0.95  # 95% memory before alerting
+monitoring_cloud_sql_connections_threshold = 50  # Lower connection limit for staging
+monitoring_cloud_scheduler_failure_threshold = 3  # Allow more failures in staging
+monitoring_load_balancer_error_threshold = 10.0  # Higher error tolerance

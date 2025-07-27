@@ -113,3 +113,41 @@ output "cloud_sql_secret_references" {
   description = "Secret Manager references for database credentials"
   value       = module.cloud_sql.secret_references
 }
+
+# Monitoring Module Outputs
+output "monitoring_notification_channels" {
+  description = "All monitoring notification channel IDs"
+  value       = module.monitoring.all_notification_channels
+}
+
+output "monitoring_alert_policies" {
+  description = "Summary of all monitoring alert policies"
+  value = {
+    cloud_function = module.monitoring.cloud_function_alert_policies
+    cloud_run      = module.monitoring.cloud_run_alert_policies
+    cloud_sql      = module.monitoring.cloud_sql_alert_policies
+    scheduler      = module.monitoring.cloud_scheduler_alert_policies
+    load_balancer  = module.monitoring.load_balancer_alert_policies
+    uptime_checks  = module.monitoring.uptime_check_alert_policies
+  }
+}
+
+output "monitoring_dashboards" {
+  description = "Monitoring dashboard IDs"
+  value       = module.monitoring.dashboards
+}
+
+output "monitoring_custom_metrics" {
+  description = "Custom logging metric names"
+  value       = module.monitoring.custom_metrics
+}
+
+output "monitoring_uptime_checks" {
+  description = "Uptime check configuration names"
+  value       = module.monitoring.uptime_checks
+}
+
+output "monitoring_summary" {
+  description = "Summary of monitoring resources created"
+  value       = module.monitoring.monitoring_summary
+}

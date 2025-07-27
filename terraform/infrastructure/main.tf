@@ -50,7 +50,9 @@ resource "google_project_service" "application_apis" {
     "cloudbuild.googleapis.com",
     "compute.googleapis.com",
     "dns.googleapis.com",
-    "cloudscheduler.googleapis.com"
+    "cloudscheduler.googleapis.com",
+    "monitoring.googleapis.com",
+    "logging.googleapis.com"
   ])
 
   service            = each.value
@@ -875,5 +877,54 @@ module "cloud_sql" {
     google_project_service.application_apis,
     data.google_service_account.terraform_sa,
     data.google_service_account.app_sa
+  ]
+}
+
+# Monitoring Module - Comprehensive monitoring, alerting, and dashboards
+module "monitoring" {
+  source = "../modules/monitoring"
+  
+  # Required variables
+  project_id  = var.project_id
+  app_name    = var.app_name
+  environment = var.environment
+  
+  # Notification configuration
+  notification_emails = var.monitoring_notification_emails
+  slack_webhook_url   = var.monitoring_slack_webhook_url
+  
+  # Feature toggles based on what services are deployed
+  enable_cloud_function_monitoring  = var.manage_cloud_functions
+  enable_cloud_run_monitoring      = var.manage_cloud_run_service
+  enable_cloud_sql_monitoring      = var.manage_cloud_sql
+  enable_cloud_scheduler_monitoring = var.manage_cloud_scheduler
+  enable_load_balancer_monitoring  = var.manage_backend_load_balancer
+  enable_uptime_checks             = var.enable_uptime_checks
+  enable_custom_metrics            = var.enable_custom_metrics
+  enable_dashboards                = var.enable_monitoring_dashboards
+  
+  # Uptime check endpoints
+  api_endpoint      = var.manage_backend_load_balancer ? local.backend_domain : ""
+  frontend_endpoint = var.manage_frontend_deployment ? local.frontend_domain : ""
+  
+  # Custom thresholds (use defaults or override with variables)
+  cloud_function_error_threshold              = var.monitoring_cloud_function_error_threshold
+  cloud_function_execution_time_threshold_ms  = var.monitoring_cloud_function_execution_time_threshold_ms
+  cloud_run_error_threshold                   = var.monitoring_cloud_run_error_threshold
+  cloud_run_latency_threshold_ms              = var.monitoring_cloud_run_latency_threshold_ms
+  cloud_sql_cpu_threshold                     = var.monitoring_cloud_sql_cpu_threshold
+  cloud_sql_memory_threshold                  = var.monitoring_cloud_sql_memory_threshold
+  cloud_sql_connections_threshold             = var.monitoring_cloud_sql_connections_threshold
+  cloud_scheduler_failure_threshold           = var.monitoring_cloud_scheduler_failure_threshold
+  load_balancer_error_threshold               = var.monitoring_load_balancer_error_threshold
+  
+  depends_on = [
+    google_project_service.application_apis,
+    module.cloud_run_service,
+    module.cloud_sql,
+    module.user_activity_analysis_function,
+    module.generate_suggestions_function,
+    module.unified_post_scheduler_function,
+    module.analyze_function
   ]
 }
