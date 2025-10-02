@@ -60,8 +60,9 @@ class AuthService:
                 "client_id": settings.linkedin_client_id,
                 "redirect_uri": redirect_uri,
                 "state": state,
-                "scope": "openid profile email w_member_social",
+                "scope": "openid profile email w_member_social r_basicprofile",
             }
+
             query = urlencode(params, quote_via=quote_plus)
             auth_url = f"https://www.linkedin.com/oauth/v2/authorization?{query}"
 
@@ -70,6 +71,41 @@ class AuthService:
         except Exception as e:
             logger.error(f"LinkedIn OAuth sign in failed: {e}")
             return {"error": "Native OAuth sign in failed", "url": None}
+
+    async def initiate_linkedin_analytics_auth(
+        self, redirect_to: Optional[str] = None, origin: Optional[str] = None, user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Generate LinkedIn Analytics authorization URL with analytics scopes."""
+        try:
+            if not settings.linkedin_analytics_client_id:
+                return {"error": "LinkedIn Analytics client ID not configured", "url": None}
+
+            # Encode user_id and origin in state to avoid needing to call get_user_info later
+            state_data = {
+                "id": uuid.uuid4().hex,
+                "user_id": user_id,
+                "origin": origin
+            }
+            # Simple encoding - in production you might want to encrypt this
+            state = f"{state_data['id']}_{state_data['user_id']}_{state_data['origin'] or 'profile'}"
+
+            redirect_uri = redirect_to or f"{settings.frontend_url}/auth/linkedin-analytics-callback"
+
+            params = {
+                "response_type": "code",
+                "client_id": settings.linkedin_analytics_client_id,
+                "redirect_uri": redirect_uri,
+                "state": state,
+                "scope": "r_member_postAnalytics r_member_profileAnalytics",
+            }
+            query = urlencode(params, quote_via=quote_plus)
+            auth_url = f"https://www.linkedin.com/oauth/v2/authorization?{query}"
+
+            logger.info("Generated LinkedIn Analytics authorization URL")
+            return {"error": None, "url": auth_url, "state": state}
+        except Exception as e:
+            logger.error(f"LinkedIn Analytics OAuth failed: {e}")
+            return {"error": "LinkedIn Analytics OAuth failed", "url": None}
 
     async def handle_linkedin_callback(
         self, code: str, state: str, redirect_uri: str
@@ -98,6 +134,10 @@ class AuthService:
 
             if not email:
                 raise Exception("Email not returned from LinkedIn")
+
+            # 3. Get user vanity name from LinkedIn
+            user_profile = await LinkedInService.get_user_profile(access_token)
+            vanity_name = user_profile.get("vanityName")
 
             # 3. Get or create local user record
             local_user = await self._get_user_by_email(email)
@@ -147,6 +187,7 @@ class AuthService:
 
             if connection:
                 connection.connection_data = connection_data
+                connection.platform_username = connection.platform_username or vanity_name
                 connection.is_active = True
                 connection.updated_at = datetime.now(timezone.utc)
             else:
@@ -155,6 +196,7 @@ class AuthService:
                     platform="linkedin",
                     connection_data=connection_data,
                     is_active=True,
+                    platform_username=vanity_name,
                 )
                 self.db.add(connection)
 
@@ -184,6 +226,78 @@ class AuthService:
             await self.db.rollback()
             logger.error(f"LinkedIn OAuth callback failed: {e}")
             return {"error": "OAuth callback failed", "user": None, "tokens": None}
+
+    async def handle_linkedin_analytics_callback(
+        self, code: str, state: str, redirect_uri: str
+    ) -> Dict[str, Any]:
+        """
+        Handle LinkedIn Analytics OAuth callback.
+        Exchanges code for analytics token and stores it in the user's social connection.
+        Uses state parameter to identify the user, avoiding the need to call get_user_info.
+        """
+        try:
+            # 1. Parse user_id from state parameter
+            try:
+                # State format: "random_id_user_id_origin"
+                state_parts = state.split('_')
+                if len(state_parts) >= 2:
+                    user_id = state_parts[1]
+                else:
+                    raise ValueError("Invalid state format")
+            except (ValueError, IndexError) as e:
+                raise Exception(f"Invalid state parameter: {e}")
+
+            # 2. Exchange authorization code for analytics token
+            token_data = await LinkedInService.exchange_code_for_analytics_token(
+                code, redirect_uri
+            )
+            access_token = token_data["access_token"]
+            refresh_token = token_data.get("refresh_token")
+            expires_in = token_data.get("expires_in")
+            scope = token_data.get("scope")
+
+            # 3. Find existing user by ID (no need to call LinkedIn API)
+            local_user = await self._get_user_by_id(user_id)
+            if not local_user:
+                raise Exception("User not found. Please sign in first.")
+
+            # 4. Update existing LinkedIn SocialConnection with analytics tokens
+            stmt = select(SocialConnection).where(
+                SocialConnection.user_id == local_user.id,
+                SocialConnection.platform == "linkedin",
+            )
+            result = await self.db.execute(stmt)
+            connection = result.scalar_one_or_none()
+
+            if not connection:
+                raise Exception("LinkedIn connection not found. Please connect LinkedIn first.")
+
+            expires_at = (
+                datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                if expires_in
+                else None
+            )
+
+            # Update analytics-specific fields
+            connection.analytics_access_token = access_token
+            connection.analytics_refresh_token = refresh_token
+            connection.analytics_expires_at = expires_at
+            connection.analytics_scope = scope
+            connection.updated_at = datetime.now(timezone.utc)
+
+            await self.db.commit()
+
+            logger.info(f"LinkedIn Analytics tokens stored successfully for user: {user_id}")
+
+            return {
+                "error": None,
+                "message": "LinkedIn Analytics authentication successful",
+            }
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"LinkedIn Analytics OAuth callback failed: {e}")
+            return {"error": f"LinkedIn Analytics OAuth callback failed: {str(e)}"}
 
     async def delete_account(self, user_id: str) -> Dict[str, Any]:
         """

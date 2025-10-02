@@ -54,6 +54,11 @@ export interface SocialConnection {
     linkedin_user_id?: string;
     email?: string;
     avatar_url?: string;
+    // Analytics-specific fields
+    analytics_access_token?: string;
+    analytics_refresh_token?: string;
+    analytics_expires_at?: string;
+    analytics_scope?: string;
   };
   is_active: boolean;
   analysis_started_at?: string | null;

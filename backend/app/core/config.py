@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     linkedin_client_id: Optional[str] = Field(default=None)
     linkedin_client_secret: Optional[str] = Field(default=None)
 
+    # LinkedIn Analytics OAuth (separate API access for analytics scopes)
+    linkedin_analytics_client_id: Optional[str] = Field(default=None)
+    linkedin_analytics_client_secret: Optional[str] = Field(default=None)
+
     # OpenRouter LLM Configuration
     openrouter_api_key: Optional[str] = Field(default="dummy-openrouter-api-key")
     openrouter_model_primary: str = Field(default="google/gemini-2.5-flash")

@@ -265,6 +265,23 @@ class ApiClient {
     );
   }
 
+  async signInWithLinkedInAnalytics(
+    origin?: string
+  ): Promise<{ url: string; message: string }> {
+    const payload: { origin?: string } = {};
+    if (origin) {
+      payload.origin = origin;
+    }
+
+    return this.request<{ url: string; message: string }>(
+      "/auth/signin/linkedin-analytics",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+  }
+
   async signOut(): Promise<SuccessResponse> {
     return this.request<SuccessResponse>("/auth/signout", { method: "POST" });
   }
@@ -299,6 +316,9 @@ export const apiClient = new ApiClient();
 export const authApi = {
   signInWithLinkedIn(redirectTo?: string) {
     return apiClient.signInWithLinkedIn(redirectTo);
+  },
+  signInWithLinkedInAnalytics(origin?: string) {
+    return apiClient.signInWithLinkedInAnalytics(origin);
   },
   signOut() {
     return apiClient.signOut();

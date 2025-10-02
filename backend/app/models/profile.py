@@ -95,6 +95,14 @@ class SocialConnection(Base):
     analysis_status: Mapped[str] = mapped_column(
         String, default="not_started", nullable=False
     )
+    # Analytics-specific authentication data (separate from main auth)
+    # Used for LinkedIn analytics scopes (r_member_postAnalytics, r_member_profileAnalytics)
+    analytics_access_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    analytics_refresh_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    analytics_expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analytics_scope: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

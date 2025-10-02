@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
 import { profileApi, PlatformAnalysisResponse } from "@/lib/profile-api";
+import { authApi } from "@/lib/auth-api";
 import {
   BarChart3,
   Edit3,
@@ -128,6 +129,28 @@ export const WritingAnalysis: React.FC = () => {
         });
       } else {
         // For LinkedIn and Substack, call the writing style analysis endpoint
+        // Check if LinkedIn analytics auth is needed
+        if (selectedSource === "linkedin") {
+          const linkedinConnection = connections.linkedin;
+          const hasAnalyticsAuth = linkedinConnection?.connection_data?.analytics_access_token;
+
+          if (!hasAnalyticsAuth) {
+            // Need to get analytics auth first
+            toast({
+              title: "Additional Authorization Required",
+              description: "LinkedIn analytics access is required for analysis. Redirecting to authorization...",
+            });
+
+            const authResult = await authApi.signInWithLinkedInAnalytics("profile");
+            if (authResult.url) {
+              window.location.href = authResult.url;
+              return;
+            } else {
+              throw new Error("Failed to initiate LinkedIn analytics authorization");
+            }
+          }
+        }
+
         toast({
           title: "Analysis Started",
           description: `Analyzing your content...`,

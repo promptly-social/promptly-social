@@ -68,6 +68,12 @@ class LinkedInAuthRequest(BaseModel):
     redirect_to: Optional[str] = None
 
 
+class LinkedInAnalyticsAuthRequest(BaseModel):
+    """Schema for initiating LinkedIn Analytics OAuth."""
+
+    origin: Optional[str] = None  # 'my-posts' or 'profile' to determine redirect destination
+
+
 class SuccessResponse(BaseModel):
     """Schema for generic success responses."""
 
