@@ -1,7 +1,5 @@
 # Promptly
 
-**URL**: https://promptly.social
-
 AI-powered professional social media content creation platform for LinkedIn. Promptly helps users create, schedule, and publish engaging LinkedIn content by analyzing their writing style, understanding their content preferences, and generating personalized post suggestions.
 
 ## Table of Contents
