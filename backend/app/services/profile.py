@@ -569,7 +569,9 @@ INSTEAD, use high-effort questions like:
         Returns:
             Updated SocialConnection with analysis_started_at set
         """
-        return await self._analyze_platform(user_id, "linkedin", content_to_analyze)
+        pass
+        # TODO: to update the job to abandon apify
+        # return await self._analyze_platform(user_id, "linkedin", content_to_analyze)
 
     async def analyze_import_sample(
         self, user_id: UUID, text_sample: str, content_to_analyze: List[str]

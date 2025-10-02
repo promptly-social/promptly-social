@@ -12,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_async_db
-from app.dependencies import get_current_user, get_current_user_with_rls
+from app.dependencies import get_current_user
 from app.schemas.auth import (
+    LinkedInAnalyticsAuthRequest,
     LinkedInAuthRequest,
     RefreshTokenRequest,
     SuccessResponse,
@@ -68,6 +69,54 @@ async def sign_in_with_linkedin(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OAuth sign in failed",
+        )
+
+
+@router.post("/signin/linkedin-analytics")
+async def sign_in_with_linkedin_analytics(
+    oauth_request: LinkedInAnalyticsAuthRequest,
+    request: Request,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Initiate LinkedIn Analytics OAuth for additional scopes.
+
+    This endpoint creates a separate OAuth flow for LinkedIn analytics scopes
+    (r_member_postAnalytics, r_member_profileAnalytics) using separate API credentials.
+    Requires user to be authenticated.
+    """
+    try:
+        # Get redirect URL from request or use default
+        origin = request.headers.get("origin", settings.frontend_url)
+
+        # Create callback URL with origin parameter to determine final redirect
+        callback_url = f"{origin}/auth/linkedin-analytics-callback"
+        if oauth_request.origin:
+            callback_url += f"?origin={oauth_request.origin}"
+
+        auth_service = AuthService(db)
+        result = await auth_service.initiate_linkedin_analytics_auth(
+            callback_url, oauth_request.origin, current_user.id
+        )
+
+        if result["error"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
+            )
+
+        return {
+            "url": result["url"],
+            "message": result.get("message", "LinkedIn Analytics OAuth initiated"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LinkedIn Analytics OAuth endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="LinkedIn Analytics OAuth failed",
         )
 
 
@@ -233,3 +282,65 @@ async def linkedin_oauth_callback_v2(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OAuth callback failed",
         )
+
+
+@router.get("/linkedin-analytics/callback")
+async def linkedin_analytics_oauth_callback(
+    request: Request,
+    code: str,
+    origin: Optional[str] = None,
+    state: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    LinkedIn Analytics OAuth callback.
+    Handles the callback from LinkedIn analytics OAuth and redirects to appropriate page.
+    """
+    try:
+        # The redirect_uri must exactly match the one used in the initial auth request
+        callback_url = f"{settings.frontend_url}/auth/linkedin-analytics-callback"
+        if origin:
+            callback_url += f"?origin={origin}"
+
+        auth_service = AuthService(db)
+        result = await auth_service.handle_linkedin_analytics_callback(
+            code, state or "", callback_url
+        )
+
+        if result["error"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
+            )
+
+        # Determine redirect destination based on origin
+        redirect_path = "/profile"  # default
+        if origin == "my-posts":
+            redirect_path = "/my-posts"
+        elif origin == "profile":
+            redirect_path = "/profile"
+
+        return {
+            "success": True,
+            "message": "LinkedIn Analytics authentication successful",
+            "redirect_to": redirect_path,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LinkedIn Analytics OAuth callback failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="LinkedIn Analytics OAuth callback failed",
+        )
+
+
+@router.get("/health")
+async def health_check():
+    """
+    Health check endpoint for the authentication service.
+    """
+    return {
+        "status": "healthy",
+        "service": "authentication",
+        "timestamp": "2024-01-01T00:00:00Z",
+    }

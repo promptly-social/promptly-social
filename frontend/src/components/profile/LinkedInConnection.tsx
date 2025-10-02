@@ -5,6 +5,7 @@ import {
   profileApi,
   type SocialConnection as ApiSocialConnection,
 } from "@/lib/profile-api";
+import { authApi } from "@/lib/auth-api";
 import { useProfile } from "@/contexts/ProfileContext";
 import { Link2, Users } from "lucide-react";
 import { PlatformConnectionCard } from "./PlatformConnectionCard";
@@ -84,6 +85,25 @@ export const LinkedInConnection: React.FC = () => {
   const handleAnalyze = async (contentToAnalyze: string[]) => {
     setIsAnalyzing(true);
     try {
+      // Check if analytics auth is needed
+      const hasAnalyticsAuth = connection?.connection_data?.analytics_access_token;
+
+      if (!hasAnalyticsAuth) {
+        // Need to get analytics auth first
+        toast({
+          title: "Additional Authorization Required",
+          description: "LinkedIn analytics access is required for analysis. Redirecting to authorization...",
+        });
+
+        const authResult = await authApi.signInWithLinkedInAnalytics("profile");
+        if (authResult.url) {
+          window.location.href = authResult.url;
+          return;
+        } else {
+          throw new Error("Failed to initiate LinkedIn analytics authorization");
+        }
+      }
+
       const result = await profileApi.runLinkedInAnalysis(contentToAnalyze);
       if (result.is_analyzing) {
         toast({

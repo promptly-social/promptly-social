@@ -17,6 +17,10 @@ class LinkedInService:
     BASE_API_URL = "https://api.linkedin.com/v2"
     TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
     USERINFO_URL = "https://api.linkedin.com/v2/userinfo"
+    USER_ME_URL = "https://api.linkedin.com/v2/me"
+
+    # Analytics-specific scopes
+    ANALYTICS_SCOPES = "r_member_postAnalytics r_member_profileAnalytics"
 
     # ------------------------
     # Static helper utilities
@@ -33,6 +37,30 @@ class LinkedInService:
             "redirect_uri": redirect_uri,
             "client_id": settings.linkedin_client_id,
             "client_secret": settings.linkedin_client_secret,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                LinkedInService.TOKEN_URL, data=payload, headers=headers
+            )
+            response.raise_for_status()
+            token_data = response.json()
+
+        return token_data
+
+    @staticmethod
+    async def exchange_code_for_analytics_token(code: str, redirect_uri: str) -> Dict[str, Any]:
+        """Exchange authorization code for analytics access & refresh tokens."""
+        if not settings.linkedin_analytics_client_id or not settings.linkedin_analytics_client_secret:
+            raise ValueError("LinkedIn analytics client ID or secret not configured")
+
+        payload = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": settings.linkedin_analytics_client_id,
+            "client_secret": settings.linkedin_analytics_client_secret,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
@@ -66,11 +94,40 @@ class LinkedInService:
             return response.json()
 
     @staticmethod
+    async def refresh_analytics_access_token(refresh_token: str) -> Dict[str, Any]:
+        """Refresh an expired LinkedIn analytics access token."""
+        if not settings.linkedin_analytics_client_id or not settings.linkedin_analytics_client_secret:
+            raise ValueError("LinkedIn analytics client ID or secret not configured")
+
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": settings.linkedin_analytics_client_id,
+            "client_secret": settings.linkedin_analytics_client_secret,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                LinkedInService.TOKEN_URL, data=payload, headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
+
+    @staticmethod
     async def get_user_info(access_token: str) -> Dict[str, Any]:
         """Fetch user information from LinkedIn's userinfo endpoint."""
         headers = {"Authorization": f"Bearer {access_token}"}
         async with httpx.AsyncClient() as client:
             response = await client.get(LinkedInService.USERINFO_URL, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+    @staticmethod
+    async def get_user_profile(access_token: str) -> Dict[str, Any]:
+        """Fetch user profile from LinkedIn's me endpoint."""
+        headers = {"Authorization": f"Bearer {access_token}"}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(LinkedInService.USER_ME_URL, headers=headers)
             response.raise_for_status()
             return response.json()
 

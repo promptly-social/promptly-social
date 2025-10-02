@@ -19,6 +19,7 @@ import IdeaBank from "./pages/IdeaBank/IdeaBank";
 import Settings from "./pages/Settings/Settings";
 import NotFound from "./pages/NotFound";
 import LinkedinCallback from "./pages/auth/LinkedinCallback";
+import LinkedinAnalyticsCallback from "./pages/auth/LinkedinAnalyticsCallback";
 import EarlyAccess from "./pages/EarlyAccess";
 import { Login } from "./pages/auth";
 
@@ -132,6 +133,7 @@ const App = () => (
                 }
               />
               <Route path="/auth/callback" element={<LinkedinCallback />} />
+              <Route path="/auth/linkedin-analytics-callback" element={<LinkedinAnalyticsCallback />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
